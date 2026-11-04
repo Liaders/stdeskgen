@@ -54,7 +54,13 @@ def _request(session, method, path, **kwargs):
         return response.json() if response.content else {}
     except requests.RequestException as exc:
         code = getattr(getattr(exc, 'response', None), 'status_code', None)
-        raise LocalBuildError(f'GitHub request failed ({code or "network error"}). Check sign-in and repository access.') from exc
+        message = ''
+        if getattr(exc, 'response', None) is not None:
+            try:
+                message = exc.response.json().get('message', '')[:240]
+            except ValueError:
+                pass
+        raise LocalBuildError(f'GitHub request failed ({code or "network error"}). {message or "Check network and repository access."}') from exc
 
 
 def pack_configuration(inputs, images):
@@ -119,16 +125,19 @@ def dispatch_local(inputs, images, version, app_version='', platform='windows'):
         record['log_url'] = details.get('html_url') or record['log_url']
         _save(record)
     except LocalBuildError:
+        cleanup_complete = True
         if created_branch:
             try:
                 _request(session, 'DELETE', '/git/refs/heads/' + branch)
             except LocalBuildError:
-                pass
+                cleanup_complete = False
         if created_secret:
             try:
                 _request(session, 'DELETE', '/actions/secrets/' + secret)
             except LocalBuildError:
-                pass
+                cleanup_complete = False
+        record.update(status='completed', conclusion='dispatch_failed', cleaned=cleanup_complete)
+        _save(record)
         raise
     return {'success': True, 'local_build': True, 'uuid': build_id, 'filename': inputs['filename'],
             'platform': platform, 'artifact_label': 'client-' + platform + '-…', 'log_url': record['log_url']}
@@ -139,6 +148,8 @@ def local_status(build_id):
         record = json.loads(_record_path(build_id).read_text(encoding='utf-8'))
     except (ValueError, OSError) as exc:
         raise LocalBuildError('Build not found.') from exc
+    if record.get('conclusion') == 'dispatch_failed' and record.get('cleaned'):
+        return {key: record.get(key) for key in ('id', 'status', 'conclusion', 'log_url', 'cleaned')}
     session = github_session()
     if not record['run_id']:
         runs = _request(session, 'GET', '/actions/workflows/' + record['workflow'] + '/runs', params={'event': 'workflow_dispatch', 'per_page': 50})

@@ -47,7 +47,7 @@ env:
   ANDROID_FLUTTER_VERSION: "3.24.5"
   # for arm64 linux because official Dart SDK does not work
   FLUTTER_ELINUX_VERSION: "3.16.9"
-  TAG_NAME: "${{ inputs.upload-tag }}"
+  TAG_NAME: "${{ inputs.version }}"
   VCPKG_BINARY_SOURCES: "clear"
   # vcpkg version: 2025.08.27
   # If we change the `VCPKG COMMIT_ID`, please remember:
@@ -116,7 +116,7 @@ jobs:
           data: '{"uuid": "${{ env.uuid }}"}'
 
       - name: Export GitHub Actions cache environment variables
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         with:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');

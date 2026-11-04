@@ -47,7 +47,7 @@ env:
   FLUTTER_RUST_BRIDGE_VERSION: "1.80.1"
   # for arm64 linux because official Dart SDK does not work
   FLUTTER_ELINUX_VERSION: "3.16.9"
-  TAG_NAME: "${{ inputs.upload-tag }}"
+  TAG_NAME: "${{ inputs.version }}"
   VCPKG_BINARY_SOURCES: "clear"
   # vcpkg version: 2024.07.12
   VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
@@ -113,7 +113,7 @@ jobs:
           zip_password: ${{ inputs.config_secret != '' && secrets[inputs.config_secret] || secrets.ZIP_PASSWORD }}
 
       - name: Export GitHub Actions cache environment variables
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         with:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
@@ -830,7 +830,7 @@ jobs:
           zip_password: ${{ inputs.config_secret != '' && secrets[inputs.config_secret] || secrets.ZIP_PASSWORD }}
 
       - name: Export GitHub Actions cache environment variables
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         with:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
@@ -1789,9 +1789,8 @@ jobs:
           retention-days: 14
 
   deploy:
-    if: ${{ inputs.config_ref == '' }}
     needs: [build-rustdesk-linux,build-flatpak,build-appimage]
-    if: always()
+    if: ${{ always() && inputs.config_ref == '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
