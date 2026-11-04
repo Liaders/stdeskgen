@@ -18,10 +18,10 @@ class ProfileTests(unittest.TestCase):
                 target = root / 'flutter/lib' / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(subprocess.check_output(['git', '-c', f'safe.directory={source.as_posix()}', '-C', str(source), 'show', f'HEAD:flutter/lib/{name}']))
-            profile = {'schema_version': 1, 'accent': '#123456', 'navigation': 'text', 'group_width': 280, 'device_names': True}
+            profile = {'schema_version': 1, 'accent': '#123456', 'navigation': 'text', 'group_width': 280, 'device_names': True, 'resizable_panels': True}
             module.apply(root, '1.5.0', profile)
             self.assertIn('accent = Color(0xFF123456)', (root / 'flutter/lib/common.dart').read_text())
-            self.assertIn('width: 280,', (root / 'flutter/lib/common/widgets/my_group.dart').read_text())
+            self.assertIn('initialWidth: 280,', (root / 'flutter/lib/common/widgets/my_group.dart').read_text())
             self.assertIn('child: Text(model.tabTooltip(t)', (root / 'flutter/lib/common/widgets/peer_tab_page.dart').read_text())
             before = {p: p.read_bytes() for p in root.rglob('*.dart')}
             with self.assertRaises(ValueError):

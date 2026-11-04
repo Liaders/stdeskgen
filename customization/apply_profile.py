@@ -10,7 +10,7 @@ SUPPORTED_VERSION = "1.5.0"
 def apply(root, version, profile, check=False):
     if version != SUPPORTED_VERSION:
         raise ValueError(f"UI customization is not supported for RustDesk {version}")
-    allowed = {"schema_version", "accent", "button", "navigation", "group_width", "address_book_width", "device_names"}
+    allowed = {"schema_version", "accent", "button", "navigation", "group_width", "address_book_width", "device_names", "resizable_panels"}
     if set(profile) - allowed:
         raise ValueError("Unknown profile fields: " + ", ".join(sorted(set(profile) - allowed)))
     if type(profile.get("schema_version")) is not int or profile["schema_version"] != 1:
@@ -42,6 +42,57 @@ def apply(root, version, profile, check=False):
             if type(value) is not int or not 150 <= value <= 480:
                 raise ValueError(f"{key} must be an integer between 150 and 480")
             replace("flutter/lib/common/widgets/" + file, f"width: {initial},", f"width: {value},")
+    if "resizable_panels" in profile and type(profile["resizable_panels"]) is not bool:
+        raise ValueError("resizable_panels must be boolean")
+    if profile.get("resizable_panels", False):
+        target = root / "flutter/lib/common/widgets/rdgen_resizable_panel.dart"
+        if target.exists():
+            raise ValueError("Resizable panel module already exists")
+        edits[target] = Path(__file__).with_name("resizable_panel.dart").read_text(encoding="utf-8")
+        for file, method, key, default in (
+            ("my_group.dart", "_buildLandscape", "group_width", 150),
+            ("address_book.dart", "_buildAddressBookLandscape", "address_book_width", 200),
+        ):
+            relative = "flutter/lib/common/widgets/" + file
+            replace(relative, "import 'package:flutter/material.dart';", "import 'package:flutter/material.dart';\nimport 'rdgen_resizable_panel.dart';")
+            if file == "my_group.dart":
+                replace(relative, "import '../../common.dart';", "import '../../common.dart';\nimport '../../models/platform_model.dart';")
+            path = root / relative
+            source = edits.get(path, path.read_text(encoding="utf-8"))
+            start = source.index("  Widget " + method + "() {")
+            end = source.index("\n  Widget ", start + 1)
+            old = source[start:end]
+            width = profile.get(key, default)
+            opening = re.search(r"(?P<indent> +)child: Container\(\n(?P=indent)  width: " + str(width) + ",", old)
+            if not opening:
+                raise ValueError("Incompatible sidebar structure: " + relative)
+            indent = opening.group("indent")
+            container_start = old.index("Container(", opening.start())
+            position = container_start + len("Container(")
+            depth = 1
+            while depth and position < len(old):
+                if old[position] == "(": depth += 1
+                elif old[position] == ")": depth -= 1
+                position += 1
+            if depth:
+                raise ValueError("Unbalanced sidebar source: " + relative)
+            container = old[container_start:position].replace("width: " + str(width) + ",", "width: width,", 1)
+            option = "rdgen-panel-" + key.replace("_", "-") + "-v1"
+            wrapper = ("RdgenResizablePanel(\n" + indent + "  initialWidth: " + str(width) + ",\n"
+                + indent + "  availableWidth: constraints.maxWidth,\n"
+                + indent + "  readWidth: () => bind.getLocalFlutterOption(k: '" + option + "'),\n"
+                + indent + "  saveWidth: (value) => bind.setLocalFlutterOption(k: '" + option + "', v: value),\n"
+                + indent + "  restoreLabel: translate('Restore'),\n"
+                + indent + "  builder: (width) => " + container + ")")
+            updated = old[:container_start] + wrapper + old[position:]
+            reactive = file == "address_book.dart"
+            row = "return LayoutBuilder(builder: (context, constraints) => " + ("Obx(() => " if reactive else "") + "Row("
+            updated = updated.replace("return Row(", row, 1)
+            closing = updated.rfind("    );")
+            if closing < 0:
+                raise ValueError("Incompatible sidebar closure: " + relative)
+            updated = updated[:closing] + updated[closing:].replace("    );", "    )));" if reactive else "    ));", 1)
+            replace(relative, old, updated)
     navigation = profile.get("navigation", "icons")
     if navigation not in ("icons", "text"):
         raise ValueError("navigation must be icons or text")

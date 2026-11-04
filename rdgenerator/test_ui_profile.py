@@ -7,7 +7,7 @@ import json
 
 
 class UIProfileTests(SimpleTestCase):
-    profile = {'schema_version': 1, 'accent': '#6750A4', 'navigation': 'text', 'group_width': 260, 'device_names': True}
+    profile = {'schema_version': 1, 'accent': '#6750A4', 'navigation': 'text', 'group_width': 260, 'device_names': True, 'resizable_panels': True}
 
     def test_form_and_api_preserve_profile(self):
         raw = json.dumps(self.profile)

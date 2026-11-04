@@ -58,6 +58,11 @@
         'The profile contains unsupported settings. It has not been changed.':'Профиль содержит неподдерживаемые настройки и оставлен без изменений.',
         'Enter a whole number for the panel width.':'Введите целое число для ширины панели.'
     });
+    Object.assign(ru, {
+        'Allow resizing panels by dragging':'Разрешить изменение ширины панелей мышью',
+        'Widths above are initial values. Each client remembers dragged widths separately for the two panels. Double-click the divider to restore the initial width.':'Ширины выше задают начальные значения. Клиент отдельно запоминает размер каждой панели. Двойной щелчок по разделителю возвращает начальную ширину.',
+        'resizable_panels must be true or false.':'Параметр resizable_panels должен быть true или false.'
+    });
     const nodes = new WeakMap();
     const attributes = new WeakMap();
     const selector = document.getElementById('constructor-language');

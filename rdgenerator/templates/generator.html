@@ -389,6 +389,8 @@
                         <div><label for="ui-group-width">Accessible devices: users / groups panel width</label><input type="number" id="ui-group-width" min="150" max="480" step="1" placeholder="Default: 150"><small>150–480 logical pixels. Leave blank for the original width.</small></div>
                         <div><label for="ui-address-width">Address book panel width</label><input type="number" id="ui-address-width" min="150" max="480" step="1" placeholder="Default: 200"><small>150–480 logical pixels. Leave blank for the original width.</small></div>
                     </div>
+                    <label style="margin-top:16px"><input type="checkbox" id="ui-resizable-panels"> Allow resizing panels by dragging</label>
+                    <p>Widths above are initial values. Each client remembers dragged widths separately for the two panels. Double-click the divider to restore the initial width.</p>
                     <label style="margin-top:16px"><input type="checkbox" id="ui-device-names"> Friendly names in accessible devices</label>
                     <p>Use the server alias when available, then a local alias, the original device name, or its ID. Local aliases are stored on the client.</p>
                 </fieldset>

@@ -14,6 +14,31 @@ env:
   VCPKG_COMMIT_ID: 9e593bb18ea69cc5095e012465dcd675a822ed0d
   VERSION: 1.5.0
 jobs:
+  test-panels:
+    name: Test resizable panels
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        path: generator
+    - uses: actions/checkout@v4
+      with:
+        repository: rustdesk/rustdesk
+        ref: fada664df7a294d1d1a9ca3e7cd3637069122f17
+        path: rustdesk
+    - uses: subosito/flutter-action@v2
+      with:
+        flutter-version: 3.24.5
+        channel: stable
+    - name: Apply profile and run widget tests
+      working-directory: rustdesk
+      shell: bash
+      run: |
+        python3 ../generator/customization/apply_profile.py --source . --version 1.5.0 --profile ../generator/customization/example.json
+        cp ../generator/customization/resizable_panel_test.dart flutter/test/rdgen_resizable_panel_test.dart
+        cd flutter
+        flutter pub get
+        flutter test test/rdgen_resizable_panel_test.dart
   generate-bridge:
     uses: ./.github/workflows/bridge.yml
     with:
@@ -22,6 +47,7 @@ jobs:
     name: Compile customized Windows x64 client
     needs:
     - generate-bridge
+    - test-panels
     runs-on: windows-2022
     timeout-minutes: 120
     defaults:
@@ -117,10 +143,11 @@ jobs:
       shell: pwsh
       run: |
         Copy-Item ../generator/customization/device_display_name_test.dart ./flutter/test/rdgen_device_display_name_test.dart
+        Copy-Item ../generator/customization/resizable_panel_test.dart ./flutter/test/rdgen_resizable_panel_test.dart
         Push-Location flutter
         flutter pub get
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-        flutter test test/rdgen_device_display_name_test.dart
+        flutter test test/rdgen_device_display_name_test.dart test/rdgen_resizable_panel_test.dart
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         Pop-Location
     - name: Build rustdesk
