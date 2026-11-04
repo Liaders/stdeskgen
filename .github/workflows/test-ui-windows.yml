@@ -113,6 +113,16 @@ jobs:
       run: |
         "$VCPKG_ROOT/vcpkg" install --triplet x64-windows-static --x-install-root="$VCPKG_ROOT/installed"
       shell: bash
+    - name: Test device name priority
+      shell: pwsh
+      run: |
+        Copy-Item ../generator/customization/device_display_name_test.dart ./flutter/test/rdgen_device_display_name_test.dart
+        Push-Location flutter
+        flutter pub get
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        flutter test test/rdgen_device_display_name_test.dart
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        Pop-Location
     - name: Build rustdesk
       run: |
         # Windows: build RustDesk

@@ -53,6 +53,15 @@ def apply(root, version, profile, check=False):
         raise ValueError("device_names must be boolean")
     if profile.get("device_names", False):
         model = "flutter/lib/models/group_model.dart"
+        resolver = Path(__file__).with_name("device_display_name.dart")
+        target = root / "flutter/lib/models/rdgen_device_display_name.dart"
+        if target.exists():
+            raise ValueError("UI name resolver already exists")
+        edits[target] = resolver.read_text(encoding="utf-8")
+        replace(model, "import 'dart:convert';", "import 'dart:convert';\nimport 'rdgen_device_display_name.dart';")
+        replace(model, "                final peer = PeerPayload.toPeer(peerPayload);", """                final peer = PeerPayload.toPeer(peerPayload);
+                peer.alias = p['alias'] is String ? (p['alias'] as String).trim() : '';""")
+        replace(model, "'peers': peers.map((e) => e.toGroupCacheJson()).toList()", "'peers': peers.map((e) => e.toGroupCacheJson()..['alias'] = e.alias).toList()")
         replace(model, "  late final Peers peersModel;", """  final Map<String, String> deviceUserNames = {};
 
   Future<String> _deviceNameKey() async =>
@@ -66,8 +75,8 @@ def apply(root, version, profile, check=False):
   }
 
   String deviceDisplayName(Peer peer) {
-    final name = deviceUserNames[peer.id] ?? '';
-    return name.isNotEmpty ? name : (peer.hostname.isNotEmpty ? peer.hostname : peer.id);
+    return resolveDeviceName(serverAlias: peer.alias,
+        localAlias: deviceUserNames[peer.id] ?? '', hostname: peer.hostname, id: peer.id);
   }
 
   Future<void> setDeviceUserName(Peer peer, String name) async {
@@ -97,9 +106,11 @@ def apply(root, version, profile, check=False):
             title: Text(translate('Alias')),
             content: Column(mainAxisSize: MainAxisSize.min, children: [
               Text('${peer.hostname} (${peer.id})'),
+              if (peer.alias.trim().isNotEmpty)
+                Text('${translate('Server')}: ${peer.alias}'),
               TextField(controller: controller, autofocus: true,
                 maxLength: 128,
-                decoration: InputDecoration(labelText: translate('Alias'), hintText: peer.hostname)),
+                decoration: InputDecoration(labelText: '${translate('Alias')} (${translate('Local')})', hintText: peer.hostname)),
             ]),
             actions: [
               dialogButton('Cancel', onPressed: close),
@@ -123,6 +134,7 @@ def apply(root, version, profile, check=False):
     # Validate all anchors and inputs before writing any source file.
     if not check:
         for path, text in edits.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text, encoding="utf-8")
     return len(edits)
 
