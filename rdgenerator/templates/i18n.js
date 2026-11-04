@@ -65,6 +65,7 @@
     try { language = localStorage.getItem('stdeskgen-language') || 'ru'; } catch { language = 'ru'; }
     function translate(text) {
         if (ru[text]) return ru[text];
+        if (/^—\s*(queued|in_progress|completed)$/.test(text)) return text.replace(/queued|in_progress|completed/g, word => ru[word]);
         if (text.startsWith('GitHub build: ')) return 'Сборка на GitHub: ' + (ru[text.slice(14)] || text.slice(14));
         if (text.startsWith('Build completed: ')) return text.replace('Build completed:', 'Сборка завершена:').replace('success', 'успешно').replace('failure','ошибка').replace('cancelled','отменена').replace('Temporary transfer data removed.','Временные данные удалены.').replace('Transfer cleanup pending; keep this page open.','Ожидание очистки временных данных; оставьте страницу открытой.');
         return text;
