@@ -19,6 +19,7 @@ runs:
     - name: Decrypt and Mask
       shell: python
       env:
+        ZIP_INPUT_PASSWORD: ${{ inputs.zip_password }}
         PYTHONUTF8: "1"
         PYTHONIOENCODING: "utf-8"
       run: |
@@ -35,9 +36,15 @@ runs:
         sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
         with pyzipper.AESZipFile('${{ inputs.zip_path }}') as zf:
-            zf.setpassword('${{ inputs.zip_password }}'.encode())
+            zf.setpassword(os.environ['ZIP_INPUT_PASSWORD'].encode())
             with zf.open('secrets.json') as f:
                 secrets = json.load(f)
+            from pathlib import Path
+            assets = Path(os.environ['RUNNER_TEMP']) / 'rdgen-input'
+            assets.mkdir(exist_ok=True)
+            for name in ('icon.png', 'logo.png', 'privacy.png'):
+                if name in zf.namelist():
+                    (assets / name).write_bytes(zf.read(name))
 
         with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env_file:
             for key, value in secrets.items():

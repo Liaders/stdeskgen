@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GitHub build</title>
+<style>body{font:16px system-ui;background:#111;color:#eee;max-width:720px;margin:60px auto;padding:24px}a{color:#8ab4ff}p{line-height:1.6}#status{padding:20px;background:#222;border-radius:8px}button{padding:10px}</style></head>
+<body><h1>Client build on GitHub</h1><p>The configuration was sent to GitHub Actions. This computer does not need to be accessible from the internet.</p>
+<p id="status" role="status">Waiting for GitHub to start the build…</p>
+<p><a id="github" href="{{ log_url }}" target="_blank" rel="noopener">Open build and download artifacts on GitHub</a></p>
+<p>After a successful build, download <strong>client-windows-x64</strong> in the Artifacts section. You can close this page; the build continues on GitHub. Keep it open to automatically remove temporary transfer data after completion.</p>
+<p><a href="/">Back to constructor</a></p>
+<script>
+const statusNode=document.getElementById('status');
+async function poll(){
+    try {
+        const response=await fetch('/local-build/status/{{ uuid|escapejs }}');
+        const data=await response.json();
+        if(!response.ok) throw Error(data.error || 'Could not check the build.');
+        if(data.log_url) document.getElementById('github').href=data.log_url;
+        statusNode.textContent=data.status==='completed'
+            ? `Build completed: ${data.conclusion}. ${data.cleaned ? 'Temporary transfer data removed.' : 'Transfer cleanup pending; keep this page open.'}`
+            : `GitHub build: ${data.status}`;
+        if(data.status!=='completed' || !data.cleaned) setTimeout(poll,10000);
+    }catch(error){statusNode.textContent=error.message+' Retrying…';setTimeout(poll,15000);}
+}
+poll();
+</script></body></html>

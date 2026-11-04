@@ -1,5 +1,5 @@
 name: Custom Windows Client Generator
-run-name: Custom Windows Client Generator
+run-name: ${{ inputs.request_id != '' && format('Local build {0}', inputs.request_id) || 'Custom Windows Client Generator' }}
 on: 
   workflow_dispatch:
     inputs:
@@ -10,7 +10,7 @@ on:
         type: string
       zip_url:
         description: 'url to zip of json'
-        required: true
+        required: false
         default: ''
         type: string
       app_version:
@@ -19,6 +19,22 @@ on:
         default: ''
         type: string
 
+
+      config_ref:
+        description: 'config_ref'
+        required: false
+        default: ''
+        type: string
+      config_secret:
+        description: 'config_secret'
+        required: false
+        default: ''
+        type: string
+      request_id:
+        description: 'request_id'
+        required: false
+        default: ''
+        type: string
 
 env:
   SCITER_RUST_VERSION: "1.75" # https://github.com/rustdesk/rustdesk/discussions/7503, also 1.78 has ABI change which causes our sciter version not working, https://blog.rust-lang.org/2024/03/30/i128-layout-update.html
@@ -51,6 +67,7 @@ jobs:
     uses: ./.github/workflows/fetch-encrypted-secrets.yml
     with:
       zip_url_json: ${{ inputs.zip_url }}
+      config_ref: ${{ inputs.config_ref }}
 
   generate-bridge:
     uses: ./.github/workflows/bridge.yml
@@ -67,6 +84,8 @@ jobs:
       configuration: Release
       platform: x64
       target_version: Windows10
+      config_secret: ${{ inputs.config_secret }}
+      config_ref: ${{ inputs.config_ref }}
     secrets: inherit
     strategy:
       fail-fast: false
@@ -101,15 +120,15 @@ jobs:
       - name: Load Secrets
         uses: ./.github/actions/decrypt-secrets
         with:
-          zip_password: ${{ secrets.ZIP_PASSWORD }}
+          zip_password: ${{ inputs.config_secret != '' && secrets[inputs.config_secret] || secrets.ZIP_PASSWORD }}
 
       - name: Finalize and Cleanup zip/json
-        if: always() # Run even if previous steps fail
+        if: ${{ always() && inputs.config_ref == '' }}
         continue-on-error: true
         uses: fjogeleit/http-request-action@v1
         with:
-          url: "${{ secrets.GENURL }}/cleanzip"
-          method: 'POST'
+          url: ${{ secrets.GENURL }}/cleanzip
+          method: POST
           customHeaders: '{"Content-Type": "application/json"}'
           data: '{"uuid": "${{ env.uuid }}"}'
 
@@ -479,26 +498,18 @@ jobs:
           max_attempts: 3
           retry_wait_seconds: 15
           shell: pwsh
-          command: |
-            Invoke-WebRequest -Uri ${{ env.iconlink_url }}/get_png?filename=${{ env.iconlink_file }}"&"uuid=${{ env.iconlink_uuid }} -OutFile ./res/iconx.png 
-            mv ./res/icon.ico ./res/icon.ico.bak
-            mv ./res/icon.png ./res/icon.png.bak
-            mv ./res/tray-icon.ico ./res/tray-icon.ico.bak
-            mv ./res/iconx.png ./res/icon.png
-            mv ./res/32x32.png ./res/32x32.png.bak
-            mv ./res/64x64.png ./res/64x64.png.bak
-            mv ./res/128x128.png ./res/128x128.png.bak
-            mv ./res/128x128@2x.png ./res/128x128@2x.png.bak
-            # every size Windows asks for at 100-200% scaling, so it never rescales on the fly
-            magick ./res/icon.png -define icon:auto-resize=256,128,96,64,48,40,32,24,20,16 ./res/icon.ico
-            # the tray decodes the largest entry of this file, so keep it a single 32x32 like upstream
-            # (a 256 entry here is shrunk to 16-24 px by the shell and comes out jagged)
-            magick ./res/icon.png -resize 32x32 ./res/tray-icon.ico
-            magick ./res/icon.png -resize 32x32 ./res/32x32.png
-            magick ./res/icon.png -resize 64x64 ./res/64x64.png
-            magick ./res/icon.png -resize 128x128 ./res/128x128.png
-            magick ./res/icon.png -resize 256x256 ./res/128x128@2x.png
-
+          command: "if ('${{ inputs.config_ref }}' -ne '') {\n  Copy-Item \"$env:RUNNER_TEMP/rdgen-input/icon.png\" ./res/iconx.png\n\
+            } else {\n  Invoke-WebRequest -Uri ${{ env.iconlink_url }}/get_png?filename=${{ env.iconlink_file }}\"&\"\
+            uuid=${{ env.iconlink_uuid }} -OutFile ./res/iconx.png \n}\nmv ./res/icon.ico ./res/icon.ico.bak\nmv ./res/icon.png\
+            \ ./res/icon.png.bak\nmv ./res/tray-icon.ico ./res/tray-icon.ico.bak\nmv ./res/iconx.png ./res/icon.png\n\
+            mv ./res/32x32.png ./res/32x32.png.bak\nmv ./res/64x64.png ./res/64x64.png.bak\nmv ./res/128x128.png ./res/128x128.png.bak\n\
+            mv ./res/128x128@2x.png ./res/128x128@2x.png.bak\n# every size Windows asks for at 100-200% scaling, so it\
+            \ never rescales on the fly\nmagick ./res/icon.png -define icon:auto-resize=256,128,96,64,48,40,32,24,20,16\
+            \ ./res/icon.ico\n# the tray decodes the largest entry of this file, so keep it a single 32x32 like upstream\n\
+            # (a 256 entry here is shrunk to 16-24 px by the shell and comes out jagged)\nmagick ./res/icon.png -resize\
+            \ 32x32 ./res/tray-icon.ico\nmagick ./res/icon.png -resize 32x32 ./res/32x32.png\nmagick ./res/icon.png -resize\
+            \ 64x64 ./res/64x64.png\nmagick ./res/icon.png -resize 128x128 ./res/128x128.png\nmagick ./res/icon.png -resize\
+            \ 256x256 ./res/128x128@2x.png\n"
 
       - name: ui.rs icon
         if: ${{ env.iconlink_url != 'false' }}
@@ -648,7 +659,11 @@ jobs:
           shell: pwsh
           continue_on_error: true
           command: |
-            Invoke-WebRequest -Uri ${{ env.logolink_url }}/get_png?filename=${{ env.logolink_file }}"&"uuid=${{ env.logolink_uuid }} -OutFile ./rustdesk/data/flutter_assets/assets/logo.png
+            if ('${{ inputs.config_ref }}' -ne '') {
+              Copy-Item "$env:RUNNER_TEMP/rdgen-input/logo.png" ./rustdesk/data/flutter_assets/assets/logo.png
+            } else {
+              Invoke-WebRequest -Uri ${{ env.logolink_url }}/get_png?filename=${{ env.logolink_file }}"&"uuid=${{ env.logolink_uuid }} -OutFile ./rustdesk/data/flutter_assets/assets/logo.png
+            }
 
       - name: find Runner.res
         # Windows: find Runner.res (compiled from ./flutter/windows/runner/Runner.rc), copy to ./Runner.res
@@ -772,7 +787,7 @@ jobs:
           mv ./SignOutput/rustdesk.msi "./SignOutput/${{ env.filename }}.msi" || echo "rustdesk"
 
       - name: send file to rdgen server
-        if: ${{ env.rdgen == 'true' }}
+        if: ${{ inputs.config_ref == '' && env.rdgen == 'true' }}
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
@@ -784,7 +799,7 @@ jobs:
             curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ env.token }}" -F "file=@./SignOutput/${{ env.filename }}.msi" -F "uuid=${{ env.uuid }}" ${{ secrets.GENURL }}/save_custom_client || true
 
       - name: send file to api server
-        if: ${{ env.rdgen == 'false' }}
+        if: ${{ inputs.config_ref == '' && env.rdgen == 'false' }}
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
@@ -794,6 +809,17 @@ jobs:
           command: |
             curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ env.token }}" -F "file=@./SignOutput/${{ env.filename }}.exe" ${{ env.apiServer }}/api/save_custom_client
             curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ env.token }}" -F "file=@./SignOutput/${{ env.filename }}.msi" ${{ env.apiServer }}/api/save_custom_client || true
+
+      - name: Publish local build artifacts
+        if: ${{ inputs.config_ref != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-windows-x64
+          path: |-
+            ./SignOutput/*.exe
+            ./SignOutput/*.msi
+          if-no-files-found: error
+          retention-days: 14
 
   cleanup:
     needs: [build-for-windows-flutter]

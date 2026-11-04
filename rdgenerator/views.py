@@ -1,6 +1,8 @@
 import io
 from pathlib import Path
 from django.http import HttpResponse, JsonResponse, HttpResponseForbidden
+from django.views.decorators.csrf import csrf_protect
+from .local_build import LocalBuildError, dispatch_local, collect_images, local_status, recent_local_builds, get_local_record
 from django.shortcuts import render, get_object_or_404
 from django.core.files.base import ContentFile
 import os
@@ -52,6 +54,9 @@ def generate_custom_client(params, full_url):
         ui_profile = validate_profile(params.get('ui_profile'), version, platform, selfhosted)
     except ValueError as exc:
         return {'success': False, 'error': str(exc), 'status_code': 400}
+    local_mode = _settings.LOCAL_GITHUB_BUILD
+    if local_mode and (platform != 'windows' or version != '1.5.0' or params.get('sh_secret_field')):
+        return {'success': False, 'error': 'Local GitHub builds currently support Windows 64-bit / RustDesk 1.5.0 only.', 'status_code': 400}
     app_version = params.get('app_version', '')
     # app_version overrides the version string embedded in the built client
     # without changing the git tag that version selects. If left empty, the
@@ -133,36 +138,46 @@ def generate_custom_client(params, full_url):
         appname = "rustdesk"
     myuuid = str(uuid.uuid4())
 
-    try:
-        iconfile = params.get('iconfile')
-        if not iconfile:
-            iconfile = params.get('iconbase64')
-        iconlink_url, iconlink_uuid, iconlink_file = save_png(iconfile,myuuid,full_url,"icon.png")
-    except:
-        print("failed to get icon, using default")
-        iconlink_url = "false"
-        iconlink_uuid = "false"
-        iconlink_file = "false"
-    try:
-        logofile = params.get('logofile')
-        if not logofile:
-            logofile = params.get('logobase64')
-        logolink_url, logolink_uuid, logolink_file = save_png(logofile,myuuid,full_url,"logo.png")
-    except:
-        print("failed to get logo")
-        logolink_url = "false"
-        logolink_uuid = "false"
-        logolink_file = "false"
-    try:
-        privacyfile = params.get('privacyfile')
-        if not privacyfile:
-            privacyfile = params.get('privacybase64')
-        privacylink_url, privacylink_uuid, privacylink_file = save_png(privacyfile,myuuid,full_url,"privacy.png")
-    except:
-        print("failed to get logo")
-        privacylink_url = "false"
-        privacylink_uuid = "false"
-        privacylink_file = "false"
+    if local_mode:
+        try:
+            local_images = collect_images(params)
+        except LocalBuildError as exc:
+            return {'success': False, 'error': str(exc), 'status_code': 400}
+        iconlink_url = 'local' if 'icon.png' in local_images else 'false'
+        logolink_url = 'local' if 'logo.png' in local_images else 'false'
+        privacylink_url = 'local' if 'privacy.png' in local_images else 'false'
+        iconlink_uuid = iconlink_file = logolink_uuid = logolink_file = privacylink_uuid = privacylink_file = 'false'
+    else:
+        try:
+            iconfile = params.get('iconfile')
+            if not iconfile:
+                iconfile = params.get('iconbase64')
+            iconlink_url, iconlink_uuid, iconlink_file = save_png(iconfile,myuuid,full_url,"icon.png")
+        except:
+            print("failed to get icon, using default")
+            iconlink_url = "false"
+            iconlink_uuid = "false"
+            iconlink_file = "false"
+        try:
+            logofile = params.get('logofile')
+            if not logofile:
+                logofile = params.get('logobase64')
+            logolink_url, logolink_uuid, logolink_file = save_png(logofile,myuuid,full_url,"logo.png")
+        except:
+            print("failed to get logo")
+            logolink_url = "false"
+            logolink_uuid = "false"
+            logolink_file = "false"
+        try:
+            privacyfile = params.get('privacyfile')
+            if not privacyfile:
+                privacyfile = params.get('privacybase64')
+            privacylink_url, privacylink_uuid, privacylink_file = save_png(privacyfile,myuuid,full_url,"privacy.png")
+        except:
+            print("failed to get logo")
+            privacylink_url = "false"
+            privacylink_uuid = "false"
+            privacylink_file = "false"
 
     ###create the custom.txt json here and send in as inputs below
     decodedCustom = {}
@@ -306,6 +321,12 @@ def generate_custom_client(params, full_url):
     if ui_profile is not None:
         inputs_raw['ui_profile_b64'] = base64.b64encode(json.dumps(ui_profile).encode('utf-8')).decode('ascii')
 
+    if local_mode:
+        try:
+            return dispatch_local(inputs_raw, local_images, version, app_version)
+        except LocalBuildError as exc:
+            return {'success': False, 'error': str(exc), 'status_code': 502}
+
     temp_json_path = f"data_{uuid.uuid4()}.json"
     zip_filename = f"secrets_{uuid.uuid4()}.zip"
     zip_path = "temp_zips/%s" % (zip_filename)
@@ -420,7 +441,10 @@ def _get_run_status(uuid_val):
     }
 
 
+@csrf_protect
 def generator_view(request):
+    if _settings.LOCAL_GITHUB_BUILD and request.META.get('REMOTE_ADDR') not in ('127.0.0.1', '::1'):
+        return HttpResponseForbidden('Local constructor only.')
     if request.method == 'POST':
         form = GenerateForm(request.POST, request.FILES)
         if form.is_valid():
@@ -428,6 +452,8 @@ def generator_view(request):
             full_url = f"{_settings.PROTOCOL}://{request.get_host()}" if _settings.GENURL else f"{_settings.PROTOCOL}://{request.get_host()}"
             result = generate_custom_client(params, full_url)
             if result['success']:
+                if result.get('local_build'):
+                    return render(request, 'local_waiting.html', result)
                 return render(request, 'waiting.html', {
                     'filename': result['filename'],
                     'uuid': result['uuid'],
@@ -436,11 +462,14 @@ def generator_view(request):
                     'log_url': result['log_url']
                 })
             else:
-                return JsonResponse({"error": result['error']}, status=result.get('status_code', 500))
+                if _settings.LOCAL_GITHUB_BUILD:
+                    form.add_error(None, result['error'])
+                else:
+                    return JsonResponse({"error": result['error']}, status=result.get('status_code', 500))
     else:
         form = GenerateForm()
     #return render(request, 'maintenance.html')
-    return render(request, 'generator.html', {'form': form})
+    return render(request, 'generator.html', {'form': form, 'local_builds': recent_local_builds() if _settings.LOCAL_GITHUB_BUILD else []})
 
 
 def _expected_files_for_platform(filename, platform):
@@ -719,3 +748,22 @@ def get_zip(request):
     return response
 
 
+
+
+def local_build_status_view(request, build_id):
+    if request.META.get('REMOTE_ADDR') not in ('127.0.0.1', '::1'):
+        return HttpResponseForbidden('Local constructor only.')
+    try:
+        return JsonResponse(local_status(build_id))
+    except LocalBuildError as exc:
+        return JsonResponse({'error': str(exc)}, status=502)
+
+
+def local_build_page(request, build_id):
+    if request.META.get('REMOTE_ADDR') not in ('127.0.0.1', '::1'):
+        return HttpResponseForbidden('Local constructor only.')
+    try:
+        record = get_local_record(build_id)
+        return render(request, 'local_waiting.html', {'uuid': record['id'], 'log_url': record['log_url']})
+    except LocalBuildError:
+        return HttpResponse('Build not found.', status=404)

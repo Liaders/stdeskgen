@@ -24,6 +24,8 @@ else:
     from django.conf.urls import  url, include
 
 urlpatterns = [
+    url(r'^local-build/(?P<build_id>[0-9a-f-]{36})$', views.local_build_page),
+    url(r'^local-build/status/(?P<build_id>[0-9a-f-]{36})$', views.local_build_status_view),
     url(r'^$',views.generator_view),
     url(r'^generator',views.generator_view),
     url(r'^check_for_file',views.check_for_file),

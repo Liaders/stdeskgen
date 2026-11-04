@@ -31,6 +31,15 @@ on:
             type: string
             default: 'Windows10'
 
+        config_ref:
+          type: string
+          required: false
+          default: ''
+        config_secret:
+          type: string
+          required: false
+          default: ''
+
 env:
   project_path: WindowInjection/WindowInjection.vcxproj
 
@@ -55,15 +64,15 @@ jobs:
       - name: Load Secrets
         uses: ./.github/actions/decrypt-secrets
         with:
-          zip_password: ${{ secrets.ZIP_PASSWORD }}
+          zip_password: ${{ inputs.config_secret != '' && secrets[inputs.config_secret] || secrets.ZIP_PASSWORD }}
 
       - name: Finalize and Cleanup zip/json
-        if: always() # Run even if previous steps fail
+        if: ${{ always() && inputs.config_ref == '' }}
         continue-on-error: true
         uses: fjogeleit/http-request-action@v1
         with:
-          url: "${{ secrets.GENURL }}/cleanzip"
-          method: 'POST'
+          url: ${{ secrets.GENURL }}/cleanzip
+          method: POST
           customHeaders: '{"Content-Type": "application/json"}'
           data: '{"uuid": "${{ env.uuid }}"}'
 
@@ -83,7 +92,11 @@ jobs:
             git checkout ecd8d6a139eee76845ea66423fb739af450fda90
             if ($LASTEXITCODE -ne 0) { throw "Failed to checkout privacy DLL source" }
             if ($env:privacylink_url-ne "false") {
+              if ('${{ inputs.config_ref }}' -ne '') {
+                Copy-Item "$env:RUNNER_TEMP/rdgen-input/privacy.png" privacy.png
+              } else {
               Invoke-WebRequest -Uri ${{ env.privacylink_url }}/get_png?filename=${{ env.privacylink_file }}"&"uuid=${{ env.privacylink_uuid }} -OutFile privacy.png
+              }
               python "$env:GITHUB_WORKSPACE/.github/patches/privacyScreen.py"
               if ($LASTEXITCODE -ne 0) { throw "Failed to convert privacy image" }
               rm ./WindowInjection/img.cpp
