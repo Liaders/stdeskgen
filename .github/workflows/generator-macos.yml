@@ -1,5 +1,5 @@
 name: Custom macOS Client Generator
-run-name: Custom macOS Client Generator
+run-name: ${{ inputs.request_id != '' && format('Local build {0}', inputs.request_id) || 'Custom client generator' }}
 on: 
   workflow_dispatch:
     inputs:
@@ -10,11 +10,27 @@ on:
         type: string
       zip_url:
         description: 'url to zip of json'
-        required: true
+        required: false
         default: ''
         type: string
       app_version:
         description: 'custom app version string (overrides build version)'
+        required: false
+        default: ''
+        type: string
+
+      config_ref:
+        description: 'config_ref'
+        required: false
+        default: ''
+        type: string
+      config_secret:
+        description: 'config_secret'
+        required: false
+        default: ''
+        type: string
+      request_id:
+        description: 'request_id'
         required: false
         default: ''
         type: string
@@ -49,6 +65,7 @@ jobs:
     uses: ./.github/workflows/fetch-encrypted-secrets.yml
     with:
       zip_url_json: ${{ inputs.zip_url }}
+      config_ref: ${{ inputs.config_ref }}
 
   generate-bridge:
     uses: ./.github/workflows/bridge.yml
@@ -92,15 +109,15 @@ jobs:
       - name: Load Secrets
         uses: ./.github/actions/decrypt-secrets
         with:
-          zip_password: ${{ secrets.ZIP_PASSWORD }}
+          zip_password: ${{ inputs.config_secret != '' && secrets[inputs.config_secret] || secrets.ZIP_PASSWORD }}
 
       - name: Finalize and Cleanup zip/json
-        if: always() # Run even if previous steps fail
+        if: ${{ always() && inputs.config_ref == '' }}
         continue-on-error: true
         uses: fjogeleit/http-request-action@v1
         with:
-          url: "${{ secrets.GENURL }}/cleanzip"
-          method: 'POST'
+          url: ${{ secrets.GENURL }}/cleanzip
+          method: POST
           customHeaders: '{"Content-Type": "application/json"}'
           data: '{"uuid": "${{ env.uuid }}"}'
 
@@ -110,6 +127,14 @@ jobs:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Preserve local build tools
+        if: ${{ inputs.config_ref != '' }}
+        shell: python
+        run: |
+          import os, shutil
+          from pathlib import Path
+          shutil.copytree('customization', Path(os.environ['RUNNER_TEMP']) / 'rdgen-tools', dirs_exist_ok=True)
 
       - name: Checkout source code
         if: ${{ env.VERSION != 'master' }}
@@ -125,6 +150,12 @@ jobs:
         with:
             repository: rustdesk/rustdesk
             submodules: recursive
+
+      - name: Prepare local source profile
+        if: ${{ inputs.config_ref != '' }}
+        shell: bash
+        run: |
+          python3 "$RUNNER_TEMP/rdgen-tools/prepare_local_source.py" --version "$VERSION"
 
       - name: Set custom app version
         continue-on-error: true
@@ -347,111 +378,61 @@ jobs:
         if: ${{ env.iconlink_url != 'false' }}
         continue-on-error: false
         shell: bash
-        run: |
-          # Create all necessary directories first
-          mkdir -p ./res
-          mkdir -p ./flutter/assets
-          mkdir -p ./flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset
-          mkdir -p ./macos/Runner/Assets.xcassets/AppIcon.appiconset
-          mkdir -p ./rustdesk/data/flutter_assets/assets
-
-          # Download icon using curl with additional SSL options
-          curl -k -L --tlsv1.2 --proto =https --ssl-reqd \
-            -H "User-Agent: Mozilla/5.0" \
-            "${{ env.iconlink_url }}/get_png?filename=${{ env.iconlink_file }}&uuid=${{ env.iconlink_uuid }}" \
-            -o ./res/icon.png || wget --no-check-certificate -O ./res/icon.png "${{ env.iconlink_url }}/get_png?filename=${{ env.iconlink_file }}&uuid=${{ env.iconlink_uuid }}"
-            
-          # Backup existing files (if they exist)
-          [ -f "./res/32x32.png" ] && mv ./res/32x32.png ./res/32x32.png.bak
-          [ -f "./res/64x64.png" ] && mv ./res/64x64.png ./res/64x64.png.bak
-          [ -f "./res/128x128.png" ] && mv ./res/128x128.png ./res/128x128.png.bak
-          [ -f "./res/mac-icon.png" ] && mv ./res/mac-icon.png ./res/mac-icon.png.bak
-          [ -f "./flutter/assets/icon.png" ] && mv ./flutter/assets/icon.png ./flutter/assets/icon.png.bak
-          [ -f "./flutter/assets/icon.svg" ] && mv ./flutter/assets/icon.svg ./flutter/assets/icon.svg.bak
-          [ -f "./rustdesk/data/flutter_assets/assets/icon.svg" ] && mv ./rustdesk/data/flutter_assets/assets/icon.svg ./rustdesk/data/flutter_assets/assets/icon.svg.bak
-            
-          # Create standard app icons
-          magick ./res/icon.png -resize 32x32 ./res/32x32.png
-          magick ./res/icon.png -resize 64x64 ./res/64x64.png
-          magick ./res/icon.png -resize 128x128 ./res/128x128.png
-          
-          # Copy icon to Flutter assets
-          cp ./res/icon.png ./flutter/assets/icon.png
-          cp ./res/icon.png ./rustdesk/data/flutter_assets/assets/icon.png
-          
-          # Convert PNG to SVG using potrace
-          magick ./res/icon.png -flatten ./temp_icon.pbm
-          potrace --svg -o ./flutter/assets/icon.svg ./temp_icon.pbm
-          cp ./flutter/assets/icon.svg ./rustdesk/data/flutter_assets/assets/icon.svg
-          rm ./temp_icon.pbm
-          
-          # Create macOS app icons
-          magick ./res/icon.png -resize 16x16 "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_16.png"
-          magick ./res/icon.png -resize 32x32 "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_32.png"
-          magick ./res/icon.png -resize 64x64 "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_64.png"
-          magick ./res/icon.png -resize 128x128 "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_128.png"
-          magick ./res/icon.png -resize 256x256 "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png"
-          magick ./res/icon.png -resize 512x512 "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_512.png"
-          magick ./res/icon.png -resize 1024x1024 "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png"
-
-          # Create macOS specific icons
-          magick ./res/icon.png -resize 128x128 ./res/mac-icon.png
-          
-          # Create dark mode tray icon (optimized for macOS menu bar)
-          magick ./res/icon.png -resize 22x22 -colorspace gray -alpha set -background none -channel A -evaluate set 100% ./res/mac-tray-dark-x2.png
-          
-          # Create light mode tray icon (optimized for macOS menu bar)
-          magick ./res/icon.png -resize 22x22 -negate -colorspace gray -alpha set -background none -channel A -evaluate set 100% ./res/mac-tray-light-x2.png
-
-          # Create AppIcon.icns (macOS native icon format)
-          mkdir -p ./iconset.iconset
-          cp "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_16.png" "./iconset.iconset/icon_16x16.png"
-          cp "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_32.png" "./iconset.iconset/icon_16x16@2x.png"
-          cp "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_32.png" "./iconset.iconset/icon_32x32.png"
-          cp "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_64.png" "./iconset.iconset/icon_32x32@2x.png"
-          cp "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_128.png" "./iconset.iconset/icon_128x128.png"
-          cp "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png" "./iconset.iconset/icon_128x128@2x.png"
-          cp "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png" "./iconset.iconset/icon_256x256.png"
-          cp "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_512.png" "./iconset.iconset/icon_256x256@2x.png"
-          cp "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_512.png" "./iconset.iconset/icon_512x512.png"
-          cp "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png" "./iconset.iconset/icon_512x512@2x.png"
-          iconutil -c icns ./iconset.iconset -o ./flutter/macos/Runner/AppIcon.icns
-          rm -rf ./iconset.iconset
-          
-          # Create Contents.json for macOS app icon
-          echo '{
-            "images": [
-              {"size":"16x16","idiom":"mac","filename":"app_icon_16.png","scale":"1x"},
-              {"size":"16x16","idiom":"mac","filename":"app_icon_32.png","scale":"2x"},
-              {"size":"32x32","idiom":"mac","filename":"app_icon_32.png","scale":"1x"},
-              {"size":"32x32","idiom":"mac","filename":"app_icon_64.png","scale":"2x"},
-              {"size":"128x128","idiom":"mac","filename":"app_icon_128.png","scale":"1x"},
-              {"size":"128x128","idiom":"mac","filename":"app_icon_256.png","scale":"2x"},
-              {"size":"256x256","idiom":"mac","filename":"app_icon_256.png","scale":"1x"},
-              {"size":"256x256","idiom":"mac","filename":"app_icon_512.png","scale":"2x"},
-              {"size":"512x512","idiom":"mac","filename":"app_icon_512.png","scale":"1x"},
-              {"size":"512x512","idiom":"mac","filename":"app_icon_1024.png","scale":"2x"}
-            ],
-            "info": {
-              "version": 1,
-              "author": "xcode"
-            }
-          }' > "flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json"
-          
-          # Copy icons and Contents.json to both locations
-          cp -r flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/* macos/Runner/Assets.xcassets/AppIcon.appiconset/
-          
-          # Verify files exist and show their sizes
-          echo "Verifying generated files:"
-          ls -lh ./res/mac-tray-dark-x2.png
-          ls -lh ./res/mac-tray-light-x2.png
-          ls -lh ./res/mac-icon.png
-          echo "Flutter macOS app icons:"
-          ls -lh flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/
-          echo "Flutter assets:"
-          ls -lh flutter/assets/icon.*
-          echo "RustDesk Flutter assets:"
-          ls -lh rustdesk/data/flutter_assets/assets/
+        run: "# Create all necessary directories first\nmkdir -p ./res\nmkdir -p ./flutter/assets\nmkdir -p ./flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset\n\
+          mkdir -p ./macos/Runner/Assets.xcassets/AppIcon.appiconset\nmkdir -p ./rustdesk/data/flutter_assets/assets\n\n# Download\
+          \ icon using curl with additional SSL options\nif [ -n \"${{ inputs.config_ref }}\" ]; then\n  cp ./.rdgen-input/icon.png\
+          \ ./res/icon.png\nelse\ncurl -k -L --tlsv1.2 --proto =https --ssl-reqd \\\n  -H \"User-Agent: Mozilla/5.0\" \\\n\
+          \  \"${{ env.iconlink_url }}/get_png?filename=${{ env.iconlink_file }}&uuid=${{ env.iconlink_uuid }}\" \\\n  -o ./res/icon.png\
+          \ || wget --no-check-certificate -O ./res/icon.png \"${{ env.iconlink_url }}/get_png?filename=${{ env.iconlink_file\
+          \ }}&uuid=${{ env.iconlink_uuid }}\"\nfi\n  \n# Backup existing files (if they exist)\n[ -f \"./res/32x32.png\" ]\
+          \ && mv ./res/32x32.png ./res/32x32.png.bak\n[ -f \"./res/64x64.png\" ] && mv ./res/64x64.png ./res/64x64.png.bak\n\
+          [ -f \"./res/128x128.png\" ] && mv ./res/128x128.png ./res/128x128.png.bak\n[ -f \"./res/mac-icon.png\" ] && mv ./res/mac-icon.png\
+          \ ./res/mac-icon.png.bak\n[ -f \"./flutter/assets/icon.png\" ] && mv ./flutter/assets/icon.png ./flutter/assets/icon.png.bak\n\
+          [ -f \"./flutter/assets/icon.svg\" ] && mv ./flutter/assets/icon.svg ./flutter/assets/icon.svg.bak\n[ -f \"./rustdesk/data/flutter_assets/assets/icon.svg\"\
+          \ ] && mv ./rustdesk/data/flutter_assets/assets/icon.svg ./rustdesk/data/flutter_assets/assets/icon.svg.bak\n  \n\
+          # Create standard app icons\nmagick ./res/icon.png -resize 32x32 ./res/32x32.png\nmagick ./res/icon.png -resize 64x64\
+          \ ./res/64x64.png\nmagick ./res/icon.png -resize 128x128 ./res/128x128.png\n\n# Copy icon to Flutter assets\ncp ./res/icon.png\
+          \ ./flutter/assets/icon.png\ncp ./res/icon.png ./rustdesk/data/flutter_assets/assets/icon.png\n\n# Convert PNG to\
+          \ SVG using potrace\nmagick ./res/icon.png -flatten ./temp_icon.pbm\npotrace --svg -o ./flutter/assets/icon.svg ./temp_icon.pbm\n\
+          cp ./flutter/assets/icon.svg ./rustdesk/data/flutter_assets/assets/icon.svg\nrm ./temp_icon.pbm\n\n# Create macOS\
+          \ app icons\nmagick ./res/icon.png -resize 16x16 \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_16.png\"\
+          \nmagick ./res/icon.png -resize 32x32 \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_32.png\"\
+          \nmagick ./res/icon.png -resize 64x64 \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_64.png\"\
+          \nmagick ./res/icon.png -resize 128x128 \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_128.png\"\
+          \nmagick ./res/icon.png -resize 256x256 \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png\"\
+          \nmagick ./res/icon.png -resize 512x512 \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_512.png\"\
+          \nmagick ./res/icon.png -resize 1024x1024 \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png\"\
+          \n\n# Create macOS specific icons\nmagick ./res/icon.png -resize 128x128 ./res/mac-icon.png\n\n# Create dark mode\
+          \ tray icon (optimized for macOS menu bar)\nmagick ./res/icon.png -resize 22x22 -colorspace gray -alpha set -background\
+          \ none -channel A -evaluate set 100% ./res/mac-tray-dark-x2.png\n\n# Create light mode tray icon (optimized for macOS\
+          \ menu bar)\nmagick ./res/icon.png -resize 22x22 -negate -colorspace gray -alpha set -background none -channel A\
+          \ -evaluate set 100% ./res/mac-tray-light-x2.png\n\n# Create AppIcon.icns (macOS native icon format)\nmkdir -p ./iconset.iconset\n\
+          cp \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_16.png\" \"./iconset.iconset/icon_16x16.png\"\
+          \ncp \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_32.png\" \"./iconset.iconset/icon_16x16@2x.png\"\
+          \ncp \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_32.png\" \"./iconset.iconset/icon_32x32.png\"\
+          \ncp \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_64.png\" \"./iconset.iconset/icon_32x32@2x.png\"\
+          \ncp \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_128.png\" \"./iconset.iconset/icon_128x128.png\"\
+          \ncp \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png\" \"./iconset.iconset/icon_128x128@2x.png\"\
+          \ncp \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png\" \"./iconset.iconset/icon_256x256.png\"\
+          \ncp \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_512.png\" \"./iconset.iconset/icon_256x256@2x.png\"\
+          \ncp \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_512.png\" \"./iconset.iconset/icon_512x512.png\"\
+          \ncp \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png\" \"./iconset.iconset/icon_512x512@2x.png\"\
+          \niconutil -c icns ./iconset.iconset -o ./flutter/macos/Runner/AppIcon.icns\nrm -rf ./iconset.iconset\n\n# Create\
+          \ Contents.json for macOS app icon\necho '{\n  \"images\": [\n    {\"size\":\"16x16\",\"idiom\":\"mac\",\"filename\"\
+          :\"app_icon_16.png\",\"scale\":\"1x\"},\n    {\"size\":\"16x16\",\"idiom\":\"mac\",\"filename\":\"app_icon_32.png\"\
+          ,\"scale\":\"2x\"},\n    {\"size\":\"32x32\",\"idiom\":\"mac\",\"filename\":\"app_icon_32.png\",\"scale\":\"1x\"\
+          },\n    {\"size\":\"32x32\",\"idiom\":\"mac\",\"filename\":\"app_icon_64.png\",\"scale\":\"2x\"},\n    {\"size\"\
+          :\"128x128\",\"idiom\":\"mac\",\"filename\":\"app_icon_128.png\",\"scale\":\"1x\"},\n    {\"size\":\"128x128\",\"\
+          idiom\":\"mac\",\"filename\":\"app_icon_256.png\",\"scale\":\"2x\"},\n    {\"size\":\"256x256\",\"idiom\":\"mac\"\
+          ,\"filename\":\"app_icon_256.png\",\"scale\":\"1x\"},\n    {\"size\":\"256x256\",\"idiom\":\"mac\",\"filename\":\"\
+          app_icon_512.png\",\"scale\":\"2x\"},\n    {\"size\":\"512x512\",\"idiom\":\"mac\",\"filename\":\"app_icon_512.png\"\
+          ,\"scale\":\"1x\"},\n    {\"size\":\"512x512\",\"idiom\":\"mac\",\"filename\":\"app_icon_1024.png\",\"scale\":\"\
+          2x\"}\n  ],\n  \"info\": {\n    \"version\": 1,\n    \"author\": \"xcode\"\n  }\n}' > \"flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json\"\
+          \n\n# Copy icons and Contents.json to both locations\ncp -r flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/*\
+          \ macos/Runner/Assets.xcassets/AppIcon.appiconset/\n\n# Verify files exist and show their sizes\necho \"Verifying\
+          \ generated files:\"\nls -lh ./res/mac-tray-dark-x2.png\nls -lh ./res/mac-tray-light-x2.png\nls -lh ./res/mac-icon.png\n\
+          echo \"Flutter macOS app icons:\"\nls -lh flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset/\necho \"Flutter\
+          \ assets:\"\nls -lh flutter/assets/icon.*\necho \"RustDesk Flutter assets:\"\nls -lh rustdesk/data/flutter_assets/assets/\n"
 
       - name: replace flutter icons
         if: ${{ env.iconlink_url != 'false' }}
@@ -645,6 +626,9 @@ jobs:
         run: |
           ASSETS_DIR="build/macos/Build/Products/Release/RustDesk.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/assets"
           mkdir -p "$ASSETS_DIR"
+          if [ -n "${{ inputs.config_ref }}" ]; then
+            cp ./.rdgen-input/logo.png "$ASSETS_DIR/logo.png"
+          else
           curl -k -L --tlsv1.2 --proto =https --ssl-reqd \
             -H "User-Agent: Mozilla/5.0" \
             "${{ env.logolink_url }}/get_png?filename=${{ env.logolink_file }}&uuid=${{ env.logolink_uuid }}" \
@@ -652,6 +636,7 @@ jobs:
           wget --no-check-certificate \
             -O "$ASSETS_DIR/logo.png" \
             "${{ env.logolink_url }}/get_png?filename=${{ env.logolink_file }}&uuid=${{ env.logolink_uuid }}"
+          fi
 
       - name: Sign macOS app bundle
         if: env.MACOS_P12_BASE64 != ''
@@ -785,7 +770,7 @@ jobs:
           fi
 
       - name: send file to rdgen server
-        if: ${{ env.rdgen == 'true' }}
+        if: ${{ inputs.config_ref == '' && env.rdgen == 'true' }}
         shell: bash
         run: |
           curl -i -X POST \
@@ -794,10 +779,9 @@ jobs:
             -F "file=@$GITHUB_WORKSPACE/${{ env.filename }}-${{ matrix.job.arch }}.dmg" \
             -F "uuid=${{ env.uuid }}" \
             "${{ secrets.GENURL }}/save_custom_client"
-        
 
       - name: send file to api server
-        if: ${{ env.rdgen == 'false' }}
+        if: ${{ inputs.config_ref == '' && env.rdgen == 'false' }}
         shell: bash
         run: |
           curl -i -X POST \
@@ -805,6 +789,16 @@ jobs:
             -H "Authorization: Bearer ${{ env.token }}" \
             -F "file=@$GITHUB_WORKSPACE/${{ env.filename }}-${{ matrix.job.arch }}.dmg" \
             "${{ env.apiServer }}/api/save_custom_client"
+
+
+      - name: Publish local build artifacts
+        if: ${{ inputs.config_ref != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-macos-${{ matrix.job.arch }}
+          path: ./*.dmg
+          if-no-files-found: error
+          retention-days: 14
 
   cleanup:
     needs: [build-for-macos]

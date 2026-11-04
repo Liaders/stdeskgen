@@ -87,13 +87,16 @@ def _save(record):
     temporary.replace(path)
 
 
-def dispatch_local(inputs, images, version, app_version=''):
+def dispatch_local(inputs, images, version, app_version='', platform='windows'):
     session = github_session()
     build_id = str(uuid.uuid4())
     branch = 'codex/build-input-' + build_id
     secret = 'STDESK_BUILD_' + build_id.replace('-', '').upper()
     payload, password = pack_configuration(inputs, images)
-    workflow = 'generator-windows.yml'
+    workflows = {'windows':'generator-windows.yml','windows-x86':'generator-windows-x86.yml','linux':'generator-linux.yml','macos':'generator-macos.yml'}
+    if platform not in workflows:
+        raise LocalBuildError('Unsupported build platform.')
+    workflow = workflows[platform]
     record = {'id': build_id, 'branch': branch, 'secret': secret, 'workflow': workflow,
               'status': 'queued', 'run_id': None, 'log_url': f'https://github.com/{settings.GHUSER}/{settings.REPONAME}/actions/workflows/{workflow}'}
     created_secret = created_branch = False
@@ -128,7 +131,7 @@ def dispatch_local(inputs, images, version, app_version=''):
                 pass
         raise
     return {'success': True, 'local_build': True, 'uuid': build_id, 'filename': inputs['filename'],
-            'platform': 'windows', 'log_url': record['log_url']}
+            'platform': platform, 'artifact_label': 'client-' + platform + '-…', 'log_url': record['log_url']}
 
 
 def local_status(build_id):

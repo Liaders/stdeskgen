@@ -236,6 +236,7 @@
     </style>
 </head>
 <body>
+<div data-no-translate style="text-align:right;margin:12px 24px"><label for="constructor-language">Язык / Language</label> <select id="constructor-language" aria-label="Язык / Language" style="width:auto"><option value="ru">Русский</option><option value="en">English</option></select></div>
     <h1><i class="fas fa-cogs"></i> RustDesk Custom Client Builder</h1>
     <form id="myForm" action="/generator" method="post" enctype="multipart/form-data">
         {% csrf_token %}
@@ -372,7 +373,7 @@
             <section class="section" id="ui-customization" aria-labelledby="ui-title">
                 <h2 id="ui-title">Client appearance</h2>
                 <label><input type="checkbox" id="ui-enabled"> Customize client appearance</label>
-                <p>Currently available for RustDesk 1.5.0, Windows 64-bit. Other platforms will be added later.</p>
+                <p>RustDesk 1.5.0: Windows x64, Linux and macOS. Windows x86 uses a legacy Sciter interface; appearance customization is unavailable.</p>
                 <p id="ui-status" role="status" aria-live="polite"></p>
                 <fieldset id="ui-controls" disabled style="border:0;padding:0;min-width:0">
                     <div class="ui-grid">
@@ -615,6 +616,7 @@
                 if (value instanceof File) {
                     return;
                 }
+                if (key === 'csrfmiddlewaretoken') return;
                 formData[key] = value; // Add each key/value pair to the formData object.
             });
 
@@ -734,7 +736,7 @@
                             carriedUnknownFields = {};
                             const skippedKeys = [];
                             for (const key in formData) {
-                                if (key === 'ui_profile') continue;
+                                if (key === 'ui_profile' || key === 'csrfmiddlewaretoken') continue;
                                 // More robust selector: checks for name OR id
                                 const elements = document.querySelectorAll(`[name="${key}"], [id="${key}"]`);
 
@@ -798,5 +800,6 @@
         }
     </script>
     <script>{% include "ui-profile.js" %}</script>
+<script>{% include "i18n.js" %}</script>
 </body>
 </html>

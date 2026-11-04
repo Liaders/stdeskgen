@@ -55,8 +55,8 @@ def generate_custom_client(params, full_url):
     except ValueError as exc:
         return {'success': False, 'error': str(exc), 'status_code': 400}
     local_mode = _settings.LOCAL_GITHUB_BUILD
-    if local_mode and (platform != 'windows' or version != '1.5.0' or params.get('sh_secret_field')):
-        return {'success': False, 'error': 'Local GitHub builds currently support Windows 64-bit / RustDesk 1.5.0 only.', 'status_code': 400}
+    if local_mode and (platform not in ('windows', 'windows-x86', 'linux', 'macos') or version != '1.5.0' or params.get('sh_secret_field')):
+        return {'success': False, 'error': 'Local GitHub builds support Windows, Linux and macOS with RustDesk 1.5.0.', 'status_code': 400}
     app_version = params.get('app_version', '')
     # app_version overrides the version string embedded in the built client
     # without changing the git tag that version selects. If left empty, the
@@ -143,6 +143,8 @@ def generate_custom_client(params, full_url):
             local_images = collect_images(params)
         except LocalBuildError as exc:
             return {'success': False, 'error': str(exc), 'status_code': 400}
+        if platform == 'windows-x86' and ('logo.png' in local_images or 'privacy.png' in local_images):
+            return {'success': False, 'error': 'Windows x86 uses Sciter: custom logo and privacy images are not supported. The app icon is supported.', 'status_code': 400}
         iconlink_url = 'local' if 'icon.png' in local_images else 'false'
         logolink_url = 'local' if 'logo.png' in local_images else 'false'
         privacylink_url = 'local' if 'privacy.png' in local_images else 'false'
@@ -323,7 +325,7 @@ def generate_custom_client(params, full_url):
 
     if local_mode:
         try:
-            return dispatch_local(inputs_raw, local_images, version, app_version)
+            return dispatch_local(inputs_raw, local_images, version, app_version, platform=platform)
         except LocalBuildError as exc:
             return {'success': False, 'error': str(exc), 'status_code': 502}
 

@@ -20,7 +20,7 @@ class UIProfileTests(SimpleTestCase):
         self.assertEqual(json.loads(cleaned['ui_profile']), self.profile)
 
     def test_unsupported_target_and_bad_profile_rejected(self):
-        for extra in ({'version': 'master'}, {'platform': 'linux'}, {'ui_profile': {'schema_version': 1, 'group_width': True}}, {'ui_profile': 'broken json'}):
+        for extra in ({'version': 'master'}, {'platform': 'windows-x86'}, {'ui_profile': {'schema_version': 1, 'group_width': True}}, {'ui_profile': 'broken json'}):
             with self.subTest(extra=extra):
                 _, errors = validate_generate_params({'exename': 'Example', 'ui_profile': self.profile, **extra})
                 self.assertIn('ui_profile', errors)

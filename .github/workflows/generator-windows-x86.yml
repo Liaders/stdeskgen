@@ -1,5 +1,5 @@
 name: Custom Windows x86 Client Generator
-run-name: Custom Windows x86 Client Generator
+run-name: ${{ inputs.request_id != '' && format('Local build {0}', inputs.request_id) || 'Custom client generator' }}
 on: 
   workflow_dispatch:
     inputs:
@@ -10,11 +10,27 @@ on:
         type: string
       zip_url:
         description: 'url to zip of json'
-        required: true
+        required: false
         default: ''
         type: string
       app_version:
         description: 'custom app version string (overrides build version)'
+        required: false
+        default: ''
+        type: string
+
+      config_ref:
+        description: 'config_ref'
+        required: false
+        default: ''
+        type: string
+      config_secret:
+        description: 'config_secret'
+        required: false
+        default: ''
+        type: string
+      request_id:
+        description: 'request_id'
         required: false
         default: ''
         type: string
@@ -55,6 +71,7 @@ jobs:
     uses: ./.github/workflows/fetch-encrypted-secrets.yml
     with:
       zip_url_json: ${{ inputs.zip_url }}
+      config_ref: ${{ inputs.config_ref }}
 
   build-for-windows-sciter:
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
@@ -86,15 +103,15 @@ jobs:
       - name: Load Secrets
         uses: ./.github/actions/decrypt-secrets
         with:
-          zip_password: ${{ secrets.ZIP_PASSWORD }}
+          zip_password: ${{ inputs.config_secret != '' && secrets[inputs.config_secret] || secrets.ZIP_PASSWORD }}
 
       - name: Finalize and Cleanup zip/json
-        if: always() # Run even if previous steps fail
+        if: ${{ always() && inputs.config_ref == '' }}
         continue-on-error: true
         uses: fjogeleit/http-request-action@v1
         with:
-          url: "${{ secrets.GENURL }}/cleanzip"
-          method: 'POST'
+          url: ${{ secrets.GENURL }}/cleanzip
+          method: POST
           customHeaders: '{"Content-Type": "application/json"}'
           data: '{"uuid": "${{ env.uuid }}"}'
 
@@ -115,6 +132,13 @@ jobs:
         run: |
           echo "STATUS_URL=${{ env.apiServer }}/api/updategh" >> $env:GITHUB_ENV
 
+      - name: Preserve local build tools
+        shell: python
+        run: |
+          import os, shutil
+          from pathlib import Path
+          shutil.copytree('customization', Path(os.environ['RUNNER_TEMP']) / 'rdgen-tools', dirs_exist_ok=True)
+
       - name: Checkout source code
         if: ${{ env.VERSION != 'master' }}
         uses: actions/checkout@v4
@@ -129,6 +153,12 @@ jobs:
         with:
           repository: rustdesk/rustdesk
           submodules: recursive
+
+      - name: Prepare local source profile
+        if: ${{ inputs.config_ref != '' }}
+        shell: bash
+        run: |
+          python3 "$RUNNER_TEMP/rdgen-tools/prepare_local_source.py" --version "$VERSION"
 
       - name: Set custom app version
         continue-on-error: true
@@ -290,15 +320,15 @@ jobs:
             git apply allowCustom.diff
 
       - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v1
+        uses: rustdesk-org/install-llvm-action-32bit@6aa7d9ad3df84dff01cd4596dd0fc880a7f47fce
         with:
           version: ${{ env.LLVM_VERSION }}
 
       - name: Install Rust toolchain
         run: |
-          rustup toolchain install nightly-2023-10-13-x86_64-pc-windows-msvc --component rustfmt --profile minimal --no-self-update
-          rustup target add ${{ matrix.job.target }} --toolchain nightly-2023-10-13-x86_64-pc-windows-msvc
-          rustup default nightly-2023-10-13-x86_64-pc-windows-msvc
+          rustup toolchain install nightly-2023-10-13-i686-pc-windows-msvc --target i686-pc-windows-msvc --component rustfmt --profile minimal --no-self-update --force-non-host
+          rustup default nightly-2023-10-13-i686-pc-windows-msvc --force-non-host
+        shell: bash
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -372,19 +402,13 @@ jobs:
           max_attempts: 3
           retry_wait_seconds: 15
           shell: pwsh
-          command: |
-            Invoke-WebRequest -Uri ${{ env.iconlink_url }}/get_png?filename=${{ env.iconlink_file }}"&"uuid=${{ env.iconlink_uuid }} -OutFile ./res/icon.png 
-            mv ./res/32x32.png ./res/32x32.png.bak
-            mv ./res/64x64.png ./res/64x64.png.bak
-            mv ./res/128x128.png ./res/128x128.png.bak
-            mv ./res/128x128@2x.png ./res/128x128@2x.png.bak
-            magick ./res/icon.png -define icon:auto-resize=256,64,48,32,16 ./res/icon.ico
-            cp ./res/icon.ico ./res/tray-icon.ico
-            magick ./res/icon.png -resize 32x32 ./res/32x32.png
-            magick ./res/icon.png -resize 64x64 ./res/64x64.png
-            magick ./res/icon.png -resize 128x128 ./res/128x128.png
-            magick ./res/128x128.png -resize 200% ./res/128x128@2x.png
-
+          command: "if ('${{ inputs.config_ref }}' -ne '') {\n  Copy-Item \"$env:RUNNER_TEMP/rdgen-input/icon.png\" ./res/icon.png\n\
+            } else {\nInvoke-WebRequest -Uri ${{ env.iconlink_url }}/get_png?filename=${{ env.iconlink_file }}\"&\"uuid=${{\
+            \ env.iconlink_uuid }} -OutFile ./res/icon.png \n}\nmv ./res/32x32.png ./res/32x32.png.bak\nmv ./res/64x64.png\
+            \ ./res/64x64.png.bak\nmv ./res/128x128.png ./res/128x128.png.bak\nmv ./res/128x128@2x.png ./res/128x128@2x.png.bak\n\
+            magick ./res/icon.png -define icon:auto-resize=256,64,48,32,16 ./res/icon.ico\ncp ./res/icon.ico ./res/tray-icon.ico\n\
+            magick ./res/icon.png -resize 32x32 ./res/32x32.png\nmagick ./res/icon.png -resize 64x64 ./res/64x64.png\nmagick\
+            \ ./res/icon.png -resize 128x128 ./res/128x128.png\nmagick ./res/128x128.png -resize 200% ./res/128x128@2x.png\n"
 
       - name: ui.rs icon
         if: ${{ env.iconlink_url != 'false' }}
@@ -424,53 +448,14 @@ jobs:
         shell: bash
         run: |
           python3 res/inline-sciter.py
-          # Patch sciter x86
           sed -i 's/branch = "dyn"/branch = "dyn_x86"/g' ./Cargo.toml
-          # libsodium-sys 0.2.7 build.rs selects its prebuilt lib via HOST cfg
-          # (target_pointer_width): cross host-x64 -> target-x86 wrongly links
-          # msvc/x64 (LNK2019 x132). SODIUM_LIB_DIR is global and breaks the
-          # host build-script link, so scope the Win32 lib to the i686 target
-          # via per-target rustflags (-L from rustflags precedes build-script
-          # paths in the link line; host keeps the default x64 prebuilt).
-          # NOTE: rustdesk ships .cargo/config.toml with its own
-          # [target.i686-pc-windows-msvc] rustflags -> MERGE into the array.
-          cargo fetch
-          SODIUM_WIN32_DIR="$(ls -d "$HOME"/.cargo/registry/src/*/libsodium-sys-0.2.7/msvc/Win32/Release/v142 | head -n 1)"
-          echo "SODIUM_WIN32_DIR=$SODIUM_WIN32_DIR"
-          ls "$SODIUM_WIN32_DIR/libsodium.lib"
-          mkdir -p .cargo
-          SODIUM_WIN32_NATIVE="$(cygpath -m "$SODIUM_WIN32_DIR")"
-          SODIUM_WIN32_NATIVE="$SODIUM_WIN32_NATIVE" python3 - <<'PYEOF'
-          import os, re
-          native = os.environ['SODIUM_WIN32_NATIVE']
-          entry = f'"-L", "native={native}"'
-          p = '.cargo/config.toml'
-          s = open(p, encoding='utf-8').read() if os.path.exists(p) else ''
-          if f'native={native}' in s:
-              print('sodium Win32 -L already configured')
-          else:
-              m = re.search(r'\[target\.i686-pc-windows-msvc\](.*?)(?=^\[|\Z)', s, re.S | re.M)
-              if m:
-                  sec = m.group(1)
-                  rm = re.search(r'rustflags\s*=\s*\[(.*?)\]', sec, re.S)
-                  if rm:
-                      inner = rm.group(1).rstrip()
-                      sep = '' if inner.strip() == '' else ', '
-                      sec = sec[:rm.start(1)] + inner + sep + entry + sec[rm.end(1):]
-                  else:
-                      sec = sec + f'rustflags = [{entry}]\n'
-                  s = s[:m.start(1)] + sec + s[m.end(1):]
-              else:
-                  s += f'\n[target.i686-pc-windows-msvc]\nrustflags = [{entry}]\n'
-              open(p, 'w', encoding='utf-8').write(s)
-              print('sodium Win32 -L injected')
-          PYEOF
-          cat .cargo/config.toml
-          cargo build --target ${{ matrix.job.target }} --features inline,vram,hwcodec --release --bins
+          cargo update -p sciter-rs --precise 674e07d3066ca9a92ced3816203ab6b652629d1e
+          cargo build --locked --features inline,vram,hwcodec --release --bins
           mkdir -p ./Release
-          mv ./target/${{ matrix.job.target }}/release/rustdesk.exe ./Release/rustdesk.exe
-          curl -LJ -o ./Release/sciter.dll https://github.com/c-smile/sciter-sdk/raw/master/bin.win/x32/sciter.dll
-          echo "output_folder=./Release" >> $GITHUB_OUTPUT
+          cp ./target/release/rustdesk.exe ./Release/rustdesk.exe
+          curl --fail --location -o ./Release/sciter.dll https://github.com/c-smile/sciter-sdk/raw/master/bin.win/x32/sciter.dll
+          python3 "$RUNNER_TEMP/rdgen-tools/verify_pe_arch.py" ./Release/rustdesk.exe ./Release/sciter.dll
+          echo "output_folder=./Release" >> "$GITHUB_OUTPUT"
           curl -LJ -o ./usbmmidd_v2.zip https://github.com/rustdesk-org/rdev/releases/download/usbmmidd_v2/usbmmidd_v2.zip
           unzip usbmmidd_v2.zip
           # Do not remove x64 files, because the user may run the 32bit version on a 64bit system.
@@ -531,19 +516,15 @@ jobs:
       - name: Build self-extracted executable
         shell: bash
         run: |
-          mv "./Release/rustdesk.exe" "./Release/${{ env.appname }}.exe" || echo "rustdesk.exe"
+          mv "./Release/rustdesk.exe" "./Release/${{ env.appname }}.exe" || test -f "./Release/${{ env.appname }}.exe"
           sed -i '/dpiAware/d' res/manifest.xml
           pushd ./libs/portable
           pip3 install -r requirements.txt
-          python3 ./generate.py -f ../../Release/ -o . -e "../../Release/${{ env.appname }}.exe"
+          python3 ./generate.py -f ../../Release/ -o . -e "../../Release/${{ env.appname }}.exe" -t i686-pc-windows-msvc
           popd
-          # rustdesk-portable-packer is a separate workspace member (root
-          # `cargo build --bins` does not build it) and it embeds
-          # libs/portable/app_metadata.toml via include_bytes!, so compile it
-          # explicitly AFTER generate.py creates that file.
-          cargo build --target ${{ matrix.job.target }} --package rustdesk-portable-packer --release
           mkdir -p ./SignOutput
-          mv ./target/${{ matrix.job.target }}/release/rustdesk-portable-packer.exe "./SignOutput/rustdesk.exe"
+          cp ./target/i686-pc-windows-msvc/release/rustdesk-portable-packer.exe ./SignOutput/rustdesk.exe
+          python3 "$RUNNER_TEMP/rdgen-tools/verify_pe_arch.py" ./SignOutput/rustdesk.exe
 
       - name: zip exe
         continue-on-error: true
@@ -578,16 +559,26 @@ jobs:
           mv ./SignOutput/rustdesk.exe "./SignOutput/${{ env.filename }}.exe" || echo "rustdesk"
 
       - name: send file to rdgen server
-        if: ${{ env.rdgen == 'true' }}
+        if: ${{ inputs.config_ref == '' && env.rdgen == 'true' }}
         shell: bash
         run: |
           curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ env.token }}" -F "file=@./SignOutput/${{ env.filename }}.exe" -F "uuid=${{ env.uuid }}" ${{ secrets.GENURL }}/save_custom_client
 
       - name: send file to api server
-        if: ${{ env.rdgen == 'false' }}
+        if: ${{ inputs.config_ref == '' && env.rdgen == 'false' }}
         shell: bash
         run: |
           curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ env.token }}" -F "file=@./SignOutput/${{ env.filename }}.exe" ${{ env.apiServer }}/api/save_custom_client
+
+
+      - name: Publish local build artifacts
+        if: ${{ inputs.config_ref != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-windows-x86
+          path: ./SignOutput/*.exe
+          if-no-files-found: error
+          retention-days: 14
 
   cleanup:
     needs: [build-for-windows-sciter]

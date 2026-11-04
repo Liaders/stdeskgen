@@ -1,5 +1,5 @@
 name: Custom Linux Client Generator
-run-name: Custom Linux Client Generator
+run-name: ${{ inputs.request_id != '' && format('Local build {0}', inputs.request_id) || 'Custom client generator' }}
 on: 
   workflow_dispatch:
     inputs:
@@ -10,11 +10,27 @@ on:
         type: string
       zip_url:
         description: 'url to zip of json'
-        required: true
+        required: false
         default: ''
         type: string
       app_version:
         description: 'custom app version string (overrides build version)'
+        required: false
+        default: ''
+        type: string
+
+      config_ref:
+        description: 'config_ref'
+        required: false
+        default: ''
+        type: string
+      config_secret:
+        description: 'config_secret'
+        required: false
+        default: ''
+        type: string
+      request_id:
+        description: 'request_id'
         required: false
         default: ''
         type: string
@@ -51,6 +67,7 @@ jobs:
     uses: ./.github/workflows/fetch-encrypted-secrets.yml
     with:
       zip_url_json: ${{ inputs.zip_url }}
+      config_ref: ${{ inputs.config_ref }}
 
   generate-bridge-linux:
     uses: ./.github/workflows/bridge.yml
@@ -93,7 +110,7 @@ jobs:
       - name: Load Secrets
         uses: ./.github/actions/decrypt-secrets
         with:
-          zip_password: ${{ secrets.ZIP_PASSWORD }}
+          zip_password: ${{ inputs.config_secret != '' && secrets[inputs.config_secret] || secrets.ZIP_PASSWORD }}
 
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@v6
@@ -128,6 +145,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y imagemagick
 
+      - name: Preserve local build tools
+        if: ${{ inputs.config_ref != '' }}
+        shell: python
+        run: |
+          import os, shutil
+          from pathlib import Path
+          shutil.copytree('customization', Path(os.environ['RUNNER_TEMP']) / 'rdgen-tools', dirs_exist_ok=True)
+
       - name: Checkout source code
         if: ${{ env.VERSION != 'master' }}
         uses: actions/checkout@v4
@@ -142,6 +167,12 @@ jobs:
         with:
           repository: rustdesk/rustdesk
           submodules: recursive
+
+      - name: Prepare local source profile
+        if: ${{ inputs.config_ref != '' }}
+        shell: bash
+        run: |
+          python3 "$RUNNER_TEMP/rdgen-tools/prepare_local_source.py" --version "$VERSION"
 
       - name: Set custom app version
         continue-on-error: true
@@ -265,7 +296,11 @@ jobs:
             mv ./res/icon.ico ./res/icon.ico.bak
             mv ./res/icon.png ./res/icon.png.bak
             mv ./res/tray-icon.ico ./res/tray-icon.ico.bak
+            if [ -n "${{ inputs.config_ref }}" ]; then
+              cp ./.rdgen-input/icon.png ./res/icon.png
+            else
             wget -O ./res/icon.png ${{ env.iconlink_url }}/get_png?filename=${{ env.iconlink_file }}"&"uuid=${{ env.iconlink_uuid }}
+            fi
             mv ./res/32x32.png ./res/32x32.png.bak
             mv ./res/64x64.png ./res/64x64.png.bak
             mv ./res/128x128.png ./res/128x128.png.bak
@@ -600,7 +635,11 @@ jobs:
             mkdir -p flutter/tmpdeb/usr/share/rustdesk
             cp ./custom_.txt ./flutter/tmpdeb/usr/share/rustdesk/custom_.txt
             if [[ "${{ env.logolink_url }}" != "false" ]]; then
+              if [ -n "${{ inputs.config_ref }}" ]; then
+                cp /workspace/.rdgen-input/logo.png ./flutter/assets/logo.png
+              else
               wget -O ./flutter/assets/logo.png ${{ env.logolink_url }}/get_png?filename=${{ env.logolink_file }}"&"uuid=${{ env.logolink_uuid }}
+              fi
             fi
             if [[ "${{ env.iconlink_url }}" != "false" ]]; then
               mv ./flutter/assets/icon.svg ./flutter/assets/icon.svg.bak
@@ -704,9 +743,6 @@ jobs:
                 mv "$name" /workspace/output/"${{ env.filename }}-suse-${{ matrix.job.arch }}.rpm"
             done
 
-      # only x86_64 for arch since we can not find newest arm64 docker image to build
-      # old arch image does not make sense for arch since it is "arch" which always update to date
-      # and failed to makepkg arm64 on x86_64
       - name: Patch archlinux PKGBUILD
         continue-on-error: true
         if: matrix.job.arch == 'x86_64' && env.UPLOAD_ARTIFACT == 'true' && env.VERSION != 'master'
@@ -732,7 +768,7 @@ jobs:
           cp ./res/rustdesk-${{ env.VERSION }}-0-x86_64.pkg.tar.zst ./output/${{ env.filename }}-${{ matrix.job.arch }}.pkg.tar.zst
 
       - name: send file to rdgen server
-        if: ${{ env.rdgen == 'true' }}
+        if: ${{ inputs.config_ref == '' && env.rdgen == 'true' }}
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
@@ -746,7 +782,7 @@ jobs:
             curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ env.token }}" -F "file=@./output/${{ env.filename }}-${{ matrix.job.arch }}.pkg.tar.zst" -F "uuid=${{ env.uuid }}" ${{ secrets.GENURL }}/save_custom_client || true
 
       - name: send file to api server
-        if: ${{ env.rdgen == 'false' }}
+        if: ${{ inputs.config_ref == '' && env.rdgen == 'false' }}
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
@@ -766,6 +802,16 @@ jobs:
           name: ${{ env.filename }}-${{ matrix.job.arch }}.deb
           path: ./output/${{ env.filename }}-${{ matrix.job.arch }}.deb
 
+
+      - name: Publish local build artifacts
+        if: ${{ inputs.config_ref != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-linux-packages-${{ matrix.job.arch }}
+          path: ./output/*
+          if-no-files-found: error
+          retention-days: 14
+
   build-rustdesk-linux-drm:
     needs: [generate-bridge-linux, setup]
     name: build rustdesk linux drm x86_64
@@ -781,7 +827,7 @@ jobs:
       - name: Load Secrets
         uses: ./.github/actions/decrypt-secrets
         with:
-          zip_password: ${{ secrets.ZIP_PASSWORD }}
+          zip_password: ${{ inputs.config_secret != '' && secrets[inputs.config_secret] || secrets.ZIP_PASSWORD }}
 
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@v6
@@ -813,6 +859,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y imagemagick
 
+      - name: Preserve local build tools
+        if: ${{ inputs.config_ref != '' }}
+        shell: python
+        run: |
+          import os, shutil
+          from pathlib import Path
+          shutil.copytree('customization', Path(os.environ['RUNNER_TEMP']) / 'rdgen-tools', dirs_exist_ok=True)
+
       - name: Checkout source code
         if: ${{ env.VERSION != 'master' }}
         uses: actions/checkout@v4
@@ -827,6 +881,12 @@ jobs:
         with:
           repository: rustdesk/rustdesk
           submodules: recursive
+
+      - name: Prepare local source profile
+        if: ${{ inputs.config_ref != '' }}
+        shell: bash
+        run: |
+          python3 "$RUNNER_TEMP/rdgen-tools/prepare_local_source.py" --version "$VERSION"
 
       - name: Set custom app version
         continue-on-error: true
@@ -948,7 +1008,11 @@ jobs:
             mv ./res/icon.ico ./res/icon.ico.bak
             mv ./res/icon.png ./res/icon.png.bak
             mv ./res/tray-icon.ico ./res/tray-icon.ico.bak
+            if [ -n "${{ inputs.config_ref }}" ]; then
+              cp ./.rdgen-input/icon.png ./res/icon.png
+            else
             wget -O ./res/icon.png ${{ env.iconlink_url }}/get_png?filename=${{ env.iconlink_file }}"&"uuid=${{ env.iconlink_uuid }}
+            fi
             mv ./res/32x32.png ./res/32x32.png.bak
             mv ./res/64x64.png ./res/64x64.png.bak
             mv ./res/128x128.png ./res/128x128.png.bak
@@ -1131,7 +1195,7 @@ jobs:
           name: bridge-artifact
           path: ./
 
-      - uses: rustdesk-org/run-on-arch-action@d3fcfbb632b84cf7f6bc772bfaaa2c2f4f8789a8 # no release tag; commit 2026-05-26
+      - uses: rustdesk-org/run-on-arch-action@d3fcfbb632b84cf7f6bc772bfaaa2c2f4f8789a8
         name: Build rustdesk
         id: vcpkg
         with:
@@ -1199,7 +1263,7 @@ jobs:
               registry = 'https://github.com/rust-lang/crates.io-index'
             """ > ~/.cargo/config
             cat ~/.cargo/config
-            
+
             # Start Cargo compilation with DRM features
             pushd /workspace
             export VCPKG_ROOT=/opt/artifacts/vcpkg
@@ -1244,7 +1308,11 @@ jobs:
             mkdir -p flutter/tmpdeb/usr/share/rustdesk
             cp ./custom_.txt ./flutter/tmpdeb/usr/share/rustdesk/custom_.txt
             if [[ "${{ env.logolink_url }}" != "false" ]]; then
+              if [ -n "${{ inputs.config_ref }}" ]; then
+                cp /workspace/.rdgen-input/logo.png ./flutter/assets/logo.png
+              else
               wget -O ./flutter/assets/logo.png ${{ env.logolink_url }}/get_png?filename=${{ env.logolink_file }}"&"uuid=${{ env.logolink_uuid }}
+              fi
             fi
             if [[ "${{ env.iconlink_url }}" != "false" ]]; then
               mv ./flutter/assets/icon.svg ./flutter/assets/icon.svg.bak
@@ -1309,7 +1377,7 @@ jobs:
             done
 
       - name: send file to rdgen server
-        if: ${{ env.rdgen == 'true' }}
+        if: ${{ inputs.config_ref == '' && env.rdgen == 'true' }}
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
@@ -1320,7 +1388,7 @@ jobs:
             curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ env.token }}" -F "file=@./output/${{ env.filename }}-unattended-wayland-x86_64.deb" -F "uuid=${{ env.uuid }}" ${{ secrets.GENURL }}/save_custom_client
 
       - name: send file to api server
-        if: ${{ env.rdgen == 'false' }}
+        if: ${{ inputs.config_ref == '' && env.rdgen == 'false' }}
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
@@ -1336,6 +1404,16 @@ jobs:
         with:
           name: ${{ env.filename }}-unattended-wayland-x86_64.deb
           path: ./output/${{ env.filename }}-unattended-wayland-x86_64.deb
+
+
+      - name: Publish local build artifacts
+        if: ${{ inputs.config_ref != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-linux-wayland-x86_64
+          path: ./output/*
+          if-no-files-found: error
+          retention-days: 14
 
   build-appimage:
     name: Build appimage ${{ matrix.job.target }}
@@ -1358,7 +1436,15 @@ jobs:
       - name: Load Secrets
         uses: ./.github/actions/decrypt-secrets
         with:
-          zip_password: ${{ secrets.ZIP_PASSWORD }}
+          zip_password: ${{ inputs.config_secret != '' && secrets[inputs.config_secret] || secrets.ZIP_PASSWORD }}
+
+      - name: Preserve local build tools
+        if: ${{ inputs.config_ref != '' }}
+        shell: python
+        run: |
+          import os, shutil
+          from pathlib import Path
+          shutil.copytree('customization', Path(os.environ['RUNNER_TEMP']) / 'rdgen-tools', dirs_exist_ok=True)
 
       - name: Checkout source code
         if: ${{ env.VERSION != 'master' }}
@@ -1374,6 +1460,12 @@ jobs:
         with:
           repository: rustdesk/rustdesk
           submodules: recursive
+
+      - name: Prepare local source profile
+        if: ${{ inputs.config_ref != '' }}
+        shell: bash
+        run: |
+          python3 "$RUNNER_TEMP/rdgen-tools/prepare_local_source.py" --version "$VERSION"
 
       - name: Set custom app version
         continue-on-error: true
@@ -1417,7 +1509,11 @@ jobs:
             mv ./res/icon.ico ./res/icon.ico.bak
             mv ./res/icon.png ./res/icon.png.bak
             mv ./res/tray-icon.ico ./res/tray-icon.ico.bak
+            if [ -n "${{ inputs.config_ref }}" ]; then
+              cp ./.rdgen-input/icon.png ./res/icon.png
+            else
             wget -O ./res/icon.png ${{ env.iconlink_url }}/get_png?filename=${{ env.iconlink_file }}"&"uuid=${{ env.iconlink_uuid }}
+            fi
             mv ./res/32x32.png ./res/32x32.png.bak
             mv ./res/64x64.png ./res/64x64.png.bak
             mv ./res/128x128.png ./res/128x128.png.bak
@@ -1478,7 +1574,7 @@ jobs:
           popd
 
       - name: send file to rdgen server
-        if: ${{ env.rdgen == 'true' }}
+        if: ${{ inputs.config_ref == '' && env.rdgen == 'true' }}
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
@@ -1487,9 +1583,9 @@ jobs:
           shell: bash
           command: |
             curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ env.token }}" -F "file=@./appimage/${{ env.filename }}-${{ matrix.job.arch }}.AppImage" -F "uuid=${{ env.uuid }}" ${{ secrets.GENURL }}/save_custom_client
-          
+
       - name: send file to api server
-        if: ${{ env.rdgen == 'false' }}
+        if: ${{ inputs.config_ref == '' && env.rdgen == 'false' }}
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
@@ -1498,6 +1594,16 @@ jobs:
           shell: bash
           command: |
             curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ env.token }}" -F "file=@./appimage/${{ env.filename }}-${{ matrix.job.arch }}.AppImage" ${{ env.apiServer }}/api/save_custom_client
+
+
+      - name: Publish local build artifacts
+        if: ${{ inputs.config_ref != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-linux-appimage-${{ matrix.job.arch }}
+          path: ./appimage/*.AppImage
+          if-no-files-found: error
+          retention-days: 14
 
   build-flatpak:
     name: Build flatpak ${{ matrix.job.target }}${{ matrix.job.suffix }}
@@ -1534,7 +1640,15 @@ jobs:
       - name: Load Secrets
         uses: ./.github/actions/decrypt-secrets
         with:
-          zip_password: ${{ secrets.ZIP_PASSWORD }}
+          zip_password: ${{ inputs.config_secret != '' && secrets[inputs.config_secret] || secrets.ZIP_PASSWORD }}
+
+      - name: Preserve local build tools
+        if: ${{ inputs.config_ref != '' }}
+        shell: python
+        run: |
+          import os, shutil
+          from pathlib import Path
+          shutil.copytree('customization', Path(os.environ['RUNNER_TEMP']) / 'rdgen-tools', dirs_exist_ok=True)
 
       - name: Checkout source code
         if: ${{ env.VERSION != 'master' }}
@@ -1550,6 +1664,12 @@ jobs:
         with:
           repository: rustdesk/rustdesk
           submodules: recursive
+
+      - name: Prepare local source profile
+        if: ${{ inputs.config_ref != '' }}
+        shell: bash
+        run: |
+          python3 "$RUNNER_TEMP/rdgen-tools/prepare_local_source.py" --version "$VERSION"
 
       - name: Set custom app version
         continue-on-error: true
@@ -1637,7 +1757,7 @@ jobs:
             flatpak build-bundle ./repo ${{ env.filename }}-${{ matrix.job.arch }}.flatpak "$BUNDLE_ID"
 
       - name: send file to rdgen server
-        if: ${{ env.rdgen == 'true' }}
+        if: ${{ inputs.config_ref == '' && env.rdgen == 'true' }}
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
@@ -1646,9 +1766,9 @@ jobs:
           shell: bash
           command: |
             curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ env.token }}" -F "file=@./flatpak/${{ env.filename }}-${{ matrix.job.arch }}.flatpak" -F "uuid=${{ env.uuid }}" ${{ secrets.GENURL }}/save_custom_client
-          
+
       - name: send file to api server
-        if: ${{ env.rdgen == 'false' }}
+        if: ${{ inputs.config_ref == '' && env.rdgen == 'false' }}
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
@@ -1658,7 +1778,18 @@ jobs:
           command: |
             curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ env.token }}" -F "file=@./flatpak/${{ env.filename }}-${{ matrix.job.arch }}.flatpak" ${{ env.apiServer }}/api/save_custom_client
 
+
+      - name: Publish local build artifacts
+        if: ${{ inputs.config_ref != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-linux-flatpak-${{ matrix.job.arch }}
+          path: ./flatpak/*.flatpak
+          if-no-files-found: error
+          retention-days: 14
+
   deploy:
+    if: ${{ inputs.config_ref == '' }}
     needs: [build-rustdesk-linux,build-flatpak,build-appimage]
     if: always()
     runs-on: ubuntu-latest
@@ -1673,15 +1804,15 @@ jobs:
       - name: Load Secrets
         uses: ./.github/actions/decrypt-secrets
         with:
-          zip_password: ${{ secrets.ZIP_PASSWORD }}
+          zip_password: ${{ inputs.config_secret != '' && secrets[inputs.config_secret] || secrets.ZIP_PASSWORD }}
 
       - name: Finalize and Cleanup zip/json
-        if: always() # Run even if previous steps fail
+        if: ${{ always() && inputs.config_ref == '' }}
         continue-on-error: true
         uses: fjogeleit/http-request-action@v1
         with:
-          url: "${{ secrets.GENURL }}/cleanzip"
-          method: 'POST'
+          url: ${{ secrets.GENURL }}/cleanzip
+          method: POST
           customHeaders: '{"Content-Type": "application/json"}'
           data: '{"uuid": "${{ env.uuid }}"}'
 
