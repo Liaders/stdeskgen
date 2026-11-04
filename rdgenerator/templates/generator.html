@@ -221,7 +221,19 @@
             transform: rotate(360deg);
             color: #0095EA;
         }
-      </style>
+          .ui-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+        .ui-grid > div:nth-child(3) { grid-column:1 / -1; }
+        #ui-customization { scroll-margin-top:120px; }
+        @media (max-width:600px) { .ui-grid { grid-template-columns:1fr; } }
+        .ui-color { display:flex; gap:10px; align-items:center; }
+        .ui-color input[type="color"] { width:48px; height:40px; padding:2px; flex-shrink:0; }
+        .ui-color input[type="text"] { margin:0; box-sizing:border-box; min-width:0; }
+        #ui-customization input[type="number"] { box-sizing:border-box; width:100%; padding:8px; background:#222; border:1px solid #444; border-radius:4px; color:#fff; }
+        #ui-customization input:disabled { opacity:.5; }
+        #ui-customization small { display:block; margin-top:6px; color:#bbb; }
+        #ui-customization details { margin:18px 0; }
+        #ui-status { color:#ffcc80; }
+    </style>
 </head>
 <body>
     <h1><i class="fas fa-cogs"></i> RustDesk Custom Client Builder</h1>
@@ -346,11 +358,36 @@
                     <!-- <input type="file" name="iconfile" id="iconfile" accept="image/png"> -->
                     <div id="privacy-preview"></div><br><br>
                     <label for="{{ form.theme.id_for_label }}">Theme:</label>
-                    {{ form.ui_profile.errors }}
-                    <p>{{ form.ui_profile.label_tag }}<br>{{ form.ui_profile }}<br>
-                    Optional. Example: {"schema_version":1,"accent":"#6750A4","button":"#6750A4","navigation":"text","device_names":true,"group_width":260,"address_book_width":260}.</p>
                     {{ form.theme }} {{ form.themeDorO }} *Default sets the theme but allows the client to change it, Override sets the theme permanently.<br><br>
             </div>
+        </div>
+        <div class="platform">
+            <section class="section" id="ui-customization" aria-labelledby="ui-title">
+                <h2 id="ui-title">Client appearance</h2>
+                <label><input type="checkbox" id="ui-enabled"> Customize client appearance</label>
+                <p>Currently available for RustDesk 1.5.0, Windows 64-bit. Other platforms will be added later.</p>
+                <p id="ui-status" role="status" aria-live="polite"></p>
+                <fieldset id="ui-controls" disabled style="border:0;padding:0;min-width:0">
+                    <div class="ui-grid">
+                        <div>
+                            <label><input type="checkbox" id="ui-accent-enabled"> Custom accent color</label>
+                            <div class="ui-color"><input type="color" id="ui-accent" value="#0071ff" aria-label="Accent color"><input type="text" id="ui-accent-hex" value="#0071FF" aria-label="Accent color HEX" maxlength="7"></div>
+                        </div>
+                        <div>
+                            <label><input type="checkbox" id="ui-button-enabled"> Custom button color</label>
+                            <div class="ui-color"><input type="color" id="ui-button" value="#2c8cff" aria-label="Button color"><input type="text" id="ui-button-hex" value="#2C8CFF" aria-label="Button color HEX" maxlength="7"></div>
+                        </div>
+                        <div><label for="ui-navigation">Main navigation</label><select id="ui-navigation"><option value="icons">Icons</option><option value="text">Text tabs</option></select></div>
+                        <div><label for="ui-group-width">Accessible devices: users / groups panel width</label><input type="number" id="ui-group-width" min="150" max="480" step="1" placeholder="Default: 150"><small>150–480 logical pixels. Leave blank for the original width.</small></div>
+                        <div><label for="ui-address-width">Address book panel width</label><input type="number" id="ui-address-width" min="150" max="480" step="1" placeholder="Default: 200"><small>150–480 logical pixels. Leave blank for the original width.</small></div>
+                    </div>
+                    <label style="margin-top:16px"><input type="checkbox" id="ui-device-names"> Friendly names in accessible devices</label>
+                    <p>Use the server alias when available, then a local alias, the original device name, or its ID. Local aliases are stored on the client.</p>
+                </fieldset>
+                {{ form.ui_profile.errors }}
+                <details><summary>Advanced: JSON profile</summary><p>Existing profiles can also be pasted here.</p>{{ form.ui_profile }}</details>
+                <button type="button" id="ui-reset">Reset appearance</button>
+            </section>
         </div>
         <div class="container">
             <div class="section">
@@ -416,6 +453,7 @@
                 document.querySelectorAll('.platform-icon').forEach(i => i.classList.remove('active'));
                 this.classList.add('active');
                 document.getElementById('id_platform').value = this.dataset.platform;
+                document.getElementById('id_platform').dispatchEvent(new Event('change', {bubbles: true}));
             });
         });
         document.getElementById("{{ form.iconfile.id_for_label }}").addEventListener('change', function(event) {
@@ -549,6 +587,7 @@
         });
 
         async function saveFormData() {
+            if (window.rdgenUI && !window.rdgenUI.prepare(false)) return;
             const filename = document.getElementById("{{ form.exename.id_for_label }}").value;
             if (!filename) {
                 document.getElementById("filenameError").textContent = "Filename is required.";
@@ -575,7 +614,7 @@
             // 2. Handle select elements separately (more reliable):
             const selectElements = form.querySelectorAll('select');
             selectElements.forEach(select => {
-                formData[select.name] = select.value;
+                if (select.name) formData[select.name] = select.value;
             });
 
             // 3. Handle checkboxes and radio buttons (important!):
@@ -688,6 +727,7 @@
                             carriedUnknownFields = {};
                             const skippedKeys = [];
                             for (const key in formData) {
+                                if (key === 'ui_profile') continue;
                                 // More robust selector: checks for name OR id
                                 const elements = document.querySelectorAll(`[name="${key}"], [id="${key}"]`);
 
@@ -739,6 +779,7 @@
                                     }
                                 }
                             }
+                            if (window.rdgenUI) window.rdgenUI.loadConfig(formData);
                             showLoadWarnings(skippedKeys);
                         } catch (error) {
                             alert("Error loading data. Invalid JSON file.");
@@ -749,5 +790,6 @@
             });
         }
     </script>
+    <script>{% include "ui-profile.js" %}</script>
 </body>
 </html>
