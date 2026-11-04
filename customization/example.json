@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "device_names": true,
+  "accent": "#6750A4",
+  "button": "#6750A4",
+  "navigation": "text",
+  "group_width": 260,
+  "address_book_width": 260
+}

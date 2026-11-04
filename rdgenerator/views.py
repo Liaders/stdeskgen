@@ -14,6 +14,7 @@ import pyzipper
 from django.conf import settings as _settings
 from django.db.models import Q
 from .forms import GenerateForm
+from customization.profile import validate_profile
 from .models import GithubRun
 from PIL import Image
 from urllib.parse import quote
@@ -47,6 +48,10 @@ def generate_custom_client(params, full_url):
     selfhosted = (_settings.SH_SECRET == user_secret)
     platform = params.get('platform', 'windows')
     version = params.get('version', '1.5.0')
+    try:
+        ui_profile = validate_profile(params.get('ui_profile'), version, platform, selfhosted)
+    except ValueError as exc:
+        return {'success': False, 'error': str(exc), 'status_code': 400}
     app_version = params.get('app_version', '')
     # app_version overrides the version string embedded in the built client
     # without changing the git tag that version selects. If left empty, the
@@ -297,6 +302,9 @@ def generate_custom_client(params, full_url):
         "androidappid":androidappid,
         "filename":filename
     }
+
+    if ui_profile is not None:
+        inputs_raw['ui_profile_b64'] = base64.b64encode(json.dumps(ui_profile).encode('utf-8')).decode('ascii')
 
     temp_json_path = f"data_{uuid.uuid4()}.json"
     zip_filename = f"secrets_{uuid.uuid4()}.zip"

@@ -1,4 +1,5 @@
 import json
+from customization.profile import validate_profile
 import os
 import re
 from django.http import JsonResponse
@@ -107,6 +108,11 @@ def validate_generate_params(data):
     cleaned['logofile'] = None
     cleaned['privacyfile'] = None
 
+    try:
+        profile = validate_profile(data.get('ui_profile'), cleaned.get('version'), cleaned.get('platform'))
+        cleaned['ui_profile'] = json.dumps(profile) if profile is not None else ''
+    except ValueError as exc:
+        errors['ui_profile'] = str(exc)
     return cleaned, errors
 
 

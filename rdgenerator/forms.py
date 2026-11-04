@@ -2,6 +2,7 @@ import re
 
 from django import forms
 from PIL import Image
+from customization.profile import validate_profile
 
 # App/company names are interpolated into single/double-quoted bash sed
 # scripts in every generator workflow: & \ | corrupt the substitution
@@ -42,6 +43,16 @@ class GenerateForm(forms.Form):
     urlLink = forms.CharField(label="Custom URL for links", required=False)
     downloadLink = forms.CharField(label="Custom URL for downloading new versions", required=False)
     compname = forms.CharField(label="Company name",required=False)
+
+    ui_profile = forms.CharField(label="UI profile (JSON, Windows 64-bit / RustDesk 1.5.0)", required=False, widget=forms.Textarea(attrs={"rows": 8}))
+
+    def clean_ui_profile(self):
+        raw = self.cleaned_data.get('ui_profile', '')
+        try:
+            validate_profile(raw, self.cleaned_data.get('version'), self.cleaned_data.get('platform'))
+        except ValueError as exc:
+            raise forms.ValidationError(str(exc))
+        return raw
 
     #Visual
     iconfile = forms.FileField(label="Custom App Icon (in .png format)", required=False, widget=forms.FileInput(attrs={'accept': 'image/png'}))

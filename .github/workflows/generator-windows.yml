@@ -130,6 +130,11 @@ jobs:
         run: |
           echo "STATUS_URL=${{ env.apiServer }}/api/updategh" >> $env:GITHUB_ENV
 
+      - name: Preserve UI adapter before source checkout
+        if: ${{ env.ui_profile_b64 != '' }}
+        shell: pwsh
+        run: Copy-Item -Recurse customization "$env:RUNNER_TEMP/rdgen-ui"
+
       - name: Checkout source code
         if: ${{ env.VERSION != 'master' }}
         uses: actions/checkout@v4
@@ -144,6 +149,17 @@ jobs:
         with:
           repository: rustdesk/rustdesk
           submodules: recursive
+
+      - name: Apply UI profile
+        if: ${{ env.ui_profile_b64 != '' }}
+        shell: python
+        run: |
+          import base64, json, os, sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path(os.environ['RUNNER_TEMP']) / 'rdgen-ui'))
+          from apply_profile import apply
+          profile = json.loads(base64.b64decode(os.environ['ui_profile_b64'], validate=True))
+          apply(Path.cwd(), os.environ['VERSION'], profile)
 
       - name: Set custom app version
         continue-on-error: true

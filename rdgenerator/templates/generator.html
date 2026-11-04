@@ -346,6 +346,9 @@
                     <!-- <input type="file" name="iconfile" id="iconfile" accept="image/png"> -->
                     <div id="privacy-preview"></div><br><br>
                     <label for="{{ form.theme.id_for_label }}">Theme:</label>
+                    {{ form.ui_profile.errors }}
+                    <p>{{ form.ui_profile.label_tag }}<br>{{ form.ui_profile }}<br>
+                    Optional. Example: {"schema_version":1,"accent":"#6750A4","button":"#6750A4","navigation":"text","device_names":true,"group_width":260,"address_book_width":260}.</p>
                     {{ form.theme }} {{ form.themeDorO }} *Default sets the theme but allows the client to change it, Override sets the theme permanently.<br><br>
             </div>
         </div>
