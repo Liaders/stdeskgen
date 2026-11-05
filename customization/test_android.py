@@ -29,7 +29,7 @@ class AndroidSourceTests(unittest.TestCase):
         import re
         inputs['VERSION']=re.search(rb'^version = "([^"]+)"',cargo,re.M)[1].decode()
         inputs['STDESK_DISPLAY_VERSION']=inputs['VERSION']+'.3'
-        names=['src/ui_interface.rs','src/platform/windows.rs','build.py','flutter/pubspec.yaml','flutter/windows/runner/Runner.rc','build.rs','libs/portable/build.rs','Cargo.toml','libs/hbb_common/src/config.rs','src/common.rs','flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/MainService.kt','flutter/lib/models/native_model.dart','flutter/android/app/build.gradle','flutter/android/app/src/main/AndroidManifest.xml','flutter/android/app/src/main/res/values/ic_launcher_background.xml']
+        names=['src/ui_interface.rs','src/platform/windows.rs','build.py','flutter/pubspec.yaml','flutter/windows/runner/Runner.rc','build.rs','libs/portable/build.rs','Cargo.toml','libs/hbb_common/src/config.rs','src/common.rs','flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/MainService.kt','flutter/lib/models/native_model.dart','flutter/android/app/build.gradle','flutter/android/gradle.properties','flutter/android/app/src/main/AndroidManifest.xml','flutter/android/app/src/main/res/values/ic_launcher_background.xml']
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
             for name in names:
@@ -43,6 +43,7 @@ class AndroidSourceTests(unittest.TestCase):
             self.assertIn(inputs['custom'],(root/'flutter/lib/models/native_model.dart').read_text(encoding='utf-8'))
             self.assertIn(inputs['custom'],(root/'flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/MainService.kt').read_text(encoding='utf-8'))
             self.assertIn('signingConfig null',(root/'flutter/android/app/build.gradle').read_text())
+            self.assertIn('org.gradle.jvmargs=-Xmx4g',(root/'flutter/android/gradle.properties').read_text())
             self.assertEqual(metadata['logo_sha256'],hashlib.sha256(png).hexdigest())
             self.assertTrue(verify(root,inputs,'android',assets))
 

@@ -55,6 +55,10 @@ def apply(root,inputs,assets):
     change('flutter/lib/models/native_model.dart',"customClientConfig: '',",'customClientConfig: '+json.dumps(inputs['custom'])+',')
     change('flutter/android/app/build.gradle','applicationId "com.carriez.flutter_hbb"','applicationId '+json.dumps(package))
     change('flutter/android/app/build.gradle','signingConfig signingConfigs.release','signingConfig null')
+    properties=root/'flutter/android/gradle.properties'
+    source,count=re.subn(r'(?m)^org\.gradle\.jvmargs=.*$', 'org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError',properties.read_text(encoding='utf-8'),count=1)
+    if count!=1:raise ValueError('Missing Android Gradle memory configuration')
+    properties.write_text(source+'\norg.gradle.workers.max=2\n',encoding='utf-8')
     change('flutter/android/app/src/main/AndroidManifest.xml','android:label="RustDesk"','android:label="'+html.escape(name,quote=True)+'"')
     path=root/'flutter/android/app/src/main/AndroidManifest.xml';source=path.read_text(encoding='utf-8').replace('package="com.carriez.flutter_hbb"','').replace('android:label="RustDesk Input"','android:label="'+html.escape(name+' Input',quote=True)+'"');path.write_text(source,encoding='utf-8')
     for filename,targets in [('icon.png',['res/icon.png','flutter/assets/icon.png']),('logo.png',['flutter/assets/logo.png','flutter/assets/logo_light.png','flutter/assets/logo_dark.png'])]:
