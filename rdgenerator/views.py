@@ -55,6 +55,8 @@ def generate_custom_client(params, full_url):
     except ValueError as exc:
         return {'success': False, 'error': str(exc), 'status_code': 400}
     local_mode = _settings.LOCAL_GITHUB_BUILD
+    if local_mode and platform == 'android':
+        return {'success':False, 'error':'Android временно недоступен в конструкторе.', 'status_code':400}
     if local_mode and (platform not in ('windows', 'windows-x86', 'linux', 'macos') or version not in ('1.5.0','1.5.1') or params.get('sh_secret_field')):
         return {'success': False, 'error': 'Local GitHub builds support Windows, Linux and macOS with RustDesk 1.5.0/1.5.1.', 'status_code': 400}
     from updates.config import validate as validate_update_config
@@ -474,10 +476,19 @@ def generator_view(request):
         from .build_monitor import start
         start()
     if request.method == 'POST':
-        form = GenerateForm(request.POST, request.FILES)
+        batch = _settings.LOCAL_GITHUB_BUILD and request.POST.get('build_scope') == 'all'
+        posted = request.POST.copy()
+        if batch:
+            posted['platform'] = 'windows'
+            posted['ui_profile'] = posted.get('batch_ui_profile', posted.get('ui_profile', ''))
+            posted['auto_update_enabled'] = posted.get('batch_auto_update_enabled', '')
+        form = GenerateForm(posted, request.FILES)
         if form.is_valid():
             params = form.cleaned_data
             full_url = f"{_settings.PROTOCOL}://{request.get_host()}" if _settings.GENURL else f"{_settings.PROTOCOL}://{request.get_host()}"
+            if batch:
+                from .batch_build import build_all
+                return render(request, 'build_batch.html', {'builds': build_all(params, full_url)})
             result = generate_custom_client(params, full_url)
             if result['success']:
                 if result.get('local_build'):

@@ -4,7 +4,7 @@
 </style></head><body>
 <h1>Публикация</h1><p>Готовые сборки автоматически сохраняются на этом компьютере. Выберите установщик, чтобы разместить его на странице скачивания.</p>
 {% csrf_token %}
-<div class="toolbar"><button class="secondary" id="refresh">Обновить список</button><button class="secondary" id="open-folder">Открыть папку сборок</button><a class="button secondary" href="https://desk.status16.ru/client/" target="_blank" rel="noopener">Страница скачивания ↗</a></div>
+<div class="toolbar"><button id="publish-latest">Опубликовать последние версии всех клиентов</button><button class="secondary" id="refresh">Обновить список</button><button class="secondary" id="open-folder">Открыть папку сборок</button><a class="button secondary" href="https://desk.status16.ru/client/" target="_blank" rel="noopener">Страница скачивания ↗</a></div>
 <p class="small" id="folder"></p>
 <div class="layout"><section class="panel"><select id="filter"><option value="">Все платформы</option value="windows-x64">Windows 64 бита</option><option value="windows-x86">Windows 32 бита</option><option value="linux">Linux</option><option value="macos">macOS</option></select><div id="files"><p>Загружаем список…</p></div></section>
 <section class="panel"><h2>Выбранный дистрибутив</h2><div id="selection">Выберите файл слева.</div><label>Версия на странице <input id="version" value="1.5.0"></label><label><input type="checkbox" id="auto" disabled>Этот же файл — для автообновления</label><p class="small" id="auto-info">Автообновление требует сборку с настроенным каналом. Для Windows платформа определяется из EXE и данных сборки.</p><p class="small">Linux и macOS сейчас публикуются для ручной установки.</p><button id="publish" disabled>Опубликовать</button><p id="message" role="status"></p><pre id="log" hidden></pre></section></div>
@@ -20,8 +20,19 @@ function render(){el('files').replaceChildren();for(const item of items.filter(x
 async function refresh(){const r=await fetch('/desktop/installers');if(!r.ok)throw Error('Не удалось прочитать каталог');const data=await r.json();items=data.items.filter(x=>/\.(exe|deb|AppImage|dmg)$/.test(x.filename));el('folder').textContent=data.directory;render();}
 el('refresh').onclick=()=>refresh().catch(error);el('filter').onchange=render;el('open-folder').onclick=()=>post('/desktop/open-folder',{}).catch(error);
 el('auto').onchange=()=>{el('version').readOnly=el('auto').checked;if(el('auto').checked)el('version').value=selected.receipt.version;};
-el('publish').onclick=async()=>{if(!selected)return;try{await post('/desktop/publish',{id:selected.id,version:el('version').value,auto_update:el('auto').checked});running=true;el('publish').disabled=true;el('message').className='';el('message').textContent='Публикация началась…';}catch(e){error(e);}};
+el('publish').onclick=async()=>{if(!selected)return;if(!confirm('Опубликовать '+names[selected.platform]+' '+el('version').value+'?\n'+selected.filename+(el('auto').checked?'\nЭтот файл также станет доступен для автообновления.':'')))return;try{await post('/desktop/publish',{id:selected.id,version:el('version').value,auto_update:el('auto').checked});running=true;el('publish').disabled=true;el('message').className='';el('message').textContent='Публикация началась…';}catch(e){error(e);}};
+el('publish-latest').onclick=async()=>{
+    try{
+        const response=await fetch('/desktop/publication-plan');if(!response.ok)throw Error('Не удалось составить список публикации.');
+        const plan=(await response.json()).items;
+        if(!plan.length)throw Error('Нет готовых дистрибутивов для публикации.');
+        const list=plan.map(x=>(names[x.platform]||x.platform)+' · '+x.version+'\n'+x.filename+(x.receipt?' · автообновление':' · ручная загрузка')).join('\n\n');
+        if(!confirm('Опубликовать последние версии из локального каталога?\n\n'+list+'\n\nБудут опубликованы только перечисленные файлы. Тестовые каналы исключены.'))return;
+        await post('/desktop/publish-latest',{ids:plan.map(x=>x.id)});
+        running=true;el('publish').disabled=true;el('publish-latest').disabled=true;el('message').className='';el('message').textContent='Публикация началась…';
+    }catch(e){error(e);}
+};
 el('import-form').onsubmit=async e=>{e.preventDefault();try{const result=await post('/desktop/import',new FormData(e.target));await refresh();const added=items.find(x=>x.id===result.id);if(added)choose(added);}catch(e){error(e);}};
-async function poll(){try{const r=await fetch('/desktop/status');const data=await r.json();const task=data.publication;running=task.state==='running';el('publish').disabled=running||!selected;if(task.state!=='idle'){el('message').textContent=task.state==='success'?'Опубликовано. Обновите страницу скачивания.':task.state==='error'?'Публикация не выполнена. Подробности ниже.':'Передаём файл на сервер…';el('message').className=task.state==='error'?'error':'';el('log').hidden=false;el('log').textContent=task.message;}}catch(e){error(e);}setTimeout(poll,2000);}
+async function poll(){try{const r=await fetch('/desktop/status');const data=await r.json();const task=data.publication;running=task.state==='running';el('publish-latest').disabled=running;el('publish').disabled=running||!selected;if(task.state!=='idle'){el('message').textContent=task.state==='success'?'Опубликовано. Обновите страницу скачивания.':task.state==='error'?'При публикации возникли ошибки. Результат каждого файла — ниже.':'Передаём файл на сервер…';el('message').className=task.state==='error'?'error':'';el('log').hidden=false;el('log').textContent=task.message;}}catch(e){error(e);}setTimeout(poll,2000);}
 refresh().catch(error);setInterval(()=>refresh().catch(error),10000);poll();
 </script></body></html>

@@ -129,35 +129,72 @@ def import_installer(request):
         return JsonResponse({'error': str(exc)}, status=400)
 
 
+def _publication_job(identifier, version=None, auto=False):
+    entry, path = find_installer(identifier)
+    if auto and not entry.get('receipt'):
+        raise ValueError('В этой сборке нет поддержки канала обновлений.')
+    if path.suffix not in ('.exe', '.deb', '.AppImage', '.dmg'):
+        raise ValueError('Выберите EXE, DEB, AppImage или DMG.')
+    return entry, path, version or entry['version'], auto
+
+
+def _start_publications(jobs):
+    with _task_lock:
+        if _task['state'] == 'running': return JsonResponse({'error':'Публикация уже выполняется.'},status=409)
+        _task.update(state='running',message='Передаём файлы на сервер…')
+    def run():
+        logs = []
+        failed = False
+        for entry, path, version, auto in jobs:
+            title = entry['platform'] + ' · ' + version + ' · ' + path.name
+            with _task_lock: _task['message'] = '\n'.join(logs + ['Публикуем: ' + title])[-24000:]
+            command = [str(Path(settings.BASE_DIR) / '.venv/Scripts/python.exe'),
+                       str(Path(settings.BASE_DIR) / 'updates/publish_from_windows.py'),
+                       '--file', str(path), '--platform', entry['platform'], '--version', version]
+            if auto: command += ['--receipt',str(path.parent/'stdesk-update-build.json')]
+            try:
+                result = subprocess.run(command,capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=1200,
+                                        env={**os.environ,'PYTHONUTF8':'1'})
+                failed |= result.returncode != 0
+                logs.append(title + (' — ОШИБКА' if result.returncode else ' — опубликовано') + '\n' + result.stdout + '\n' + result.stderr)
+            except Exception as exc:
+                failed = True
+                logs.append(title + ' — ОШИБКА: ' + str(exc))
+        with _task_lock:
+            _task.update(state='error' if failed else 'success',message='\n'.join(logs)[-24000:])
+    threading.Thread(target=run,name='publish-installer',daemon=True).start()
+    return JsonResponse({'ok':True,'count':len(jobs)})
+
+
 @require_POST
 @csrf_protect
 def publish(request):
     if not local(request): return HttpResponseForbidden('Local only')
     try:
-        data = json.loads(request.body)
-        entry, path = find_installer(data['id'])
-        auto = data.get('auto_update') is True
-        if auto and not entry.get('receipt'):
-            raise ValueError('В этой сборке нет поддержки канала обновлений. Создайте клиент с включённым каналом в конструкторе.')
-        if path.suffix not in ('.exe', '.deb', '.AppImage', '.dmg'):
-            raise ValueError('Выберите EXE, DEB, AppImage или DMG.')
-        version = data.get('version') or entry['version']
-        with _task_lock:
-            if _task['state'] == 'running': return JsonResponse({'error': 'Публикация уже выполняется.'}, status=409)
-            _task.update(state='running', message='Передаём файл на сервер…')
-        def run():
-            command = [str(Path(settings.BASE_DIR) / '.venv/Scripts/python.exe'),
-                       str(Path(settings.BASE_DIR) / 'updates/publish_from_windows.py'),
-                       '--file', str(path), '--platform', entry['platform'], '--version', version]
-            if auto: command += ['--receipt', str(path.parent / 'stdesk-update-build.json')]
-            try:
-                result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=1200,
-                                        env={**os.environ, 'PYTHONUTF8': '1'})
-                with _task_lock:
-                    _task.update(state='success' if result.returncode == 0 else 'error', message=(result.stdout + '\n' + result.stderr)[-12000:])
-            except Exception as exc:
-                with _task_lock: _task.update(state='error', message=str(exc))
-        threading.Thread(target=run, name='publish-installer', daemon=True).start()
-        return JsonResponse({'ok': True})
-    except (ValueError, KeyError) as exc:
-        return JsonResponse({'error': str(exc)}, status=400)
+        data=json.loads(request.body)
+        return _start_publications([_publication_job(data['id'],data.get('version'),data.get('auto_update') is True)])
+    except (ValueError,KeyError,TypeError) as exc:
+        return JsonResponse({'error':str(exc)},status=400)
+
+
+def publication_plan(request):
+    if not local(request): return HttpResponseForbidden('Local only')
+    from .publication_selection import latest_installers
+    return JsonResponse({'items':latest_installers(library())})
+
+
+@require_POST
+@csrf_protect
+def publish_latest(request):
+    if not local(request): return HttpResponseForbidden('Local only')
+    from .publication_selection import latest_installers
+    try:
+        data=json.loads(request.body)
+        selected=latest_installers(library())
+        if not selected: raise ValueError('Нет готовых дистрибутивов для публикации.')
+        if sorted(data['ids']) != sorted(item['id'] for item in selected):
+            return JsonResponse({'error':'Список последних версий изменился. Просмотрите и подтвердите его заново.'},status=409)
+        jobs=[_publication_job(item['id'],auto=bool(item.get('receipt')) and item['filename'].endswith('.exe')) for item in selected]
+        return _start_publications(jobs)
+    except (ValueError,KeyError,TypeError) as exc:
+        return JsonResponse({'error':str(exc)},status=400)

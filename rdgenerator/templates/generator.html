@@ -67,8 +67,8 @@
             margin-right: 5px;
         }
         button {
-            background-color: #0077ff;
-            color: #fff;
+            background-color: #EF7F1A;
+            color: #1b1209;
             border: none;
             padding: 10px 20px;
             border-radius: 4px;
@@ -76,8 +76,12 @@
             transition: background-color 0.3s ease;
         }
         button:hover {
-            background-color: #0066cc;
+            background-color: #ce6810;
         }
+        input[type="checkbox"],input[type="radio"] {accent-color:#EF7F1A;}
+        a {color:#EF7F1A;}
+        .platform-icon.unavailable {opacity:.3;cursor:not-allowed;}
+        .build-actions {display:flex;gap:12px;flex-wrap:wrap;margin:16px 0;}
         .platform-icons {
             display: flex;
             justify-content: space-around;
@@ -90,7 +94,7 @@
             transition: color 0.3s ease;
         }
         .platform-icon:hover, .platform-icon.active {
-            color: #2e52f7;
+            color: #EF7F1A;
         }
         .text-64 {
             font-size: 0.5em; 
@@ -181,7 +185,7 @@
         .sponsor-button {
             display: inline-flex;
             align-items: center;
-            background: linear-gradient(135deg, #00457C 0%, #0079C1 100%);
+            background: linear-gradient(135deg, #EF7F1A 0%, #ce6810 100%);
             color: white;
             padding: 12px 28px;
             border-radius: 50px;
@@ -190,15 +194,15 @@
             font-size: 16px;
             letter-spacing: 0.5px;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0, 69, 124, 0.2);
+            box-shadow: 0 4px 15px rgba(239, 127, 26, 0.2);
             border: 2px solid rgba(255, 255, 255, 0.1);
             text-transform: uppercase;
         }
 
         .sponsor-button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 69, 124, 0.3);
-            background: linear-gradient(135deg, #005AA7 0%, #0095EA 100%);
+            box-shadow: 0 8px 25px rgba(239, 127, 26, 0.3);
+            background: linear-gradient(135deg, #EF7F1A 0%, #ce6810 100%);
             border-color: rgba(255, 255, 255, 0.2);
         }
 
@@ -206,7 +210,7 @@
             margin-right: 12px;
             font-size: 20px;
             background: white;
-            color: #00457C;
+            color: #EF7F1A;
             padding: 8px;
             border-radius: 50%;
             width: 20px;
@@ -219,7 +223,7 @@
 
         .sponsor-button:hover i {
             transform: rotate(360deg);
-            color: #0095EA;
+            color: #ce6810;
         }
           .ui-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
         .ui-grid > div:nth-child(3) { grid-column:1 / -1; }
@@ -276,16 +280,19 @@
                         <strong class="fa-stack-1x text-32">32</strong>
                     </span>
                     <i class="fab fa-linux platform-icon" data-platform="linux"></i>
-                    <i class="fab fa-android platform-icon" data-platform="android"></i>
+                    <i class="fab fa-android platform-icon unavailable" aria-disabled="true" title="Android временно недоступен"></i>
                     <i class="fab fa-apple platform-icon" data-platform="macos"></i>
                 </div>
                 <select name="platform" id="id_platform">
                     <option value="windows" selected>Windows 64Bit</option>
                     <option value="windows-x86">Windows 32Bit</option>
                     <option value="linux">Linux</option>
-                    <option value="android">Android</option>
+                    <option value="android" disabled>Android — временно недоступен</option>
                     <option value="macos">macOS</option>
                 </select>
+                <p>Android временно недоступен. «Создать все клиенты» собирает Windows x64, Windows x86, Linux и macOS.</p>
+                <div class="build-actions"><button type="submit" name="build_scope" value="single" id="build-single">Собрать клиент</button><button type="submit" name="build_scope" value="all" id="build-all">Создать все клиенты</button></div>
+                <input type="hidden" name="batch_ui_profile" id="batch-ui-profile"><input type="hidden" name="batch_auto_update_enabled" id="batch-auto-update-enabled">
                 <label for="{{ form.version.id_for_label }}">Rustdesk Version:</label>
                 {{ form.version }}
                 <p id="base-version-notice"></p>
@@ -447,11 +454,6 @@
                     {{ form.overrideManual }}<br><br>
             </div>
         </div>
-        <div class="platform">
-            <div class="section">
-                <button type="submit"><i class="fas fa-rocket"></i> Generate Custom Client</button>
-            </div>
-        </div>
         <div style="text-align: center; margin: 30px 0;">
             <a href="https://github.com/bryangerlach/rdgen" 
             target="_blank" 
@@ -470,7 +472,7 @@
         </div>
     </form>
     <script>
-        document.querySelectorAll('.platform-icon').forEach(icon => {
+        document.querySelectorAll('.platform-icon[data-platform]').forEach(icon => {
             icon.addEventListener('click', function() {
                 document.querySelectorAll('.platform-icon').forEach(i => i.classList.remove('active'));
                 this.classList.add('active');
@@ -830,6 +832,7 @@
     <script>{% include "ui-profile.js" %}</script>
     <script>{% include "recent-builds.js" %}</script>
     <script>{% include "updates.js" %}</script>
+    <script>{% include "build-actions.js" %}</script>
     {{ default_config|json_script:"default-config-data" }}
     <script>
     const initialConfiguration = JSON.parse(document.getElementById('default-config-data').textContent);

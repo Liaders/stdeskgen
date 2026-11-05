@@ -36,6 +36,8 @@ urlpatterns = [
     url(r'^desktop/retry$', desktop.retry),
     url(r'^desktop/import$', desktop.import_installer),
     url(r'^desktop/publish$', desktop.publish),
+    url(r'^desktop/publication-plan$', desktop.publication_plan),
+    url(r'^desktop/publish-latest$', desktop.publish_latest),
     url(r'^local-build/(?P<build_id>[0-9a-f-]{36})$', views.local_build_page),
     url(r'^local-build/status/(?P<build_id>[0-9a-f-]{36})$', views.local_build_status_view),
     url(r'^$',views.generator_view),

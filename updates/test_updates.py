@@ -96,8 +96,14 @@ class UpdateTests(unittest.TestCase):
             self.assertTrue(url.endswith('/windows-x64/2/client-windows-x64.exe'))
             public_file = root / 'public' / url.removeprefix('/client/')
             self.assertEqual(public_file.read_bytes(), (root / 'input/client.exe').read_bytes())
+            deploy(root / 'bundle', root / 'public')
+            metadata = root / 'bundle/channels/statusdesk/test/windows-x64.json'
+            changed = json.loads(metadata.read_text())
+            changed['version'] = '1.5.0.1'
+            metadata.write_text(json.dumps(changed))
             with self.assertRaises(ValueError):
                 deploy(root / 'bundle', root / 'public')
+            metadata.write_bytes(previous)
             (root / 'bundle/releases/statusdesk/test/windows-x64/2/client-windows-x64.exe').write_bytes(b'corrupted')
             with self.assertRaises(ValueError):
                 deploy(root / 'bundle', root / 'public')

@@ -53,7 +53,7 @@
         const legacy = el('id_platform').value === 'windows-x86';
         el('ui-customization').hidden = legacy;
         if (el('visual-customization')) el('visual-customization').hidden = legacy;
-        if (legacy) {enabled.checked=false;raw.value='';updateControls();return true;}
+        if (legacy) {raw.value='';controls.disabled=true;return true;}
 
         updateControls();
         try {
@@ -119,7 +119,7 @@
             el('ui-customization').scrollIntoView({behavior: 'smooth'});
         }
     });
-    window.rdgenUI = {prepare, loadConfig: config => hydrate(config.ui_profile ?? '')};
+    window.rdgenUI = {prepare, batchProfile: () => enabled.checked ? JSON.stringify(readControls()) : '', loadConfig: config => hydrate(config.ui_profile ?? '')};
     hydrate(raw.value);
 })();
 

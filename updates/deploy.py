@@ -35,6 +35,17 @@ def deploy(bundle, root, public_download=False):
         current = root / 'channels' / product / channel / (platform + '.json')
         if current.exists():
             previous = load_manifest(current.read_bytes())
+            if revision == previous['revision'] and manifest == previous:
+                published = root / relative / manifest['filename']
+                with published.open('rb') as stream:
+                    actual = hashlib.file_digest(stream, 'sha256').hexdigest()
+                if actual != digest or published.stat().st_size != manifest['size']:
+                    raise ValueError('Published file integrity mismatch')
+                if channel == 'stable' or public_download:
+                    from download_catalog import update
+                    update(root, platform, url='/client/' + relative.as_posix() + '/' + manifest['filename'], version=manifest['version'])
+                print(f'Already published {product}/{channel} revision {revision}')
+                return
             if revision <= previous['revision']:
                 raise ValueError('Revision must increase; old releases cannot be overwritten')
         target = root / relative
