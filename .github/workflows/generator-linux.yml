@@ -1424,6 +1424,7 @@ jobs:
           retention-days: 14
 
   build-appimage:
+    timeout-minutes: 45
     name: Build appimage ${{ matrix.job.target }}
     needs: [build-rustdesk-linux]
     runs-on: ubuntu-22.04
@@ -1543,8 +1544,18 @@ jobs:
             </svg>
             EOF
 
-      - name: Build AppImage
+      - name: Configure bounded Ubuntu package downloads
+        timeout-minutes: 2
         shell: bash
+        run: |
+          printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          printf '%s\n' 'Acquire::Retries "2";' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80rdgen-network >/dev/null
+
+      - name: Build AppImage
+        timeout-minutes: 25
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           if [ "${{ env.appname }}" != "rustdesk" ] && [ "${{ env.appname }}" != "RustDesk" ]; then
             # The recipe's script does `bsdtar -zxvf rustdesk.deb`, so after the sed
