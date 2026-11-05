@@ -2,6 +2,8 @@ import importlib.util
 from pathlib import Path
 import subprocess
 import tempfile
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
 import unittest
 
 spec = importlib.util.spec_from_file_location('profile', Path(__file__).with_name('apply_profile.py'))
@@ -14,15 +16,25 @@ class ProfileTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = Path(__file__).resolve().parents[2] / 'rustdesk'
-            for name in ('common.dart', 'common/widgets/peer_tab_page.dart', 'common/widgets/my_group.dart', 'common/widgets/address_book.dart', 'models/group_model.dart', 'common/widgets/peer_card.dart'):
+            for name in ('common.dart', 'common/widgets/peer_tab_page.dart', 'common/widgets/my_group.dart', 'common/widgets/address_book.dart', 'models/peer_tab_model.dart', 'models/group_model.dart', 'common/widgets/peer_card.dart'):
                 target = root / 'flutter/lib' / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(subprocess.check_output(['git', '-c', f'safe.directory={source.as_posix()}', '-C', str(source), 'show', f'HEAD:flutter/lib/{name}']))
-            profile = {'schema_version': 1, 'accent': '#123456', 'navigation': 'text', 'group_width': 280, 'device_names': True, 'resizable_panels': True}
+            target = root / 'src/lang/ru.rs'
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(subprocess.check_output(['git', '-c', f'safe.directory={source.as_posix()}', '-C', str(source), 'show', 'HEAD:src/lang/ru.rs']))
+            profile = {'schema_version': 1, 'accent': '#123456', 'navigation': 'text', 'group_width': 280, 'device_names': True, 'resizable_panels': True, 'colleagues': True}
             module.apply(root, '1.5.0', profile)
             self.assertIn('accent = Color(0xFF123456)', (root / 'flutter/lib/common.dart').read_text())
             self.assertIn('initialWidth: 280,', (root / 'flutter/lib/common/widgets/my_group.dart').read_text())
             self.assertIn('child: Text(model.tabTooltip(t)', (root / 'flutter/lib/common/widgets/peer_tab_page.dart').read_text())
+            colleagues = (root / 'flutter/lib/common/widgets/rdgen_colleagues.dart').read_text(encoding='utf-8')
+            self.assertNotIn('_buildDeviceGroupItem', colleagues)
+            self.assertNotIn('gFFI.groupModel.selectedAccessibleItemName', colleagues)
+            self.assertIn('MyGroupPeerCard(', colleagues)
+            self.assertIn('rdgen-panel-colleagues-width-v1', colleagues)
+            self.assertEqual(colleagues.count("key: ValueKey('$selected/$search')"), 2)
+            self.assertNotIn('gFFI.groupModel.searchAccessibleItemNameText', colleagues)
             before = {p: p.read_bytes() for p in root.rglob('*.dart')}
             with self.assertRaises(ValueError):
                 module.apply(root, '1.5.0', profile)

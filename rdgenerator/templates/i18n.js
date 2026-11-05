@@ -1,5 +1,6 @@
 (() => {
     const ru = {
+        'Colleagues tab (server-visible users)':'Вкладка «Коллеги» (пользователи, доступные через сервер)',
         'RustDesk Custom Client Builder':'Конструктор клиента RustDesk',
         'Save/Load Configuration':'Сохранение и загрузка конфигурации','Save Configuration':'Сохранить конфигурацию','Load Configuration':'Загрузить конфигурацию',
         'Select Platform':'Платформа','Windows 64Bit':'Windows 64 бита','Windows 32Bit':'Windows 32 бита','Rustdesk Version:':'Версия RustDesk:','nightly':'Тестовая (nightly)',

@@ -10,7 +10,7 @@ SUPPORTED_VERSION = "1.5.0"
 def apply(root, version, profile, check=False):
     if version != SUPPORTED_VERSION:
         raise ValueError(f"UI customization is not supported for RustDesk {version}")
-    allowed = {"schema_version", "accent", "button", "navigation", "group_width", "address_book_width", "device_names", "resizable_panels"}
+    allowed = {"schema_version", "accent", "button", "navigation", "group_width", "address_book_width", "device_names", "resizable_panels", "colleagues"}
     if set(profile) - allowed:
         raise ValueError("Unknown profile fields: " + ", ".join(sorted(set(profile) - allowed)))
     if type(profile.get("schema_version")) is not int or profile["schema_version"] != 1:
@@ -182,6 +182,11 @@ def apply(root, version, profile, check=False):
     return true;
   }
   if (peer.alias.toLowerCase().contains(searchText)) {""")
+    if "colleagues" in profile and type(profile["colleagues"]) is not bool:
+        raise ValueError("colleagues must be boolean")
+    if profile.get("colleagues", False):
+        from colleagues import add_colleagues
+        add_colleagues(root, edits, replace, profile)
     # Validate all anchors and inputs before writing any source file.
     if not check:
         for path, text in edits.items():

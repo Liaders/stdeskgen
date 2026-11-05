@@ -6,5 +6,6 @@
   "navigation": "text",
   "group_width": 260,
   "address_book_width": 260,
-  "resizable_panels": true
+  "resizable_panels": true,
+  "colleagues": true
 }

@@ -11,7 +11,7 @@ def validate_profile(raw, version, platform="windows", selfhosted=False):
         raise ValueError("UI profile must be a JSON object")
     if version != "1.5.0" or platform not in ("windows", "linux", "macos") or selfhosted:
         raise ValueError("UI profiles support RustDesk 1.5.0 on Windows x64, Linux and macOS. Windows x86 uses Sciter and requires a separate UI adapter.")
-    allowed = {"schema_version", "accent", "button", "navigation", "group_width", "address_book_width", "device_names", "resizable_panels"}
+    allowed = {"schema_version", "accent", "button", "navigation", "group_width", "address_book_width", "device_names", "resizable_panels", "colleagues"}
     if set(profile) - allowed:
         raise ValueError("Unknown UI profile fields: " + ", ".join(sorted(set(profile) - allowed)))
     if type(profile.get("schema_version")) is not int or profile["schema_version"] != 1:
@@ -28,4 +28,6 @@ def validate_profile(raw, version, platform="windows", selfhosted=False):
         raise ValueError("device_names must be boolean")
     if "resizable_panels" in profile and type(profile["resizable_panels"]) is not bool:
         raise ValueError("resizable_panels must be boolean")
+    if "colleagues" in profile and type(profile["colleagues"]) is not bool:
+        raise ValueError("colleagues must be boolean")
     return profile

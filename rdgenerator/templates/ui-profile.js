@@ -6,7 +6,7 @@
     const status = el('ui-status');
     const defaults = {accent: '#0071FF', button: '#2C8CFF'};
     let rawError = '';
-    const allowed = ['schema_version', 'accent', 'button', 'navigation', 'group_width', 'address_book_width', 'device_names', 'resizable_panels'];
+    const allowed = ['schema_version', 'accent', 'button', 'navigation', 'group_width', 'address_book_width', 'device_names', 'resizable_panels', 'colleagues'];
     const supported = () => ['windows', 'linux', 'macos'].includes(el('id_platform').value) && el('id_version').value === '1.5.0';
 
     function validate(profile) {
@@ -23,6 +23,7 @@
         }
         if ('navigation' in profile && !['icons', 'text'].includes(profile.navigation)) throw Error('Navigation must be icons or text.');
         if ('device_names' in profile && typeof profile.device_names !== 'boolean') throw Error('device_names must be true or false.');
+        if ('colleagues' in profile && typeof profile.colleagues !== 'boolean') throw Error('colleagues must be true or false.');
         if ('resizable_panels' in profile && typeof profile.resizable_panels !== 'boolean') throw Error('resizable_panels must be true or false.');
         return profile;
     }
@@ -37,7 +38,7 @@
     }
 
     function readControls() {
-        const profile = {schema_version: 1, navigation: el('ui-navigation').value, device_names: el('ui-device-names').checked, resizable_panels: el('ui-resizable-panels').checked};
+        const profile = {schema_version: 1, navigation: el('ui-navigation').value, device_names: el('ui-device-names').checked, colleagues: el('ui-colleagues').checked, resizable_panels: el('ui-resizable-panels').checked};
         for (const key of ['accent', 'button']) {
             if (el(`ui-${key}-enabled`).checked) profile[key] = el(`ui-${key}-hex`).value.trim();
         }
@@ -77,6 +78,7 @@
                 el(`ui-${key}`).value = profile[key] || defaults[key];
             }
             el('ui-navigation').value = profile.navigation || 'icons';
+            el('ui-colleagues').checked = profile.colleagues || false;
             el('ui-device-names').checked = profile.device_names || false;
             el('ui-resizable-panels').checked = profile.resizable_panels || false;
             el('ui-group-width').value = profile.group_width ?? '';
