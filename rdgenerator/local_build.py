@@ -135,9 +135,10 @@ def dispatch_local(inputs, images, version, app_version='', platform='windows'):
         _request(session, 'PUT', '/contents/build-input.zip', json={'message': 'Encrypted input for local build ' + build_id,
             'branch': branch, 'content': base64.b64encode(payload).decode()})
         _save(record)
+        dispatch_inputs={'version':version,'app_version':app_version,'config_ref':branch,'config_secret':secret,'request_id':build_id}
+        if platform=='android': dispatch_inputs['architecture']=inputs.get('android_architecture') or 'all'
         details = _request(session, 'POST', f'/actions/workflows/{workflow}/dispatches', json={
-            'ref': settings.GHBRANCH, 'inputs': {'version': version, 'app_version': app_version,
-                'config_ref': branch, 'config_secret': secret, 'request_id': build_id}, 'return_run_details': True})
+            'ref': settings.GHBRANCH, 'inputs':dispatch_inputs, 'return_run_details':True})
         record['run_id'] = details.get('workflow_run_id')
         record['log_url'] = details.get('html_url') or record['log_url']
         _save(record)

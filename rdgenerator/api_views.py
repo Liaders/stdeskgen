@@ -61,6 +61,7 @@ def validate_generate_params(data):
     # Choice fields
     choice_validations = {
         'platform': (PLATFORM_CHOICES, 'windows'),
+        'android_architecture': (['all','arm64','armv7','x64'],'all'),
         'version': (VERSION_CHOICES, '1.5.0'),
         'direction': (DIRECTION_CHOICES, 'both'),
         'installation': (INSTALLATION_CHOICES, 'installationY'),

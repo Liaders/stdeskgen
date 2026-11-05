@@ -38,6 +38,8 @@ class GenerateForm(forms.Form):
     ], initial='settingsY')
     androidappid = forms.CharField(label="Custom Android App ID (replaces 'com.carriez.flutter_hbb')", required=False)
 
+    android_architecture = forms.ChoiceField(required=False,choices=[('all','Все: ARM64, ARMv7, x86_64'),('arm64','ARM64 — современные телефоны'),('armv7','ARMv7 — старые 32-битные устройства'),('x64','x86_64 — эмуляторы')],initial='all')
+
     #Custom Server
     serverIP = forms.CharField(label="Host", required=False)
     serverPort = forms.CharField(label="Port", required=False)

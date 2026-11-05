@@ -2,6 +2,7 @@
     const el=id=>document.getElementById(id), toggle=el('id_auto_update_enabled'), raw=el('id_updates_config');
     let channel=raw.value || '';
     function sync(){
+        el('android-architecture').hidden=el('id_platform').value!=='android';
         if(raw.value)channel=raw.value;
         let reason='';
         if(!['windows','windows-x86'].includes(el('id_platform').value))reason='Для Linux/macOS/Android доступна ручная загрузка; автообновление пока поддерживает только Windows.';

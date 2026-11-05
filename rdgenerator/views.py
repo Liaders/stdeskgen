@@ -343,6 +343,7 @@ def generate_custom_client(params, full_url):
         "filename":filename
     }
 
+    if platform=='android': inputs_raw['android_architecture']=params.get('android_architecture') or 'all'
     if updates_config:
         inputs_raw['stdesk_update_b64'] = base64.b64encode(json.dumps(updates_config).encode('utf-8')).decode('ascii')
     if ui_profile is not None:
