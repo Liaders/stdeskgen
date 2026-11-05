@@ -25,17 +25,23 @@ try {
     $env:PYTHONUTF8 = '1'
     if (-not $env:GHUSER) { $env:GHUSER = 'Liaders' }
     if (-not $env:REPONAME) { $env:REPONAME = 'stdeskgen' }
+    $expectedRevision = (& $python -c 'from rdgenerator.constructor_version import revision; print(revision())').Trim()
+    if ($LASTEXITCODE -ne 0 -or $expectedRevision -notmatch '^[0-9a-f]{64}$') { throw 'Не удалось определить версию конструктора.' }
     $url = 'http://127.0.0.1:8765'
     $ready = $false
-    try { $health = Invoke-RestMethod "$url/desktop/status" -TimeoutSec 2; $ready = $health.desktop_api -eq 1 } catch {}
+    $health = $null
+    try { $health = Invoke-RestMethod "$url/desktop/status" -TimeoutSec 2; $ready = $health.desktop_api -eq 1 -and $health.constructor_revision -eq $expectedRevision } catch {}
     if (-not $ready) {
         $occupied = Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction SilentlyContinue
-        if ($occupied) { throw 'Порт 8765 занят прежним конструктором. Закройте его окно CMD и запустите это приложение снова.' }
+        if ($occupied) {
+            if ($health.desktop_api -eq 1) { throw 'Работает прежняя версия сервера конструктора. Закройте окно конструктора и запустите restart-desktop.cmd из папки rdgen.' }
+            throw 'Порт 8765 занят другим приложением. Освободите порт и повторите запуск.'
+        }
         & $python manage.py migrate --noinput *> (Join-Path $state 'migrate.log')
         if ($LASTEXITCODE -ne 0) { throw 'Не удалось подготовить базу. См. .desktop/migrate.log.' }
         $server = Start-Process -FilePath $python -ArgumentList @('manage.py','runserver','127.0.0.1:8765','--noreload') -WorkingDirectory $PSScriptRoot -WindowStyle Hidden -RedirectStandardOutput (Join-Path $state 'server.log') -RedirectStandardError (Join-Path $state 'server-error.log') -PassThru
         for ($attempt=0; $attempt -lt 45; $attempt++) {
-            try { $health = Invoke-RestMethod "$url/desktop/status" -TimeoutSec 1; if ($health.desktop_api -eq 1) { $ready=$true; break } } catch {}
+            try { $health = Invoke-RestMethod "$url/desktop/status" -TimeoutSec 1; if ($health.desktop_api -eq 1 -and $health.constructor_revision -eq $expectedRevision) { $ready=$true; break } } catch {}
             if ($server.HasExited) { break }
             Start-Sleep -Milliseconds 500
         }

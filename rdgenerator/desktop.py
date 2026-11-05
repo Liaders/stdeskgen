@@ -16,6 +16,9 @@ from django.views.decorators.http import require_POST
 from .build_downloads import library, library_root, find_installer, detect_platform
 from .build_monitor import start
 from .local_build import recent_local_builds, get_local_record, _save
+from .constructor_version import revision
+
+_constructor_revision = revision()
 
 _task = {'state': 'idle', 'message': ''}
 _task_lock = threading.Lock()
@@ -28,7 +31,7 @@ def local(request):
 def status(request):
     if not local(request): return HttpResponseForbidden('Local only')
     start()
-    return JsonResponse({'desktop_api': 1, 'download_directory': str(library_root()), 'publication': dict(_task)})
+    return JsonResponse({'desktop_api': 1, 'constructor_revision': _constructor_revision, 'download_directory': str(library_root()), 'publication': dict(_task)})
 
 
 def builds(request):
