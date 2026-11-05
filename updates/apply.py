@@ -9,12 +9,20 @@ from config import validate
 
 
 def apply(root, config, platform='windows'):
-    config = validate(config, platform=platform)
+    if config in (None, ''):
+        return
+    cargo = (root / 'Cargo.toml').read_text(encoding='utf-8')
+    match = re.search(r'^version = "([^"]+)"', cargo, re.M)
+    if not match:
+        raise ValueError('Cannot determine upstream RustDesk version')
+    version = match[1]
+    config = validate(config, version=version, platform=platform)
     if config is None:
         return
     updater = root / 'src/updater.rs'
     source = updater.read_text(encoding='utf-8')
-    anchor = '    if do_check_software_update().is_err() {'
+    anchor = ('    if do_check_software_update().is_err() {' if version == '1.5.0'
+              else '    do_check_software_update()?;')
     if source.count(anchor) != 1 or 'mod rdgen_update' in source:
         raise ValueError('Incompatible or already customized updater source')
     common = root / 'src/common.rs'
@@ -25,6 +33,9 @@ def apply(root, config, platform='windows'):
     module = Path(__file__).with_name('client.rs').read_text(encoding='utf-8')
     target_platform = 'windows-x86' if platform == 'windows-x86' else 'windows-x64'
     module = module.replace('@PLATFORM@', json.dumps(target_platform))
+    install_call = ('super::update_new_version(false, &release.version, &path);' if version == '1.5.0'
+                    else 'super::update_new_version(false, &release.version, &path, &release.sha256);')
+    module = module.replace('@INSTALL_VERIFIED_UPDATE@', install_call)
     for name, field in [('BASE', 'base_url'), ('PRODUCT', 'product'), ('CHANNEL', 'channel'), ('REVISION', 'revision')]:
         module = module.replace('@' + name + '@', json.dumps(config[field]))
     hook = '#[cfg(target_os = "windows")]\n#[path = "rdgen_update.rs"]\nmod rdgen_update;\n'

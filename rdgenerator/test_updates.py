@@ -30,8 +30,8 @@ class UpdateChannelTests(SimpleTestCase):
     @patch('rdgenerator.views.dispatch_local', return_value={'success': True})
     def test_channel_enables_updates_by_default_and_respects_explicit_setting(self, dispatch):
         import base64
-        for manual, expected in (('', 'Y'), ('allow-auto-update=N', 'N')):
-            result = generate_custom_client({'exename': 'StatusDesk', 'updates_config': self.config, 'defaultManual': manual}, 'http://127.0.0.1:8765')
+        for version, manual, expected in (('1.5.0', '', 'Y'), ('1.5.1', '', 'Y'), ('1.5.1', 'allow-auto-update=N', 'N')):
+            result = generate_custom_client({'exename': 'StatusDesk', 'version': version, 'updates_config': self.config, 'defaultManual': manual}, 'http://127.0.0.1:8765')
             self.assertTrue(result['success'])
             custom = json.loads(base64.b64decode(dispatch.call_args.args[0]['custom']))
             self.assertEqual(custom['default-settings']['allow-auto-update'], expected)

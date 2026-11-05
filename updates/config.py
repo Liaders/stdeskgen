@@ -11,8 +11,8 @@ def validate(raw, version='1.5.0', platform='windows'):
     fields = {'base_url', 'product', 'channel', 'revision'}
     if not isinstance(value, dict) or set(value) != fields:
         raise ValueError('Update configuration requires base_url, product, channel and revision')
-    if version != '1.5.0' or platform not in ('windows', 'windows-x86'):
-        raise ValueError('Updates currently support RustDesk 1.5.0 / Windows x64 and x86 only')
+    if version not in ('1.5.0', '1.5.1') or platform not in ('windows', 'windows-x86'):
+        raise ValueError('Updates currently support RustDesk 1.5.0/1.5.1 / Windows x64 and x86 only')
     if any(not isinstance(value[field], str) for field in fields - {'revision'}):
         raise ValueError('Update configuration text fields must be strings')
     url = urlsplit(value['base_url'])

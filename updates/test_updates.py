@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 from pathlib import Path
 import struct
 import subprocess
@@ -63,15 +64,19 @@ class UpdateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source = Path(__file__).resolve().parents[2] / 'rustdesk'
-            for file in ('src/updater.rs', 'src/common.rs'):
+            for file in ('src/updater.rs', 'src/common.rs', 'Cargo.toml'):
                 target = root / file
                 target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(subprocess.check_output(['git', '-c', f'safe.directory={source.as_posix()}', '-C', str(source), 'show', f'HEAD:{file}']))
+                target.write_bytes(subprocess.check_output(['git', '-c', f'safe.directory={source.as_posix()}', '-C', str(source), 'show', os.environ.get('RUSTDESK_TEST_REF', 'HEAD') + ':' + file]))
             before = (root / 'src/updater.rs').read_bytes()
             adapter.apply(root, None)
             self.assertEqual(before, (root / 'src/updater.rs').read_bytes())
             adapter.apply(root, self.config)
             self.assertIn('return rdgen_update::check();', (root / 'src/updater.rs').read_text())
+            generated = (root / 'src/rdgen_update.rs').read_text()
+            self.assertNotIn('@INSTALL_VERIFIED_UPDATE@', generated)
+            if 'version = "1.5.1"' in (root / 'Cargo.toml').read_text():
+                self.assertIn('&path, &release.sha256)', generated)
             after = (root / 'src/updater.rs').read_bytes()
             with self.assertRaises(ValueError):
                 adapter.apply(root, self.config)
@@ -97,6 +102,27 @@ class UpdateTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 deploy(root / 'bundle', root / 'public')
             self.assertEqual(previous, channel.read_bytes())
+
+    @unittest.skipIf(sys.platform == 'win32', 'Apache publication uses Linux file locking')
+    def test_new_upstream_base_replaces_channel_and_download_with_same_binary(self):
+        from deploy import deploy
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = self.source(root)
+            receipt_path = source / 'stdesk-update-build.json'
+            for version, revision in (('1.5.0.3', 281496451547139), ('1.5.1.1', 281496451612673)):
+                receipt = json.loads(receipt_path.read_text())
+                receipt.update(version=version, revision=revision)
+                receipt_path.write_text(json.dumps(receipt))
+                bundle = root / version
+                prepare(source, bundle, 'StatusDesk', version, '123', 'abc')
+                deploy(bundle, root / 'public', public_download=True)
+            channel = load_manifest((root/'public/channels/statusdesk/test/windows-x64.json').read_bytes())
+            catalog = json.loads((root/'public/downloads.json').read_text())['items']['windows-x64']
+            self.assertEqual(channel['version'], '1.5.1.1')
+            self.assertEqual(catalog['version'], channel['version'])
+            self.assertIn('/'+str(channel['revision'])+'/', catalog['url'])
+            self.assertEqual((root/'public'/catalog['url'].removeprefix('/client/')).read_bytes(), (source/'client.exe').read_bytes())
 
     @unittest.skipIf(sys.platform == 'win32', 'Apache publication uses Linux file locking')
     def test_x86_and_x64_same_revision_use_separate_files_and_channels(self):

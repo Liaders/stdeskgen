@@ -32,3 +32,7 @@ jobs:
         run: python generator/customization/apply_profile.py --source rustdesk --version '${{ matrix.source.version }}' --profile generator/customization/example.json --check
       - name: Test display versions and disabling upstream notifications
         run: python -m unittest discover -s generator/customization -p test_version.py
+      - name: Test independent update adapter and publication
+        env:
+          RUSTDESK_TEST_REF: ${{ matrix.source.ref }}
+        run: python -m unittest discover -s generator/updates -p test_updates.py

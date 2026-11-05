@@ -78,7 +78,7 @@ pub(super) fn check() -> ResultType<()> {
             || !config::Config::get_bool_option(base::config::keys::OPTION_ALLOW_AUTO_UPDATE) {
             return Ok(());
         }
-        super::update_new_version(false, &release.version, &path);
+        @INSTALL_VERIFIED_UPDATE@
         Ok(())
     })();
     if result.is_err() {

@@ -838,10 +838,7 @@
         try{const r=await fetch('/desktop/next-version?base='+encodeURIComponent(base));if(r.ok)document.getElementById('client-version-preview').textContent=(await r.json()).version+' (авто)';}catch{}
     }
     function versionChanged(){
-        const latest=document.getElementById('id_version').value==='1.5.1';
-        document.getElementById('base-version-notice').textContent=latest?'RustDesk 1.5.1: сборка и ручная публикация доступны. Автообновление требует адаптации нового штатного механизма.':'';
-        document.getElementById('configure-auto-update').disabled=latest;
-        if(latest)document.getElementById('id_updates_config').value='';
+        document.getElementById('base-version-notice').textContent='Наш канал автообновлений доступен для Windows x64/x86 на базе RustDesk 1.5.0 и 1.5.1.';
         showClientVersion();
     }
     document.getElementById('id_version').addEventListener('change',versionChanged);
