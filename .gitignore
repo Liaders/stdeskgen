@@ -10,3 +10,4 @@ gunicorn.conf
 .local-update-keys/
 .local-update-bundles/
 !updates/logo.png
+.local-publish.json
