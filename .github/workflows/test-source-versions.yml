@@ -36,7 +36,7 @@ jobs:
         working-directory: rustdesk
         run: git submodule update --init libs/hbb_common
       - name: Test Android configuration and package versions
-        run: python -m unittest discover -s generator/customization -p test_android.py
+        run: python -m unittest discover -s generator/customization -p 'test_android*.py'
       - name: Test Sciter account response and Windows window icon
         run: python -m unittest discover -s generator/customization -p test_sciter_compat.py
       - name: Test independent update adapter and publication

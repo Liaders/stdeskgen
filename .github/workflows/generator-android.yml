@@ -176,7 +176,7 @@ jobs:
         '
     - name: Build APK for local signing
       working-directory: flutter
-      run: 'flutter build apk --release --target-platform "${{ matrix.flutter_target }}" --split-per-abi --build-name "$stdesk_display_version" --build-number "$stdesk_android_version_code"
+      run: 'flutter build apk --release --target-platform "${{ matrix.flutter_target }}" --build-name "$stdesk_display_version" --build-number "$stdesk_android_version_code"
 
         '
     - name: Collect and audit unsigned APK
