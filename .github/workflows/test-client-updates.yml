@@ -32,3 +32,5 @@ jobs:
           docker run --rm
           -v "$PWD/generator/updates/apache-client.conf:/usr/local/apache2/conf/extra/stdesk-client.conf:ro"
           httpd:2.4 httpd -t -C 'Include conf/extra/stdesk-client.conf'
+      - name: Test supplied desk.status16.ru VirtualHost
+        run: python generator/updates/test_apache_vhost.py
