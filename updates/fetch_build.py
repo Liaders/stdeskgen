@@ -41,7 +41,7 @@ def fetch(run_id, output, session=None, repository=None):
             if item.filename == 'stdesk-update-build.json' or item.filename.endswith('.exe'):
                 (output / item.filename).write_bytes(archive.read(item))
     if not (output / 'stdesk-update-build.json').exists():
-        raise ValueError('This client was built without the signed update channel; rebuild it first')
+        raise ValueError('This client was built without the update channel; rebuild it first')
     if os.environ.get('GITHUB_OUTPUT'):
         with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as stream:
             stream.write(f"commit={run['head_sha']}\n")

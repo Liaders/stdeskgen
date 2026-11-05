@@ -23,7 +23,7 @@ def apply(root, config):
     if common_source.count(stock_check) != 1:
         raise ValueError('Incompatible upstream update check')
     module = Path(__file__).with_name('client.rs').read_text(encoding='utf-8')
-    for name, field in [('BASE', 'base_url'), ('KEY', 'public_key'), ('PRODUCT', 'product'), ('CHANNEL', 'channel'), ('REVISION', 'revision')]:
+    for name, field in [('BASE', 'base_url'), ('PRODUCT', 'product'), ('CHANNEL', 'channel'), ('REVISION', 'revision')]:
         module = module.replace('@' + name + '@', json.dumps(config[field]))
     hook = '#[cfg(target_os = "windows")]\n#[path = "rdgen_update.rs"]\nmod rdgen_update;\n'
     source = hook + source.replace(anchor, '    #[cfg(target_os = "windows")]\n    return rdgen_update::check();\n\n' + anchor, 1)
@@ -31,8 +31,8 @@ def apply(root, config):
     source = source.replace('&format!("{} --update", p)', '&format!("\\\"{}\\\" --update", p)')
     (root / 'src/rdgen_update.rs').write_text(module, encoding='utf-8')
     updater.write_text(source, encoding='utf-8')
-    common.write_text(common_source.replace(stock_check, stock_check + '\n    return Ok(()); // The signed StatusDesk updater owns this build.', 1), encoding='utf-8')
-    receipt = {**config, 'schema': 1, 'platform': 'windows-x64'}
+    common.write_text(common_source.replace(stock_check, stock_check + '\n    return Ok(()); // The StatusDesk updater owns this build.', 1), encoding='utf-8')
+    receipt = {**config, 'schema': 2, 'platform': 'windows-x64'}
     (root / 'stdesk-update-build.json').write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
 
 

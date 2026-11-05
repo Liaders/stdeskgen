@@ -8,8 +8,8 @@ from .forms import GenerateForm
 from .views import generate_custom_client
 
 
-class SignedUpdateTests(SimpleTestCase):
-    config = {'base_url': 'https://desk.status16.ru/client', 'public_key': 'ab' * 32,
+class UpdateChannelTests(SimpleTestCase):
+    config = {'base_url': 'https://desk.status16.ru/client',
               'product': 'statusdesk', 'channel': 'test', 'revision': 1}
 
     def test_form_and_api_preserve_optional_config(self):

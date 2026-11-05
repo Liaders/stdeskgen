@@ -1,4 +1,4 @@
-"""Publish a verified bundle locally on the Apache host. Run as its deployment user."""
+"""Publish an update bundle locally on the Apache host. Run as its deployment user."""
 import argparse
 import fcntl
 import json
@@ -7,10 +7,10 @@ from pathlib import Path
 import shutil
 import uuid
 
-from release import verify_envelope
+from release import load_manifest
 
 
-def deploy(bundle, root, public_key):
+def deploy(bundle, root):
     root.mkdir(parents=True, exist_ok=True)
     with (root / '.publish.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -18,7 +18,7 @@ def deploy(bundle, root, public_key):
         if len(channels) != 1:
             raise ValueError('Expected one channel per bundle')
         data = channels[0].read_bytes()
-        manifest = verify_envelope(data, public_key)
+        manifest = load_manifest(data)
         product, channel, revision = manifest['product'], manifest['channel'], manifest['revision']
         import re
         if any(not re.fullmatch('[a-z][a-z0-9-]{0,47}', value) for value in (product, channel)) or type(revision) is not int or revision < 1:
@@ -30,10 +30,10 @@ def deploy(bundle, root, public_key):
         with binary.open('rb') as stream:
             digest = hashlib.file_digest(stream, 'sha256').hexdigest()
         if digest != manifest['sha256'] or binary.stat().st_size != manifest['size']:
-            raise ValueError('Bundle binary does not match signed metadata')
+            raise ValueError('Bundle binary does not match metadata')
         current = root / 'channels' / product / channel / 'windows-x64.json'
         if current.exists():
-            previous = verify_envelope(current.read_bytes(), public_key)
+            previous = load_manifest(current.read_bytes())
             if revision <= previous['revision']:
                 raise ValueError('Revision must increase; old releases cannot be overwritten')
         target = root / relative
@@ -69,6 +69,5 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--bundle', type=Path, required=True)
     parser.add_argument('--root', type=Path, required=True)
-    parser.add_argument('--public-key-file', type=Path, required=True)
     args = parser.parse_args()
-    deploy(args.bundle, args.root, args.public_key_file.read_text().strip())
+    deploy(args.bundle, args.root)

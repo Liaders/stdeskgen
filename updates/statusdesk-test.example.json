@@ -1,6 +1,5 @@
 {
   "base_url": "https://desk.status16.ru/client",
-  "public_key": "e47fc0f72238f77532df41dec1eecc30080e9ea357b79962086a907e13de9a41",
   "product": "statusdesk",
   "channel": "test",
   "revision": 1

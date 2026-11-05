@@ -26,7 +26,7 @@ def upload(bundle):
         subprocess.run(['ssh', *options, remote, 'mkdir -m 700 ' + shlex.quote(path)], check=True)
         subprocess.run(['scp', *options, '-r', str(bundle) + '/.', remote + ':' + path + '/'], check=True)
         command = ('python3 /srv/stdesk-updates/bin/deploy.py --bundle ' + shlex.quote(path)
-                   + ' --root /srv/stdesk-updates/public --public-key-file /srv/stdesk-updates/public-key.hex')
+                   + ' --root /srv/stdesk-updates/public')
         subprocess.run(['ssh', *options, remote, command], check=True)
 
 

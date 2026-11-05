@@ -154,7 +154,7 @@ jobs:
         shell: pwsh
         run: Copy-Item -Recurse customization "$env:RUNNER_TEMP/rdgen-ui"
 
-      - name: Preserve signed update adapter
+      - name: Preserve update adapter
         if: ${{ env.stdesk_update_b64 != '' }}
         shell: pwsh
         run: Copy-Item -Recurse updates "$env:RUNNER_TEMP/stdesk-updates"
@@ -205,7 +205,7 @@ jobs:
             --update-url "${{ env.downloadLink}}/api/version/latest" \
             --ed25519-public-key "${{ env.update_public_key }}"
 
-      - name: Apply signed StatusDesk updater
+      - name: Apply StatusDesk updater
         if: ${{ env.stdesk_update_b64 != '' }}
         shell: pwsh
         run: |

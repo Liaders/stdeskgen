@@ -16,7 +16,7 @@ def main():
         public = root / 'public'
         public.mkdir(mode=0o755)
         samples = {
-            '/client/windows-x64.json': b'{"payload":"CortenDesk RustDesk", "signature":"unchanged"}',
+            '/client/windows-x64.json': b'{"app_name":"CortenDesk RustDesk", "schema":2}',
             '/client/client-windows-x64.exe': b'MZ\x00CortenDesk\x00RustDesk\xff',
             '/client/branding.html': b'<html>CortenDesk RustDesk</html>',
         }
