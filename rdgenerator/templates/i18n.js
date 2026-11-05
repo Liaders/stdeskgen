@@ -2,7 +2,7 @@
     const ru = {
         'StatusDesk updates':'Обновления StatusDesk',
         'Update channel configuration (JSON; leave empty to disable)':'Конфигурация канала обновлений (JSON; пусто — выключено)',
-        'Installed Windows x64 clients only. Increase the revision for each release.':'Только установленные клиенты Windows x64. Повышайте ревизию при каждом выпуске.',
+        'Installed Windows x64/x86 clients only. Increase the revision for each release.':'Только установленные клиенты Windows x64/x86. Повышайте ревизию при каждом выпуске.',
         'Example configuration':'Пример конфигурации',
         'Colleagues tab (server-visible users)':'Вкладка «Коллеги» (пользователи, доступные через сервер)',
         'RustDesk Custom Client Builder':'Конструктор клиента RustDesk',

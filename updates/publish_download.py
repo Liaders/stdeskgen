@@ -14,11 +14,28 @@ EXTENSIONS = {'windows-x64': {'.exe'}, 'windows-x86': {'.exe'},
               'macos-x64': {'.dmg'}, 'macos-arm64': {'.dmg'}}
 
 
-def publish(root, source, platform, version):
+def publish(root, source, platform, version, receipt=None):
     if platform not in EXTENSIONS or source.suffix not in EXTENSIONS[platform] or not version.strip():
         raise ValueError('Choose a supported platform, installer extension and version')
     if not source.is_file() or not 0 < source.stat().st_size <= 512 * 1024 * 1024:
         raise ValueError('Expected an installer of at most 512 MB')
+    if receipt:
+        import json
+        import tempfile
+        from release import prepare
+        from deploy import deploy
+        metadata = json.loads(receipt.read_text(encoding='utf-8'))
+        if metadata.get('platform') != platform or metadata.get('version') != version:
+            raise ValueError('Platform/version must match the compiled build receipt')
+        with tempfile.TemporaryDirectory(prefix='stdesk-release-') as temporary:
+            base = Path(temporary)
+            folder = base / 'input'
+            folder.mkdir()
+            shutil.copyfile(source, folder / source.name)
+            shutil.copyfile(receipt, folder / 'stdesk-update-build.json')
+            prepare(folder, base / 'bundle', metadata['app_name'], version, metadata.get('run_id', 'desktop'), metadata.get('commit', 'desktop'))
+            deploy(base / 'bundle', root, public_download=True)
+        return
     root.mkdir(parents=True, exist_ok=True)
     with (root / '.publish.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -45,5 +62,6 @@ if __name__ == '__main__':
     parser.add_argument('--file', type=Path, required=True)
     parser.add_argument('--platform', choices=EXTENSIONS, required=True)
     parser.add_argument('--version', required=True)
+    parser.add_argument('--receipt', type=Path)
     args = parser.parse_args()
-    publish(args.root, args.file, args.platform, args.version)
+    publish(args.root, args.file, args.platform, args.version, args.receipt)

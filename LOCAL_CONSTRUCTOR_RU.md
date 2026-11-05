@@ -21,3 +21,7 @@
 Локальный transport подключён к Windows x86, Linux (x64/ARM64) и macOS (Intel/Apple Silicon). Сценарии требуют проверки реальными сборками. Профиль Flutter разрешён для Windows x64/Linux/macOS. Windows x86 использует Sciter, поэтому Flutter-профиль для него явно отклоняется; логотип и экран приватности тоже пока недоступны в этом сценарии, иконка поддерживается.
 
 В x86 workflow применён путь текущего upstream RustDesk: i686-host nightly Rust вместе с 32-битным LLVM, без прежнего смешения x64 build scripts и ручного пути libsodium. Sciter зафиксирован на upstream commit, portable packer собирается с явным target i686. После сборки проверяются PE32/i386 основной программы, sciter.dll и итогового EXE. Проверка архитектуры не заменяет запуск на настоящей 32-битной Windows.
+# Единое окно
+
+Для конструктора и публикации в одном окне запускайте `start-desktop.cmd`.
+Инструкция: [DESKTOP_RU.md](DESKTOP_RU.md).

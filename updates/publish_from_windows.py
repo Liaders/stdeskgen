@@ -19,8 +19,13 @@ def main():
     parser.add_argument('--file', type=Path, required=True)
     parser.add_argument('--platform', choices=PLATFORMS, required=True)
     parser.add_argument('--version', required=True)
+    parser.add_argument('--receipt', type=Path)
     parser.add_argument('--config', type=Path, default=ROOT / '.local-publish.json')
     args = parser.parse_args()
+    if args.receipt:
+        metadata = json.loads(args.receipt.read_text(encoding='utf-8'))
+        if metadata.get('schema') != 2 or metadata.get('platform') != args.platform or metadata.get('version') != args.version:
+            raise ValueError('Auto-update requires the original receipt for this platform/version')
     config = json.loads(args.config.read_text(encoding='utf-8-sig'))
     host, user, port, key = config['host'], config['user'], config['port'], Path(config['key_file'])
     if not re.fullmatch('[A-Za-z0-9.-]+', host) or not re.fullmatch('[a-z_][a-z0-9_-]*', user) or type(port) is not int or not 1 <= port <= 65535:
@@ -55,17 +60,21 @@ def main():
     installer = staging + '/installer' + source.suffix
     remote('set -e; sudo -n true; python3 -c "import sys; assert sys.version_info >= (3,11), \'Python 3.11+ required\'"; mkdir -m 700 ' + shlex.quote(staging))
     subprocess.run([pscp, *connection, str(source), target + ':' + installer], check=True)
-    for name in ('publish_download.py', 'download_catalog.py'):
+    scripts = ('publish_download.py', 'download_catalog.py', 'deploy.py', 'release.py', 'config.py')
+    for name in scripts:
         subprocess.run([pscp, *connection, str(Path(__file__).with_name(name)), target + ':' + staging + '/' + name], check=True)
+    if args.receipt:
+        subprocess.run([pscp, *connection, str(args.receipt.resolve()), target + ':' + staging + '/stdesk-update-build.json'], check=True)
     check = shlex.quote(digest + '  ' + installer)
     remote("printf '%s\\n' " + check + ' | sha256sum -c -')
     command = ('set -e; sudo -n install -d -m 755 /srv/stdesk-updates/bin; '
-               + 'sudo -n install -m 644 ' + shlex.quote(staging + '/publish_download.py') + ' ' + shlex.quote(staging + '/download_catalog.py') + ' /srv/stdesk-updates/bin/; '
+               + 'sudo -n install -m 644 ' + ' '.join(shlex.quote(staging + '/' + name) for name in scripts) + ' /srv/stdesk-updates/bin/; '
                + 'sudo -n python3 /srv/stdesk-updates/bin/publish_download.py --root /srv/stdesk-updates/public --file '
                + shlex.quote(installer) + ' --platform ' + shlex.quote(args.platform) + ' --version ' + shlex.quote(args.version))
+    if args.receipt: command += ' --receipt ' + shlex.quote(staging + '/stdesk-update-build.json')
     remote(command)
     print(f'Published {args.platform}, version {args.version}. SHA-256: {digest}')
-    print('Open https://desk.status16.ru/client/ to download. Automatic update channel is unchanged.')
+    print('Download page and automatic update use the same published file.' if args.receipt else 'Open https://desk.status16.ru/client/ to download. Automatic update channel is unchanged.')
 
 
 if __name__ == '__main__':

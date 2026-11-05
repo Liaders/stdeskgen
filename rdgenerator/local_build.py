@@ -9,6 +9,7 @@ import secrets
 import shutil
 import subprocess
 import uuid
+import threading
 
 import pyzipper
 import requests
@@ -18,6 +19,9 @@ from nacl.public import PublicKey, SealedBox
 
 class LocalBuildError(Exception):
     pass
+
+
+_status_lock = threading.Lock()
 
 
 def github_session():
@@ -104,6 +108,7 @@ def dispatch_local(inputs, images, version, app_version='', platform='windows'):
         raise LocalBuildError('Unsupported build platform.')
     workflow = workflows[platform]
     record = {'id': build_id, 'branch': branch, 'secret': secret, 'workflow': workflow,
+              'platform': platform, 'filename': inputs.get('filename'), 'version': version, 'app_version': app_version,
               'status': 'queued', 'run_id': None, 'log_url': f'https://github.com/{settings.GHUSER}/{settings.REPONAME}/actions/workflows/{workflow}'}
     created_secret = created_branch = False
     try:
@@ -143,7 +148,12 @@ def dispatch_local(inputs, images, version, app_version='', platform='windows'):
             'platform': platform, 'artifact_label': 'client-' + platform + '-…', 'log_url': record['log_url']}
 
 
-def local_status(build_id):
+def local_status(build_id, download=False):
+    with _status_lock:
+        return _local_status(build_id, download)
+
+
+def _local_status(build_id, download):
     try:
         record = json.loads(_record_path(build_id).read_text(encoding='utf-8'))
     except (ValueError, OSError) as exc:
@@ -158,6 +168,8 @@ def local_status(build_id):
                 record['run_id'] = run['id']
                 record['log_url'] = run['html_url']
                 break
+        if not record['run_id']:
+            record['status'] = 'run_not_found'
     if record['run_id']:
         run = _request(session, 'GET', '/actions/runs/' + str(record['run_id']))
         record['status'] = run['status']
@@ -171,8 +183,16 @@ def local_status(build_id):
                 record['cleaned'] = True
             except LocalBuildError:
                 record['cleanup_pending'] = True
+    if download and record.get('status') == 'completed' and record.get('conclusion') == 'success' and record.get('download_status') != 'completed':
+        from .build_downloads import download_build
+        record['download_status'] = 'downloading'
+        _save(record)
+        try:
+            download_build(record, session, _request)
+        except LocalBuildError as exc:
+            record.update(download_status='error', download_error=str(exc))
     _save(record)
-    return {key: record.get(key) for key in ('id', 'status', 'conclusion', 'log_url', 'cleaned', 'cleanup_pending')}
+    return {key: record.get(key) for key in ('id', 'status', 'conclusion', 'log_url', 'cleaned', 'cleanup_pending', 'download_status', 'download_error', 'download_directory')}
 
 
 def collect_images(params):
@@ -198,12 +218,12 @@ def collect_images(params):
     return images
 
 
-def recent_local_builds():
+def recent_local_builds(limit=10):
     directory = Path(settings.BASE_DIR) / '.local-builds'
     if not directory.exists():
         return []
     builds = []
-    for path in sorted(directory.glob('*.json'), key=lambda p: p.stat().st_mtime, reverse=True)[:10]:
+    for path in sorted(directory.glob('*.json'), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]:
         try:
             builds.append(json.loads(path.read_text(encoding='utf-8')))
         except (OSError, ValueError):

@@ -6,6 +6,7 @@ use std::{fs::OpenOptions, io::{Read, Write}, os::windows::fs::OpenOptionsExt, t
 const BASE: &str = @BASE@;
 const PRODUCT: &str = @PRODUCT@;
 const CHANNEL: &str = @CHANNEL@;
+const PLATFORM: &str = @PLATFORM@;
 const REVISION: u64 = @REVISION@;
 const MAX_FILE: u64 = 512 * 1024 * 1024;
 
@@ -36,17 +37,17 @@ pub(super) fn check() -> ResultType<()> {
         .connect_timeout(Duration::from_secs(20))
         .redirect(reqwest::redirect::Policy::none())
         .build()?;
-    let url = format!("{}/channels/{}/{}/windows-x64.json", BASE, PRODUCT, CHANNEL);
+    let url = format!("{}/channels/{}/{}/{}.json", BASE, PRODUCT, CHANNEL, PLATFORM);
     let response = client.get(url).send()?.error_for_status()?;
     let release: Release = serde_json::from_slice(&read_bounded(response, 64 * 1024)?)?;
     if release.schema != 2 || release.product != PRODUCT || release.channel != CHANNEL
-        || release.platform != "windows-x64" || release.app_name != crate::get_app_name()
+        || release.platform != PLATFORM || release.app_name != crate::get_app_name()
         || release.size == 0 || release.size > MAX_FILE
         || release.sha256.len() != 64
-        || release.filename != "client-windows-x64.exe"
+        || release.filename != format!("client-{}.exe", PLATFORM)
     { bail!("Update metadata does not match this client"); }
     if release.revision <= REVISION { return Ok(()); }
-    let download = format!("{}/releases/{}/{}/{}/{}", BASE, PRODUCT, CHANNEL, release.revision, release.filename);
+    let download = format!("{}/releases/{}/{}/{}/{}/{}", BASE, PRODUCT, CHANNEL, PLATFORM, release.revision, release.filename);
     let response = client.get(download).send()?.error_for_status()?;
     if response.content_length().map(|n| n != release.size).unwrap_or(false) {
         bail!("Update size mismatch");

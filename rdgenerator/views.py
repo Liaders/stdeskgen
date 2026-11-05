@@ -277,6 +277,8 @@ def generate_custom_client(params, full_url):
                 k, value = line.split('=', 1)
                 decodedCustom['override-settings'][k.strip()] = value.strip()
     
+    if updates_config:
+        decodedCustom['default-settings'].setdefault('allow-auto-update', 'Y')
     decodedCustomJson = json.dumps(decodedCustom)
 
     string_bytes = decodedCustomJson.encode("ascii")
@@ -460,6 +462,9 @@ def _get_run_status(uuid_val):
 def generator_view(request):
     if _settings.LOCAL_GITHUB_BUILD and request.META.get('REMOTE_ADDR') not in ('127.0.0.1', '::1'):
         return HttpResponseForbidden('Local constructor only.')
+    if _settings.LOCAL_GITHUB_BUILD:
+        from .build_monitor import start
+        start()
     if request.method == 'POST':
         form = GenerateForm(request.POST, request.FILES)
         if form.is_valid():
@@ -769,7 +774,10 @@ def local_build_status_view(request, build_id):
     if request.META.get('REMOTE_ADDR') not in ('127.0.0.1', '::1'):
         return HttpResponseForbidden('Local constructor only.')
     try:
-        return JsonResponse(local_status(build_id))
+        from .build_monitor import start
+        start()
+        record = get_local_record(build_id)
+        return JsonResponse({key: record.get(key) for key in ('id','status','conclusion','log_url','cleaned','download_status','download_error','download_directory')})
     except LocalBuildError as exc:
         return JsonResponse({'error': str(exc)}, status=502)
 

@@ -23,8 +23,18 @@ class UpdateChannelTests(SimpleTestCase):
         self.assertEqual(json.loads(cleaned['updates_config']), self.config)
 
     def test_reject_unsupported_platform(self):
-        _, errors = validate_generate_params({'exename': 'StatusDesk', 'platform': 'windows-x86', 'updates_config': self.config})
+        _, errors = validate_generate_params({'exename': 'StatusDesk', 'platform': 'linux', 'updates_config': self.config})
         self.assertIn('updates_config', errors)
+
+    @override_settings(LOCAL_GITHUB_BUILD=True, SH_SECRET='unused-test-secret')
+    @patch('rdgenerator.views.dispatch_local', return_value={'success': True})
+    def test_channel_enables_updates_by_default_and_respects_explicit_setting(self, dispatch):
+        import base64
+        for manual, expected in (('', 'Y'), ('allow-auto-update=N', 'N')):
+            result = generate_custom_client({'exename': 'StatusDesk', 'updates_config': self.config, 'defaultManual': manual}, 'http://127.0.0.1:8765')
+            self.assertTrue(result['success'])
+            custom = json.loads(base64.b64decode(dispatch.call_args.args[0]['custom']))
+            self.assertEqual(custom['default-settings']['allow-auto-update'], expected)
 
     @override_settings(LOCAL_GITHUB_BUILD=True, SH_SECRET='unused-test-secret')
     @patch('rdgenerator.views.dispatch_local')

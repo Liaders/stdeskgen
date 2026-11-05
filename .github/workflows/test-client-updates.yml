@@ -24,6 +24,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install local constructor dependencies
+        run: python -m pip install -r generator/requirements.txt
+      - name: Test local status refresh, downloads and desktop publication API
+        run: python generator/manage.py test rdgenerator --noinput
       - name: Test update packages, deployment and source adapter
         run: python -W error::ResourceWarning -m unittest discover -s generator/updates -p 'test_*.py'
       - name: Validate Apache channel configuration

@@ -8,8 +8,8 @@ from pathlib import Path
 from config import validate
 
 
-def apply(root, config):
-    config = validate(config)
+def apply(root, config, platform='windows'):
+    config = validate(config, platform=platform)
     if config is None:
         return
     updater = root / 'src/updater.rs'
@@ -23,6 +23,8 @@ def apply(root, config):
     if common_source.count(stock_check) != 1:
         raise ValueError('Incompatible upstream update check')
     module = Path(__file__).with_name('client.rs').read_text(encoding='utf-8')
+    target_platform = 'windows-x86' if platform == 'windows-x86' else 'windows-x64'
+    module = module.replace('@PLATFORM@', json.dumps(target_platform))
     for name, field in [('BASE', 'base_url'), ('PRODUCT', 'product'), ('CHANNEL', 'channel'), ('REVISION', 'revision')]:
         module = module.replace('@' + name + '@', json.dumps(config[field]))
     hook = '#[cfg(target_os = "windows")]\n#[path = "rdgen_update.rs"]\nmod rdgen_update;\n'
@@ -32,16 +34,17 @@ def apply(root, config):
     (root / 'src/rdgen_update.rs').write_text(module, encoding='utf-8')
     updater.write_text(source, encoding='utf-8')
     common.write_text(common_source.replace(stock_check, stock_check + '\n    return Ok(()); // The StatusDesk updater owns this build.', 1), encoding='utf-8')
-    receipt = {**config, 'schema': 2, 'platform': 'windows-x64'}
+    receipt = {**config, 'schema': 2, 'platform': target_platform}
     (root / 'stdesk-update-build.json').write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--source', type=Path, default=Path('.'))
+    parser.add_argument('--platform', default='windows', choices=('windows','windows-x86'))
     args = parser.parse_args()
     raw = base64.b64decode(os.environ['stdesk_update_b64'], validate=True)
-    apply(args.source, json.loads(raw))
+    apply(args.source, json.loads(raw), args.platform)
     receipt_path = args.source / 'stdesk-update-build.json'
     receipt = json.loads(receipt_path.read_text(encoding='utf-8'))
     app = os.environ.get('appname', 'RustDesk')

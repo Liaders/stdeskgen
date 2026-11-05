@@ -18,12 +18,21 @@ import django
 
 from rdgenerator import views as views
 from rdgenerator import api_views as api_views
+from rdgenerator import desktop
 if django.__version__.split('.')[0]>='4':
     from django.urls import re_path as url
 else:
     from django.conf.urls import  url, include
 
 urlpatterns = [
+    url(r'^desktop/status$', desktop.status),
+    url(r'^desktop/builds$', desktop.builds),
+    url(r'^desktop/installers$', desktop.installers),
+    url(r'^desktop/publication$', desktop.publication_page),
+    url(r'^desktop/open-folder$', desktop.open_folder),
+    url(r'^desktop/retry$', desktop.retry),
+    url(r'^desktop/import$', desktop.import_installer),
+    url(r'^desktop/publish$', desktop.publish),
     url(r'^local-build/(?P<build_id>[0-9a-f-]{36})$', views.local_build_page),
     url(r'^local-build/status/(?P<build_id>[0-9a-f-]{36})$', views.local_build_status_view),
     url(r'^$',views.generator_view),

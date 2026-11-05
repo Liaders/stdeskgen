@@ -52,11 +52,12 @@ class UpdateTests(unittest.TestCase):
             self.assertEqual(set(catalog['items']), {'windows-x86', 'macos-arm64'})
 
     def test_bad_configuration_and_unsupported_platform_fail(self):
+        self.assertEqual(validate(self.config, platform='windows-x86'), self.config)
         for patch in ({'base_url': 'http://desk.status16.ru/client'}, {'revision': True}, {'product': '../other'}, {'public_key': 'obsolete'}):
             with self.subTest(patch=patch), self.assertRaises(ValueError):
                 validate({**self.config, **patch})
         with self.assertRaises(ValueError):
-            validate(self.config, platform='windows-x86')
+            validate(self.config, platform='linux')
 
     def test_adapter_is_opt_in_and_rejects_reapplying_without_partial_writes(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -82,15 +83,45 @@ class UpdateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             prepare(self.source(root), root / 'bundle', 'StatusDesk', '1.5.0', '123', 'abc')
-            deploy(root / 'bundle', root / 'public')
+            deploy(root / 'bundle', root / 'public', public_download=True)
             channel = root / 'public/channels/statusdesk/test/windows-x64.json'
             previous = channel.read_bytes()
+            catalog = json.loads((root / 'public/downloads.json').read_text())
+            url = catalog['items']['windows-x64']['url']
+            self.assertTrue(url.endswith('/windows-x64/2/client-windows-x64.exe'))
+            public_file = root / 'public' / url.removeprefix('/client/')
+            self.assertEqual(public_file.read_bytes(), (root / 'input/client.exe').read_bytes())
             with self.assertRaises(ValueError):
                 deploy(root / 'bundle', root / 'public')
-            (root / 'bundle/releases/statusdesk/test/2/client-windows-x64.exe').write_bytes(b'corrupted')
+            (root / 'bundle/releases/statusdesk/test/windows-x64/2/client-windows-x64.exe').write_bytes(b'corrupted')
             with self.assertRaises(ValueError):
                 deploy(root / 'bundle', root / 'public')
             self.assertEqual(previous, channel.read_bytes())
+
+    @unittest.skipIf(sys.platform == 'win32', 'Apache publication uses Linux file locking')
+    def test_x86_and_x64_same_revision_use_separate_files_and_channels(self):
+        from deploy import deploy
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = self.source(root)
+            prepare(source, root / 'bundle64', 'StatusDesk', '1.5.0', '123', 'abc')
+            deploy(root / 'bundle64', root / 'public', public_download=True)
+            receipt_path = source / 'stdesk-update-build.json'
+            receipt = json.loads(receipt_path.read_text())
+            receipt['platform'] = 'windows-x86'
+            receipt_path.write_text(json.dumps(receipt))
+            binary = bytearray((source / 'client.exe').read_bytes())
+            binary[132:134] = b'\x4c\x01'
+            (source / 'client.exe').write_bytes(binary)
+            prepare(source, root / 'bundle32', 'StatusDesk', '1.5.0', '124', 'abc')
+            deploy(root / 'bundle32', root / 'public', public_download=True)
+            catalog = json.loads((root / 'public/downloads.json').read_text())
+            self.assertEqual(set(catalog['items']), {'windows-x64','windows-x86'})
+            for platform in ('windows-x64','windows-x86'):
+                channel = load_manifest((root / 'public/channels/statusdesk/test' / (platform + '.json')).read_bytes())
+                file = root / 'public' / catalog['items'][platform]['url'].removeprefix('/client/')
+                self.assertEqual(channel['platform'], platform)
+                self.assertEqual(channel['filename'], file.name)
 
 
 if __name__ == '__main__':
