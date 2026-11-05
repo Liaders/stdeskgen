@@ -4,11 +4,11 @@ import json
 from pathlib import Path
 import re
 
-SUPPORTED_VERSION = "1.5.0"
+SUPPORTED_VERSIONS = ("1.5.0", "1.5.1")
 
 
 def apply(root, version, profile, check=False):
-    if version != SUPPORTED_VERSION:
+    if version not in SUPPORTED_VERSIONS:
         raise ValueError(f"UI customization is not supported for RustDesk {version}")
     allowed = {"schema_version", "accent", "button", "navigation", "group_width", "address_book_width", "device_names", "resizable_panels", "colleagues"}
     if set(profile) - allowed:

@@ -69,3 +69,14 @@ class LocalBuildTests(SimpleTestCase):
                 result=generate_custom_client({'platform':platform,'version':'1.5.0','exename':'Test'},'http://127.0.0.1:8765')
                 self.assertTrue(result['success'])
                 self.assertEqual(dispatch.call_args.kwargs['platform'],platform)
+
+    @override_settings(LOCAL_GITHUB_BUILD=True, SH_SECRET='unused')
+    def test_x86_ignores_visual_assets_and_theme(self):
+        with patch('rdgenerator.views.dispatch_local',return_value={'success':True}) as dispatch:
+            result=generate_custom_client({'platform':'windows-x86','version':'1.5.1','exename':'Test','theme':'dark',
+                'iconbase64':'invalid-custom-icon','logobase64':'invalid-logo','privacybase64':'invalid-privacy'},'http://127.0.0.1:8765')
+        self.assertTrue(result['success'])
+        inputs, images = dispatch.call_args.args[:2]
+        self.assertEqual(images,{})
+        self.assertEqual(inputs['iconlink_url'],'false')
+        self.assertNotIn('allow-darktheme', inputs['custom'])

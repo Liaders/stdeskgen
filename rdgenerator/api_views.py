@@ -10,7 +10,7 @@ from .views import generate_custom_client, _get_run_status, _UUID_RE
 
 # Field validation constraints (mirrored from GenerateForm)
 PLATFORM_CHOICES = ['windows', 'windows-x86', 'linux', 'android', 'macos']
-VERSION_CHOICES = ['master', '1.5.0']
+VERSION_CHOICES = ['master', '1.5.0', '1.5.1']
 DIRECTION_CHOICES = ['incoming', 'outgoing', 'both']
 INSTALLATION_CHOICES = ['installationY', 'installationN']
 SETTINGS_CHOICES = ['settingsY', 'settingsN']
@@ -103,6 +103,14 @@ def validate_generate_params(data):
                 'Contains characters unsupported in build scripts '
                 '(& \\ | \' " $ `, newlines).'
             )
+
+    if data.get('build_number') not in (None, ''):
+        try:
+            number = int(data['build_number'])
+            if isinstance(data['build_number'], bool) or not 1 <= number <= 65535: raise ValueError()
+            cleaned['build_number'] = number
+        except (TypeError, ValueError):
+            errors['build_number'] = 'Expected a build number from 1 to 65535'
 
     # File fields are not used in API mode (base64 fields are used instead)
     cleaned['iconfile'] = None

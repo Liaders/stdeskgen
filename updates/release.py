@@ -22,7 +22,7 @@ def load_manifest(data):
     for field in ('product', 'channel'):
         if not isinstance(value[field], str) or not re.fullmatch('[a-z][a-z0-9-]{0,47}', value[field]):
             raise ValueError('Invalid update identity')
-    if type(value['revision']) is not int or not 1 <= value['revision'] <= 2147483647:
+    if type(value['revision']) is not int or not 1 <= value['revision'] <= 9223372036854775807:
         raise ValueError('Invalid update revision')
     if type(value['size']) is not int or not 0 < value['size'] <= MAX_FILE:
         raise ValueError('Invalid update size')
@@ -30,7 +30,7 @@ def load_manifest(data):
         raise ValueError('Invalid SHA-256')
     if not isinstance(value['app_name'], str) or not value['app_name'].strip():
         raise ValueError('Invalid application name')
-    if not isinstance(value['version'], str) or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:[+-][0-9]+)?', value['version']):
+    if not isinstance(value['version'], str) or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:[+-][0-9]+)?', value['version']):
         raise ValueError('Invalid display version')
     return value
 
@@ -53,7 +53,7 @@ def prepare(source, output, app_name, version, run_id, commit):
     config = validate({key: receipt[key] for key in ('base_url', 'product', 'channel', 'revision')}, platform='windows-x86' if platform=='windows-x86' else 'windows')
     if platform not in ('windows-x64','windows-x86') or receipt.get('schema') != 2:
         raise ValueError('Missing compatible build receipt')
-    if not app_name.strip() or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:[+-][0-9]+)?', version):
+    if not app_name.strip() or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:[+-][0-9]+)?', version):
         raise ValueError('An app name and numeric display version are required')
     candidates = list(source.glob('*.exe'))
     if len(candidates) != 1:

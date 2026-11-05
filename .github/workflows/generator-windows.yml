@@ -47,7 +47,6 @@ env:
   ANDROID_FLUTTER_VERSION: "3.24.5" 
   # for arm64 linux because official Dart SDK does not work
   FLUTTER_ELINUX_VERSION: "3.16.9"
-  TAG_NAME: "${{ inputs.upload-tag }}"
   VCPKG_BINARY_SOURCES: "clear"
   # vcpkg version: 2024.07.12
   VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
@@ -133,7 +132,7 @@ jobs:
           data: '{"uuid": "${{ env.uuid }}"}'
 
       - name: Export GitHub Actions cache environment variables
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
@@ -158,6 +157,10 @@ jobs:
         if: ${{ env.stdesk_update_b64 != '' }}
         shell: pwsh
         run: Copy-Item -Recurse updates "$env:RUNNER_TEMP/stdesk-updates"
+
+      - name: Preserve client version adapter
+        shell: pwsh
+        run: Copy-Item -Recurse customization "$env:RUNNER_TEMP/rdgen-version"
 
       - name: Checkout source code
         if: ${{ env.VERSION != 'master' }}
@@ -186,13 +189,12 @@ jobs:
           apply(Path.cwd(), os.environ['VERSION'], profile)
 
       - name: Set custom app version
-        continue-on-error: true
         if: ${{ inputs.app_version != '' }}
         shell: bash
+        env:
+          STDESK_DISPLAY_VERSION: ${{ inputs.app_version }}
         run: |
-          sed -i -e 's|^version = ".*"|version = "${{ inputs.app_version }}"|' ./Cargo.toml
-          sed -i '/name = "rustdesk"/ {n; s/version = ".*"/version = "${{ inputs.app_version }}"/}' ./Cargo.lock
-          grep '^version = ' ./Cargo.toml
+          python3 "$RUNNER_TEMP/rdgen-version/apply_version.py" --source . --base-version "$VERSION" --display-version "$STDESK_DISPLAY_VERSION"
 
       - name: Apply allow_custom_update patch
         continue-on-error: true
@@ -566,8 +568,7 @@ jobs:
         if: env.removeNewVersionNotif == 'true'
         shell: bash
         run: | 
-          sed -i -e 's|updateUrl.isNotEmpty|false|' ./flutter/lib/desktop/pages/desktop_home_page.dart
-          sed -i '/let (request, url) =/,/Ok(())/{/Ok(())/!d}' ./src/common.rs
+          python3 "$RUNNER_TEMP/rdgen-version/disable_update_notifications.py" --source .
 
       # - name: run as admin
       #   continue-on-error: true

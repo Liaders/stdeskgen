@@ -55,8 +55,8 @@ def generate_custom_client(params, full_url):
     except ValueError as exc:
         return {'success': False, 'error': str(exc), 'status_code': 400}
     local_mode = _settings.LOCAL_GITHUB_BUILD
-    if local_mode and (platform not in ('windows', 'windows-x86', 'linux', 'macos') or version != '1.5.0' or params.get('sh_secret_field')):
-        return {'success': False, 'error': 'Local GitHub builds support Windows, Linux and macOS with RustDesk 1.5.0.', 'status_code': 400}
+    if local_mode and (platform not in ('windows', 'windows-x86', 'linux', 'macos') or version not in ('1.5.0','1.5.1') or params.get('sh_secret_field')):
+        return {'success': False, 'error': 'Local GitHub builds support Windows, Linux and macOS with RustDesk 1.5.0/1.5.1.', 'status_code': 400}
     from updates.config import validate as validate_update_config
     try:
         updates_config = validate_update_config(params.get('updates_config'), version, platform)
@@ -69,6 +69,8 @@ def generate_custom_client(params, full_url):
     except ValueError as exc:
         return {'success': False, 'error': str(exc), 'status_code': 400}
     app_version = params.get('app_version', '')
+    if params.get('build_number') not in (None, ''):
+        app_version = version + '.' + str(params['build_number'])
     # app_version overrides the version string embedded in the built client
     # without changing the git tag that version selects. If left empty, the
     # RustDesk build's own version (from the checked-out tag) is used.
@@ -116,7 +118,7 @@ def generate_custom_client(params, full_url):
         androidappid = "com.carriez.flutter_hbb"
     compname = compname.replace("&","\\&")
     permPass = params.get('permanentPassword', '')
-    theme = params.get('theme', 'system')
+    theme = 'system' if platform == 'windows-x86' else params.get('theme', 'system')
     themeDorO = params.get('themeDorO', 'default')
     passApproveMode = params.get('passApproveMode', 'password-click')
     denyLan = params.get('denyLan', False)
@@ -151,11 +153,10 @@ def generate_custom_client(params, full_url):
 
     if local_mode:
         try:
-            local_images = collect_images(params)
+            image_params = params if platform != 'windows-x86' else {k:v for k,v in params.items() if k not in ('iconfile','iconbase64','logofile','logobase64','privacyfile','privacybase64')}
+            local_images = collect_images(image_params)
         except LocalBuildError as exc:
             return {'success': False, 'error': str(exc), 'status_code': 400}
-        if platform == 'windows-x86' and ('logo.png' in local_images or 'privacy.png' in local_images):
-            return {'success': False, 'error': 'Windows x86 uses Sciter: custom logo and privacy images are not supported. The app icon is supported.', 'status_code': 400}
         iconlink_url = 'local' if 'icon.png' in local_images else 'false'
         logolink_url = 'local' if 'logo.png' in local_images else 'false'
         privacylink_url = 'local' if 'privacy.png' in local_images else 'false'
@@ -489,7 +490,13 @@ def generator_view(request):
     else:
         form = GenerateForm()
     #return render(request, 'maintenance.html')
-    return render(request, 'generator.html', {'form': form, 'local_builds': recent_local_builds() if _settings.LOCAL_GITHUB_BUILD else []})
+    default_config = None
+    default_config_error = ''
+    if _settings.LOCAL_GITHUB_BUILD and request.method == 'GET':
+        from .default_config import load
+        try: default_config = load()
+        except (OSError, ValueError) as exc: default_config_error = 'Не удалось прочитать default-config.json: ' + str(exc)
+    return render(request, 'generator.html', {'form': form, 'local_builds': recent_local_builds() if _settings.LOCAL_GITHUB_BUILD else [], 'default_config': default_config, 'default_config_error': default_config_error})
 
 
 def _expected_files_for_platform(filename, platform):

@@ -162,13 +162,12 @@ jobs:
           python3 "$RUNNER_TEMP/rdgen-tools/prepare_local_source.py" --version "$VERSION"
 
       - name: Set custom app version
-        continue-on-error: true
         if: ${{ inputs.app_version != '' }}
         shell: bash
+        env:
+          STDESK_DISPLAY_VERSION: ${{ inputs.app_version }}
         run: |
-          sed -i -e 's|^version = ".*"|version = "${{ inputs.app_version }}"|' ./Cargo.toml
-          sed -i '/name = "rustdesk"/ {n; s/version = ".*"/version = "${{ inputs.app_version }}"/}' ./Cargo.lock
-          grep '^version = ' ./Cargo.toml
+          python3 "$RUNNER_TEMP/rdgen-tools/apply_version.py" --source . --base-version "$VERSION" --display-version "$STDESK_DISPLAY_VERSION"
 
       - name: Apply Windows x86 update channel
         if: ${{ env.stdesk_update_b64 != '' }}
@@ -449,7 +448,7 @@ jobs:
         shell: bash
         run: | 
           sed -i -e 's|{software_update_url ? <UpdateMe /> : ""}||' ./src/ui/index.tis
-          sed -i '/let (request, url) =/,/Ok(())/{/Ok(())/!d}' ./src/common.rs
+          python3 "$RUNNER_TEMP/rdgen-tools/disable_update_notifications.py" --source .
 
       - name: Build rustdesk
         id: build

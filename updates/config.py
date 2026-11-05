@@ -23,6 +23,6 @@ def validate(raw, version='1.5.0', platform='windows'):
     for field in ('product', 'channel'):
         if not isinstance(value[field], str) or not re.fullmatch('[a-z][a-z0-9-]{0,47}', value[field]):
             raise ValueError(f'Update {field} must contain lowercase letters, digits or hyphens')
-    if type(value['revision']) is not int or not 1 <= value['revision'] <= 2147483647:
-        raise ValueError('Update revision must be an integer between 1 and 2147483647')
+    if type(value['revision']) is not int or not 1 <= value['revision'] <= 9223372036854775807:
+        raise ValueError('Update revision must be an integer between 1 and 9223372036854775807')
     return value

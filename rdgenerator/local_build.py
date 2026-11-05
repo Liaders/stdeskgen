@@ -98,6 +98,18 @@ def _save(record):
 
 
 def dispatch_local(inputs, images, version, app_version='', platform='windows'):
+    from .version_numbers import reserve
+    from customization.versioning import revision
+    try:
+        app_version = reserve(version, app_version)
+    except ValueError as exc:
+        raise LocalBuildError(str(exc)) from exc
+    inputs = dict(inputs)
+    inputs['filename'] = inputs['filename'] + '-' + app_version + '-' + ('windows-x64' if platform == 'windows' else platform)
+    if inputs.get('stdesk_update_b64'):
+        update_config = json.loads(base64.b64decode(inputs['stdesk_update_b64']))
+        update_config['revision'] = revision(version, app_version)
+        inputs['stdesk_update_b64'] = base64.b64encode(json.dumps(update_config).encode()).decode()
     session = github_session()
     build_id = str(uuid.uuid4())
     branch = 'codex/build-input-' + build_id
@@ -145,7 +157,7 @@ def dispatch_local(inputs, images, version, app_version='', platform='windows'):
         _save(record)
         raise
     return {'success': True, 'local_build': True, 'uuid': build_id, 'filename': inputs['filename'],
-            'platform': platform, 'artifact_label': 'client-' + platform + '-…', 'log_url': record['log_url']}
+            'platform': platform, 'app_version': app_version, 'artifact_label': 'client-' + platform + '-…', 'log_url': record['log_url']}
 
 
 def local_status(build_id, download=False):

@@ -34,7 +34,7 @@ def main():
     extensions = {'windows': {'.exe'}, 'linux': {'.deb', '.AppImage'}, 'macos': {'.dmg'}}
     if source.suffix not in extensions[args.platform.split('-')[0]] or not 0 < source.stat().st_size <= 512 * 1024 * 1024:
         raise ValueError('Choose the appropriate installer (up to 512 MB)')
-    if not key.is_file() or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:[+-][0-9]+)?', args.version):
+    if not key.is_file() or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:[+-][0-9]+)?', args.version):
         raise ValueError('Missing PuTTY key file or invalid version')
     if args.platform.startswith('windows-'):
         with source.open('rb') as stream:

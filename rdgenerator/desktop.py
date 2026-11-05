@@ -50,6 +50,28 @@ def publication_page(request):
 
 @require_POST
 @csrf_protect
+def default_config(request):
+    if not local(request): return HttpResponseForbidden('Local only')
+    from .default_config import save
+    try:
+        if len(request.body) > 8 * 1024**2: raise ValueError('Configuration exceeds 8 MB')
+        save(json.loads(request.body))
+        return JsonResponse({'ok': True})
+    except (OSError, ValueError) as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+
+
+def next_version(request):
+    if not local(request): return HttpResponseForbidden('Local only')
+    from .version_numbers import next_number
+    from customization.versioning import SUPPORTED_BASES
+    base = request.GET.get('base', '1.5.0')
+    if base not in SUPPORTED_BASES: return JsonResponse({'error': 'Unsupported base'}, status=400)
+    return JsonResponse({'version': base + '.' + str(next_number(base))})
+
+
+@require_POST
+@csrf_protect
 def open_folder(request):
     if not local(request): return HttpResponseForbidden('Local only')
     library_root().mkdir(exist_ok=True)

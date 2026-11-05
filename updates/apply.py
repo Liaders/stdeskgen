@@ -52,5 +52,5 @@ if __name__ == '__main__':
     match = re.search(r'^version = "([^"]+)"', (args.source / 'Cargo.toml').read_text(encoding='utf-8'), re.M)
     if not match:
         raise ValueError('Cannot read compiled application version')
-    receipt['version'] = match[1]
+    receipt['version'] = os.environ.get('stdesk_display_version') or match[1]
     receipt_path.write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')

@@ -1,0 +1,34 @@
+name: Test supported RustDesk versions
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [master]
+    paths:
+      - 'customization/**'
+      - '.github/workflows/test-source-versions.yml'
+permissions:
+  contents: read
+jobs:
+  compatibility:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        source:
+          - {version: '1.5.0', ref: 'fada664df7a294d1d1a9ca3e7cd3637069122f17'}
+          - {version: '1.5.1', ref: '23e5bb471a040d62f0a6ad52591fb30784265b73'}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: generator
+      - uses: actions/checkout@v4
+        with:
+          repository: rustdesk/rustdesk
+          ref: ${{ matrix.source.ref }}
+          path: rustdesk
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check UI adapter source compatibility
+        run: python generator/customization/apply_profile.py --source rustdesk --version '${{ matrix.source.version }}' --profile generator/customization/example.json --check
+      - name: Test display versions and disabling upstream notifications
+        run: python -m unittest discover -s generator/customization -p test_version.py

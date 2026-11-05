@@ -250,6 +250,8 @@
                 <h2 id="saveLoadTitle">Save/Load Configuration <i class="fas fa-chevron-down"></i></h2>  
                 <div class="save-load-section">  
                     <button type="button" onclick="saveFormData()">Save Configuration</button>
+                    <button type="button" onclick="saveFormData('default')">Сохранить как конфигурацию по умолчанию</button>
+                    <p id="default-config-status">{{ default_config_error }}</p>
                     <input type="file" id="fileInput" style="display:none;" accept=".json">
                     <button type="button" onclick="loadFormData()">Load Configuration</button>
                 </div>
@@ -286,6 +288,9 @@
                 </select>
                 <label for="{{ form.version.id_for_label }}">Rustdesk Version:</label>
                 {{ form.version }}
+                <p id="base-version-notice"></p>
+                <label for="id_build_number">Номер нашей сборки (пусто — автоматически)</label>{{ form.build_number }}
+                <p>Версия клиента: <strong id="client-version-preview">—</strong></p>
                 {% if form.version.help_text %}
                     <span class="help-text">{{ form.version.help_text }}</span>
                 {% endif %}
@@ -347,7 +352,7 @@
                     <label for="{{ form.hidecm.id_for_label }}">{{ form.hidecm }} Allow hiding the connection window from remote screen.</label><br>
             </div>
         
-            <div class="section">
+            <div class="section" id="visual-customization">
                 <h2><i class="fas fa-paint-brush"></i> Visual</h2>
                     {{ form.iconbase64.as_hidden }}
                     {{ form.logobase64.as_hidden }}
@@ -372,7 +377,7 @@
             <section class="section" id="ui-customization" aria-labelledby="ui-title">
                 <h2 id="ui-title">Client appearance</h2>
                 <label><input type="checkbox" id="ui-enabled"> Customize client appearance</label>
-                <p>RustDesk 1.5.0: Windows x64, Linux and macOS. Windows x86 uses a legacy Sciter interface; appearance customization is unavailable.</p>
+                <p>RustDesk 1.5.0 / 1.5.1: Windows x64, Linux and macOS. Windows x86 uses a legacy Sciter interface; appearance customization is unavailable.</p>
                 <p id="ui-status" role="status" aria-live="polite"></p>
                 <fieldset id="ui-controls" disabled style="border:0;padding:0;min-width:0">
                     <div class="ui-grid">
@@ -603,7 +608,7 @@
             icon.classList.toggle("fa-chevron-up");
         });
 
-        async function saveFormData() {
+        async function saveFormData(mode = 'download') {
             if (window.rdgenUI && !window.rdgenUI.prepare(false)) return;
             const filename = document.getElementById("{{ form.exename.id_for_label }}").value;
             if (!filename) {
@@ -686,6 +691,12 @@
             }
 
             const jsonData = JSON.stringify(formData, null, 2);
+            if (mode === 'default') {
+                const response = await fetch('/desktop/default-config', {method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value},body:jsonData});
+                const result = await response.json();
+                document.getElementById('default-config-status').textContent = response.ok ? 'Сохранено в rdgen/default-config.json. При следующем открытии настройки загрузятся автоматически.' : result.error;
+                return;
+            }
             const blob = new Blob([jsonData], { type: "application/json" });
             const url = URL.createObjectURL(blob);
 
@@ -731,20 +742,11 @@
             banner.textContent = 'Warning: ignored invalid (non-text) values for: ' + keys.join(', ') + '. They were dropped.';
         }
 
-        function loadFormData() {
-            const fileInput = document.getElementById("fileInput");
-            fileInput.click();
-
-            fileInput.addEventListener("change", (event) => {
-                const file = event.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        try {
-                            const formData = JSON.parse(e.target.result);
+        function applyLoadedConfiguration(formData) {
                             carriedUnknownFields = {};
                             const skippedKeys = [];
                             for (const key in formData) {
+                                if (key === 'updates_config') {document.getElementById('id_updates_config').value=typeof formData[key]==='object'?JSON.stringify(formData[key]):formData[key]||'';continue;}
                                 if (key === 'ui_profile' || key === 'csrfmiddlewaretoken') continue;
                                 // More robust selector: checks for name OR id
                                 const elements = document.querySelectorAll(`[name="${key}"], [id="${key}"]`);
@@ -799,24 +801,60 @@
                             }
                             if (window.rdgenUI) window.rdgenUI.loadConfig(formData);
                             showLoadWarnings(skippedKeys);
+                            document.getElementById('id_platform').dispatchEvent(new Event('change'));
+                            document.getElementById('id_version').dispatchEvent(new Event('change'));
+        }
+
+        function loadFormData() {
+            const fileInput = document.getElementById("fileInput");
+            fileInput.click();
+
+            fileInput.onchange = (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const formData = JSON.parse(e.target.result);
+                            applyLoadedConfiguration(formData);
                         } catch (error) {
                             alert("Error loading data. Invalid JSON file.");
                         }
                     };
                     reader.readAsText(file);
                 }
-            });
+            };
         }
     </script>
     <script>{% include "ui-profile.js" %}</script>
     <script>{% include "recent-builds.js" %}</script>
+    {{ default_config|json_script:"default-config-data" }}
+    <script>
+    const initialConfiguration = JSON.parse(document.getElementById('default-config-data').textContent);
+    if (initialConfiguration) {applyLoadedConfiguration(initialConfiguration);document.getElementById('default-config-status').textContent='Загружена конфигурация rdgen/default-config.json.';}
+    async function showClientVersion(){
+        const base=document.getElementById('id_version').value, number=document.getElementById('id_build_number').value;
+        if(number){document.getElementById('client-version-preview').textContent=base+'.'+number;return;}
+        try{const r=await fetch('/desktop/next-version?base='+encodeURIComponent(base));if(r.ok)document.getElementById('client-version-preview').textContent=(await r.json()).version+' (авто)';}catch{}
+    }
+    function versionChanged(){
+        const latest=document.getElementById('id_version').value==='1.5.1';
+        document.getElementById('base-version-notice').textContent=latest?'RustDesk 1.5.1: сборка и ручная публикация доступны. Автообновление требует адаптации нового штатного механизма.':'';
+        document.getElementById('configure-auto-update').disabled=latest;
+        if(latest)document.getElementById('id_updates_config').value='';
+        showClientVersion();
+    }
+    document.getElementById('id_version').addEventListener('change',versionChanged);
+    document.getElementById('id_build_number').addEventListener('input',showClientVersion);
+    versionChanged();
+    </script>
     <script>
     document.getElementById('configure-auto-update').onclick = () => {
         const platform = document.getElementById('id_platform').value;
         const message = document.getElementById('update-config-message');
         if (!['windows','windows-x86'].includes(platform)) {message.textContent='Пока поддерживается автообновление установленного Windows-клиента. Для Linux/macOS доступна публикация установщиков.';return;}
         document.getElementById('id_updates_config').value = JSON.stringify({base_url:'https://desk.status16.ru/client',product:'statusdesk',channel:'stable',revision:Math.floor(Date.now()/1000)},null,2);
-        message.textContent='Канал stable настроен. Для следующей новой сборки нажмите эту кнопку снова — номер ревизии увеличится.';
+        message.textContent='Канал stable настроен. Номер ревизии будет определён автоматически по версии клиента при запуске сборки.';
     };
     </script>
 <script>{% include "i18n.js" %}</script>

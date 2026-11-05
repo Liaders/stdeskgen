@@ -9,8 +9,8 @@ def validate_profile(raw, version, platform="windows", selfhosted=False):
     profile = json.loads(raw) if isinstance(raw, str) else raw
     if not isinstance(profile, dict):
         raise ValueError("UI profile must be a JSON object")
-    if version != "1.5.0" or platform not in ("windows", "linux", "macos") or selfhosted:
-        raise ValueError("UI profiles support RustDesk 1.5.0 on Windows x64, Linux and macOS. Windows x86 uses Sciter and requires a separate UI adapter.")
+    if version not in ("1.5.0", "1.5.1") or platform not in ("windows", "linux", "macos") or selfhosted:
+        raise ValueError("UI profiles support RustDesk 1.5.0/1.5.1 on Windows x64, Linux and macOS. Windows x86 always uses the original Sciter appearance.")
     allowed = {"schema_version", "accent", "button", "navigation", "group_width", "address_book_width", "device_names", "resizable_panels", "colleagues"}
     if set(profile) - allowed:
         raise ValueError("Unknown UI profile fields: " + ", ".join(sorted(set(profile) - allowed)))

@@ -129,7 +129,6 @@ jobs:
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
       - name: Preserve local build tools
-        if: ${{ inputs.config_ref != '' }}
         shell: python
         run: |
           import os, shutil
@@ -158,13 +157,12 @@ jobs:
           python3 "$RUNNER_TEMP/rdgen-tools/prepare_local_source.py" --version "$VERSION"
 
       - name: Set custom app version
-        continue-on-error: true
         if: ${{ inputs.app_version != '' }}
         shell: bash
+        env:
+          STDESK_DISPLAY_VERSION: ${{ inputs.app_version }}
         run: |
-          sed -i -e 's|^version = ".*"|version = "${{ inputs.app_version }}"|' ./Cargo.toml
-          sed -i '/name = "rustdesk"/ {n; s/version = ".*"/version = "${{ inputs.app_version }}"/}' ./Cargo.lock
-          grep '^version = ' ./Cargo.toml
+          python3 "$RUNNER_TEMP/rdgen-tools/apply_version.py" --source . --base-version "$VERSION" --display-version "$STDESK_DISPLAY_VERSION"
 
       - name: Apply allow_custom_update patch
         continue-on-error: true
@@ -500,7 +498,7 @@ jobs:
         if: env.removeNewVersionNotif == 'true'
         run: | 
           sed -i -e 's|updateUrl.isNotEmpty|false|' ./flutter/lib/desktop/pages/desktop_home_page.dart
-          sed -i '/let (request, url) =/,/Ok(())/{/Ok(())/!d}' ./src/common.rs
+          python3 "$RUNNER_TEMP/rdgen-tools/disable_update_notifications.py" --source .
 
       - name: Restore bridge files
         uses: actions/download-artifact@master

@@ -7,7 +7,7 @@
     const defaults = {accent: '#0071FF', button: '#2C8CFF'};
     let rawError = '';
     const allowed = ['schema_version', 'accent', 'button', 'navigation', 'group_width', 'address_book_width', 'device_names', 'resizable_panels', 'colleagues'];
-    const supported = () => ['windows', 'linux', 'macos'].includes(el('id_platform').value) && el('id_version').value === '1.5.0';
+    const supported = () => ['windows', 'linux', 'macos'].includes(el('id_platform').value) && ['1.5.0','1.5.1'].includes(el('id_version').value);
 
     function validate(profile) {
         if (!profile || Array.isArray(profile) || typeof profile !== 'object' || profile.schema_version !== 1)
@@ -50,12 +50,17 @@
     }
 
     function prepare(forBuild = true) {
+        const legacy = el('id_platform').value === 'windows-x86';
+        el('ui-customization').hidden = legacy;
+        if (el('visual-customization')) el('visual-customization').hidden = legacy;
+        if (legacy) {enabled.checked=false;raw.value='';updateControls();return true;}
+
         updateControls();
         try {
             if (enabled.checked && rawError) throw Error(rawError);
             raw.value = enabled.checked ? JSON.stringify(readControls()) : '';
             if (enabled.checked && !supported()) {
-                status.textContent = 'Appearance customization supports Windows x64, Linux and macOS / RustDesk 1.5.0. Windows x86 uses Sciter: turn appearance customization off for this target. Your settings are preserved.';
+                status.textContent = 'Appearance customization supports Windows x64, Linux and macOS / RustDesk 1.5.0/1.5.1. Windows x86 uses Sciter: turn appearance customization off for this target. Your settings are preserved.';
                 return !forBuild;
             }
             status.textContent = enabled.checked ? 'Appearance settings will be applied to the client.' : 'The original client appearance will be used.';
@@ -89,7 +94,7 @@
         updateControls();
         // Preserve the loaded JSON exactly until a control is edited.
         status.textContent = rawError || (enabled.checked && !supported()
-            ? 'This profile requires Windows x64, Linux or macOS / RustDesk 1.5.0. Windows x86 uses Sciter. Settings are preserved.'
+            ? 'This profile requires Windows x64, Linux or macOS / RustDesk 1.5.0/1.5.1. Windows x86 uses Sciter. Settings are preserved.'
             : (enabled.checked ? 'Appearance profile loaded.' : 'The original client appearance will be used.'));
     }
 
