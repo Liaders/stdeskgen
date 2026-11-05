@@ -63,11 +63,23 @@ def default_config(request):
 
 def next_version(request):
     if not local(request): return HttpResponseForbidden('Local only')
-    from .version_numbers import next_number
+    from .version_numbers import current_number
     from customization.versioning import SUPPORTED_BASES
     base = request.GET.get('base', '1.5.0')
     if base not in SUPPORTED_BASES: return JsonResponse({'error': 'Unsupported base'}, status=400)
-    return JsonResponse({'version': base + '.' + str(next_number(base))})
+    return JsonResponse({'version': base + '.' + str(current_number(base))})
+
+
+@require_POST
+@csrf_protect
+def next_release(request):
+    if not local(request): return HttpResponseForbidden('Local only')
+    from .version_numbers import create_next
+    try:
+        data = json.loads(request.body)
+        return JsonResponse({'version': create_next(data['base'])})
+    except (ValueError, KeyError, TypeError) as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
 
 
 @require_POST

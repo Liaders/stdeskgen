@@ -28,6 +28,7 @@ urlpatterns = [
     url(r'^desktop/status$', desktop.status),
     url(r'^desktop/default-config$', desktop.default_config),
     url(r'^desktop/next-version$', desktop.next_version),
+    url(r'^desktop/next-release$', desktop.next_release),
     url(r'^desktop/builds$', desktop.builds),
     url(r'^desktop/installers$', desktop.installers),
     url(r'^desktop/publication$', desktop.publication_page),

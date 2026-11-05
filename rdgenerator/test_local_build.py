@@ -34,6 +34,9 @@ class LocalBuildTests(SimpleTestCase):
         with tempfile.TemporaryDirectory() as directory, override_settings(BASE_DIR=Path(directory)):
             with patch('rdgenerator.local_build.github_session'), patch('rdgenerator.local_build._request', side_effect=request):
                 result = dispatch_local({'filename': 'Client', 'custom': 'private-setting'}, {}, '1.5.0')
+                other = dispatch_local({'filename': 'Client', 'custom': 'private-setting'}, {}, '1.5.0', platform='windows-x86')
+                self.assertEqual(result['app_version'], other['app_version'])
+                self.assertEqual(result['app_version'], '1.5.0.1')
             self.assertTrue(result['local_build'])
             dispatch = calls[-1][2]['json']
             self.assertNotIn('private-setting', json.dumps(dispatch))

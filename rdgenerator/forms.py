@@ -18,7 +18,7 @@ class GenerateForm(forms.Form):
     help_text="'master' is the development version (nightly build) with the latest features but may be less stable"
     delayFix = forms.BooleanField(initial=True, required=False)
 
-    build_number = forms.IntegerField(required=False, min_value=1, max_value=65535, widget=forms.NumberInput(attrs={"placeholder": "Автоматически"}))
+    build_number = forms.IntegerField(required=False, min_value=1, max_value=65535, widget=forms.NumberInput(attrs={"placeholder": "Текущий выпуск", "readonly": True}))
 
     #General
     exename = forms.CharField(label="Name for EXE file", required=True)
