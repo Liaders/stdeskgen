@@ -29,3 +29,7 @@ Save your configuration from the rdgen web interface, or generate your own, then
 - Avoid special characters or non-English characters in app name and file name
 - Build time is currently 30 - 45 minutes
 
+
+## Local StatusDesk Android builds
+
+See [Android build and signing instructions (Russian)](ANDROID_RU.md).
