@@ -77,7 +77,7 @@ def main():
             assert get('/client/missing.json')[0] == 404
             assert get('/client/')[0] == 403
             status, _, headers = get('/client')
-            assert status == 301 and headers['Location'].endswith('/client/')
+            assert status == 301 and headers.get('Location', '').endswith('/client/'), (status, headers)
             # No backend is running in this container: a proxy error proves the
             # original login/API/WebSocket routes still reach the proxy path.
             assert get('/login')[0] in (502, 503)

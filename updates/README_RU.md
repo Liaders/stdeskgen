@@ -97,7 +97,7 @@ install -d -o stdesk-update -g stdesk-update -m 700 /srv/stdesk-updates/incoming
 для чтения пользователю веб-сервера.
 
 Вставьте содержимое `apache-client.conf` **внутрь HTTPS VirtualHost**.
-Если используется `ProxyPass / ...`, исключение `ProxyPass /client/ !` должно
+Если используется `ProxyPass / ...`, исключение `ProxyPassMatch "^/client(?:/|$)" "!"` должно
 стоять раньше него. Если фронтенд настроен через RewriteRule с флагом `[P]`,
 ему тоже понадобится исключение `/client/` до общего правила. Точное место
 зависит от текущей конфигурации Apache. Проверьте `apache2ctl configtest`
