@@ -74,15 +74,15 @@ class LocalBuildTests(SimpleTestCase):
                 self.assertEqual(dispatch.call_args.kwargs['platform'],platform)
 
     @override_settings(LOCAL_GITHUB_BUILD=True, SH_SECRET='unused')
-    def test_x86_preserves_app_icon_but_ignores_flutter_assets_and_theme(self):
+    def test_x86_preserves_icon_and_logo_but_ignores_privacy_and_theme(self):
         from PIL import Image
         buffer=io.BytesIO();Image.new('RGBA',(64,64),'orange').save(buffer,format='PNG')
         icon=base64.b64encode(buffer.getvalue()).decode()
         with patch('rdgenerator.views.dispatch_local',return_value={'success':True}) as dispatch:
             result=generate_custom_client({'platform':'windows-x86','version':'1.5.1','exename':'Test','theme':'dark',
-                'iconbase64':icon,'logobase64':'invalid-logo','privacybase64':'invalid-privacy'},'http://127.0.0.1:8765')
+                'iconbase64':icon,'logobase64':icon,'privacybase64':'invalid-privacy'},'http://127.0.0.1:8765')
         self.assertTrue(result['success'])
         inputs, images = dispatch.call_args.args[:2]
-        self.assertEqual(images,{'icon.png':buffer.getvalue()})
+        self.assertEqual(images,{'icon.png':buffer.getvalue(),'logo.png':buffer.getvalue()})
         self.assertEqual(inputs['iconlink_url'],'local')
         self.assertNotIn('allow-darktheme', inputs['custom'])

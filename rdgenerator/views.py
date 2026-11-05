@@ -160,7 +160,7 @@ def generate_custom_client(params, full_url):
 
     if local_mode:
         try:
-            image_params = params if platform != 'windows-x86' else {k:v for k,v in params.items() if k not in ('logofile','logobase64','privacyfile','privacybase64')}
+            image_params = params if platform != 'windows-x86' else {k:v for k,v in params.items() if k not in ('privacyfile','privacybase64')}
             local_images = collect_images(image_params)
         except LocalBuildError as exc:
             return {'success': False, 'error': str(exc), 'status_code': 400}

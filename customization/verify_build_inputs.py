@@ -38,6 +38,12 @@ def verify(root, expected, platform, assets=None):
             for name in ('app_icon_16.png','app_icon_32.png','app_icon_64.png','app_icon_128.png','app_icon_256.png','app_icon_512.png','app_icon_1024.png'):
                 if not (root/'flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset'/name).is_file():
                     raise ValueError('Missing macOS application icon: '+name)
+    if platform=='windows-x86' and expected.get('logolink_url','false') != 'false':
+        logo=((assets or root/'.rdgen-input')/'logo.png').read_bytes()
+        page=(root/'src/ui/index.tis').read_text(encoding='utf-8')
+        style=(root/'src/ui/index.css').read_text(encoding='utf-8')
+        if '#rdgen-client-logo' not in page or base64.b64encode(logo).decode() not in style:
+            raise ValueError('Sciter desktop logo was not applied')
     return True
 
 
@@ -46,5 +52,5 @@ if __name__=='__main__':
     parser.add_argument('--source',type=Path,default=Path('.'))
     parser.add_argument('--platform',required=True)
     args=parser.parse_args()
-    verify(args.source,{key:os.environ.get(key,'') for key in ('server','serverPort','key','apiServer','iconlink_url')},args.platform,Path(os.environ['RUNNER_TEMP'])/'rdgen-input')
+    verify(args.source,{key:os.environ.get(key,'') for key in ('server','serverPort','key','apiServer','iconlink_url','logolink_url')},args.platform,Path(os.environ['RUNNER_TEMP'])/'rdgen-input')
     print('Server defaults and application icon verified (values omitted).')

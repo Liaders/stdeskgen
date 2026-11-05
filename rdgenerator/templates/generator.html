@@ -362,22 +362,22 @@
             </div>
         
             <div class="section" id="application-icon">
-                <h2>Иконка приложения</h2>
+                <h2>Иконка и логотип приложения</h2>
                 {{ form.iconbase64.as_hidden }}
                     <label for="{{ form.iconfile.id_for_label }}">Custom App Icon (in .png format)</label>
                     {{ form.iconfile }}<br><br>
                     <!-- <input type="file" name="iconfile" id="iconfile" accept="image/png"> -->
                     <div id="icon-preview"></div><br><br>
-                <p>Применяется также к Windows x86; исходное оформление Sciter сохраняется.</p>
-            </div>
-            <div class="section" id="visual-customization">
-                <h2><i class="fas fa-paint-brush"></i> Visual</h2>
-                    {{ form.logobase64.as_hidden }}
-                    {{ form.privacybase64.as_hidden }}
+                {{ form.logobase64.as_hidden }}
                     <label for="{{ form.logofile.id_for_label }}">Custom App Logo (in .png format)</label>
                     {{ form.logofile }}<br><br>
                     <!-- <input type="file" name="logofile" id="logofile" accept="image/png"> -->
                     <div id="logo-preview"></div><br><br>
+                <p>В Windows x86 иконка используется в заголовке окна, логотип — над «Ваш рабочий стол». Остальное оформление Sciter сохраняется.</p>
+            </div>
+            <div class="section" id="visual-customization">
+                <h2><i class="fas fa-paint-brush"></i> Visual</h2>
+                    {{ form.privacybase64.as_hidden }}
                     <label for="{{ form.privacyfile.id_for_label }}">Custom Privacy Screen (in .png format)</label>
                     {{ form.privacyfile }}<br><br>
                     <!-- <input type="file" name="iconfile" id="iconfile" accept="image/png"> -->

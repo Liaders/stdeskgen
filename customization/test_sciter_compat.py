@@ -1,4 +1,5 @@
 import json
+import base64
 import os
 from pathlib import Path
 import shutil
@@ -25,6 +26,17 @@ class SciterCompatibilityTests(unittest.TestCase):
             self.assertEqual(before.split(marker)[0],after.split(marker)[0])
             self.assertIn('include_bytes!("../res/icon.png")',after.split(marker)[1])
             self.assertFalse(any(ord(c)<32 and c not in '\n\r\t' for c in after))
+
+    def test_supplied_logo_is_embedded_above_your_desktop(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'src/ui').mkdir(parents=True)
+            for name in ('src/ui/index.tis','src/ui/index.css'):(root/name).write_bytes(self.original(name))
+            logo=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+afo0AAAAASUVORK5CYII=')
+            apply(root,'',logo=logo)
+            page=(root/'src/ui/index.tis').read_text(encoding='utf-8')
+            self.assertLess(page.index('<div #rdgen-client-logo'),page.index("translate('Your Desktop')"))
+            self.assertIn(base64.b64encode(logo).decode(),(root/'src/ui/index.css').read_text(encoding='utf-8'))
+            self.assertNotIn('rdgenVerifyCurrentUser',page)
 
     def test_current_user_without_pro_verifier_loads_address_book_only_for_configured_api(self):
         node=shutil.which('node')
