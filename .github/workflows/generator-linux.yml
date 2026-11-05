@@ -482,6 +482,12 @@ jobs:
           name: bridge-artifact
           path: ./
 
+      - name: Verify local server settings and app icon
+        if: ${{ inputs.config_ref != '' }}
+        shell: bash
+        run: |
+          python3 "$RUNNER_TEMP/rdgen-tools/verify_build_inputs.py" --source . --platform linux
+
       - uses: rustdesk-org/run-on-arch-action@d3fcfbb632b84cf7f6bc772bfaaa2c2f4f8789a8
         name: Build rustdesk
         id: vcpkg
@@ -1190,6 +1196,12 @@ jobs:
         with:
           name: bridge-artifact
           path: ./
+
+      - name: Verify local server settings and app icon
+        if: ${{ inputs.config_ref != '' }}
+        shell: bash
+        run: |
+          python3 "$RUNNER_TEMP/rdgen-tools/verify_build_inputs.py" --source . --platform linux
 
       - uses: rustdesk-org/run-on-arch-action@d3fcfbb632b84cf7f6bc772bfaaa2c2f4f8789a8
         name: Build rustdesk

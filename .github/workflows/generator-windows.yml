@@ -611,6 +611,12 @@ jobs:
             Write-Host "Error: printer-adapter folder not found in repository."
           }
 
+      - name: Verify local server settings and app icon
+        if: ${{ inputs.config_ref != '' }}
+        shell: bash
+        run: |
+          python3 "$RUNNER_TEMP/rdgen-version/verify_build_inputs.py" --source . --platform windows
+
       - name: Build rustdesk
         run: |
           # Windows: build RustDesk
