@@ -22,7 +22,7 @@ class EmbeddedInputsTests(unittest.TestCase):
             (root/'.rdgen-input').mkdir();(root/'res').mkdir()
             image=Image.new('RGBA',(64,64),'orange')
             image.save(root/'.rdgen-input/icon.png');image.save(root/'res/icon.png');image.save(root/'res/icon.ico')
-            write('src/ui.rs',base64.b64encode((root/'res/icon.png').read_bytes()).decode())
+            write('src/ui.rs','pub fn get_icon() -> String {\n#[cfg(not(target_os = "macos"))]\n' + base64.b64encode((root/'res/icon.png').read_bytes()).decode() + '\n}')
             self.assertTrue(verify(root,expected,'windows-x86'))
             with self.assertRaisesRegex(ValueError,'ID server'):
                 verify(root,{**expected,'server':'wrong.example.test'},'windows-x86')

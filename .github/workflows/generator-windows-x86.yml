@@ -451,6 +451,12 @@ jobs:
           sed -i -e 's|{software_update_url ? <UpdateMe /> : ""}||' ./src/ui/index.tis
           python3 "$RUNNER_TEMP/rdgen-tools/disable_update_notifications.py" --source .
 
+      - name: Apply Sciter window icon and account compatibility
+        if: ${{ inputs.config_ref != '' }}
+        shell: bash
+        run: |
+          python3 "$RUNNER_TEMP/rdgen-tools/sciter_compat.py" --source .
+
       - name: Verify local server settings and app icon
         if: ${{ inputs.config_ref != '' }}
         shell: bash

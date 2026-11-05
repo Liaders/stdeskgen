@@ -1,0 +1,10 @@
+function rdgenVerifyCurrentUser(data, token) {
+    if (!token || !data || data.error) return false;
+    if (data.verifier != undefined && data.verifier != null && data.verifier != "") {
+        return typeof data.verifier == "string" && handler.verify_login(data.verifier, token);
+    }
+    // CortenDesk authenticates currentUser with the existing Bearer token;
+    // its response has no RustDesk Pro verifier. Accept only our configured HTTPS API.
+    if (handler.get_api_server().replace(/\/+$/, "") != @API@) return false;
+    return typeof data.name == "string" && data.name.trim().length > 0;
+}

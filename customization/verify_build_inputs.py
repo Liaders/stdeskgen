@@ -28,8 +28,12 @@ def verify(root, expected, platform, assets=None):
             if not ico.startswith(b'\x00\x00\x01\x00'): raise ValueError('Windows ICO resource is invalid')
             if platform=='windows' and (root/'flutter/windows/runner/resources/app_icon.ico').read_bytes()!=ico:
                 raise ValueError('Flutter Windows EXE icon differs from supplied application icon')
-            if platform=='windows-x86' and base64.b64encode(icon).decode() not in (root/'src/ui.rs').read_text(encoding='utf-8'):
-                raise ValueError('Sciter window icon was not applied')
+            if platform=='windows-x86':
+                ui=(root/'src/ui.rs').read_text(encoding='utf-8')
+                function=ui.split('pub fn get_icon() -> String {',1)[-1].split('\n}',1)[0]
+                windows=function.split('#[cfg(not(target_os = "macos"))]',1)[-1]
+                if 'include_bytes!("../res/icon.png")' not in windows and base64.b64encode(icon).decode() not in windows:
+                    raise ValueError('Sciter window icon was not applied')
         if platform=='macos':
             for name in ('app_icon_16.png','app_icon_32.png','app_icon_64.png','app_icon_128.png','app_icon_256.png','app_icon_512.png','app_icon_1024.png'):
                 if not (root/'flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset'/name).is_file():
