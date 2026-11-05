@@ -57,6 +57,17 @@ def generate_custom_client(params, full_url):
     local_mode = _settings.LOCAL_GITHUB_BUILD
     if local_mode and (platform not in ('windows', 'windows-x86', 'linux', 'macos') or version != '1.5.0' or params.get('sh_secret_field')):
         return {'success': False, 'error': 'Local GitHub builds support Windows, Linux and macOS with RustDesk 1.5.0.', 'status_code': 400}
+    from updates.config import validate as validate_update_config
+    try:
+        updates_config = validate_update_config(params.get('updates_config'), version, platform)
+        if updates_config and (selfhosted or params.get('update_public_key')):
+            raise ValueError('Use signed StatusDesk updates without the legacy update patch or self-hosted generator mode')
+        if updates_config and params.get('installation') == 'installationN':
+            raise ValueError('Signed auto updates require an installable Windows client')
+        if updates_config and params.get('direction') == 'outgoing':
+            raise ValueError('Signed auto updates currently require an incoming-capable Windows service')
+    except ValueError as exc:
+        return {'success': False, 'error': str(exc), 'status_code': 400}
     app_version = params.get('app_version', '')
     # app_version overrides the version string embedded in the built client
     # without changing the git tag that version selects. If left empty, the
@@ -320,6 +331,8 @@ def generate_custom_client(params, full_url):
         "filename":filename
     }
 
+    if updates_config:
+        inputs_raw['stdesk_update_b64'] = base64.b64encode(json.dumps(updates_config).encode('utf-8')).decode('ascii')
     if ui_profile is not None:
         inputs_raw['ui_profile_b64'] = base64.b64encode(json.dumps(ui_profile).encode('utf-8')).decode('ascii')
 

@@ -79,6 +79,18 @@ jobs:
       run: |
         python ../generator/customization/apply_profile.py --source . --version 1.5.0 --profile ../generator/customization/example.json
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    - name: Compile signed updater with a public test key
+      shell: python
+      run: |
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path('../generator/updates').resolve()))
+        from apply import apply
+        apply(Path.cwd(), {
+          'base_url': 'https://desk.status16.ru/client',
+          'public_key': 'd75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a',
+          'product': 'statusdesk-ci', 'channel': 'test', 'revision': 1,
+        })
     - name: Export GitHub Actions cache environment variables
       uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
       with:

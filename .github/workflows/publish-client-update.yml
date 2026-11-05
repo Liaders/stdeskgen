@@ -1,0 +1,56 @@
+name: Publish StatusDesk update
+run-name: Publish StatusDesk update from build ${{ inputs.build_run_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: 'Successful Windows x64 generator run ID, already tested'
+        type: string
+        required: true
+      deploy:
+        description: 'Publish to desk.status16.ru/client (requires configured SSH secrets)'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: publish-stdesk-update
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install PyNaCl==1.6.0 requests==2.32.5
+      - name: Fetch tested build
+        id: build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        run: python updates/fetch_build.py --run-id "$BUILD_RUN_ID" --output input
+      - name: Sign update bundle
+        env:
+          STDESK_UPDATE_SIGNING_SEED: ${{ secrets.STDESK_UPDATE_SIGNING_SEED }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          BUILD_COMMIT: ${{ steps.build.outputs.commit }}
+        run: python updates/release.py --source input --output bundle --run-id "$BUILD_RUN_ID" --commit "$BUILD_COMMIT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signed-client-update
+          path: bundle/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Publish through SSH
+        if: inputs.deploy
+        env:
+          STDESK_UPDATE_HOST: ${{ secrets.STDESK_UPDATE_HOST }}
+          STDESK_UPDATE_USER: ${{ secrets.STDESK_UPDATE_USER }}
+          STDESK_UPDATE_SSH_KEY: ${{ secrets.STDESK_UPDATE_SSH_KEY }}
+          STDESK_UPDATE_KNOWN_HOSTS: ${{ secrets.STDESK_UPDATE_KNOWN_HOSTS }}
+        run: python updates/upload.py bundle

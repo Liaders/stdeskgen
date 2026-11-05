@@ -1,0 +1,29 @@
+name: Test signed client updates
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [master]
+    paths:
+      - 'updates/**'
+      - 'rdgenerator/**'
+      - '.github/workflows/*client-update*.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: generator
+      - uses: actions/checkout@v4
+        with:
+          repository: rustdesk/rustdesk
+          ref: fada664df7a294d1d1a9ca3e7cd3637069122f17
+          path: rustdesk
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install PyNaCl==1.6.0
+      - name: Test signatures, deployment and source adapter
+        run: python -W error::ResourceWarning -m unittest discover -s generator/updates -p 'test_*.py'

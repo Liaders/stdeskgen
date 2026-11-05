@@ -154,6 +154,11 @@ jobs:
         shell: pwsh
         run: Copy-Item -Recurse customization "$env:RUNNER_TEMP/rdgen-ui"
 
+      - name: Preserve signed update adapter
+        if: ${{ env.stdesk_update_b64 != '' }}
+        shell: pwsh
+        run: Copy-Item -Recurse updates "$env:RUNNER_TEMP/stdesk-updates"
+
       - name: Checkout source code
         if: ${{ env.VERSION != 'master' }}
         uses: actions/checkout@v4
@@ -199,6 +204,13 @@ jobs:
             --rustdesk-root . \
             --update-url "${{ env.downloadLink}}/api/version/latest" \
             --ed25519-public-key "${{ env.update_public_key }}"
+
+      - name: Apply signed StatusDesk updater
+        if: ${{ env.stdesk_update_b64 != '' }}
+        shell: pwsh
+        run: |
+          python "$env:RUNNER_TEMP/stdesk-updates/apply.py" --source .
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Restore bridge files
         uses: actions/download-artifact@master
@@ -810,6 +822,11 @@ jobs:
             curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ env.token }}" -F "file=@./SignOutput/${{ env.filename }}.exe" ${{ env.apiServer }}/api/save_custom_client
             curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ env.token }}" -F "file=@./SignOutput/${{ env.filename }}.msi" ${{ env.apiServer }}/api/save_custom_client || true
 
+      - name: Attach update build receipt
+        if: ${{ env.stdesk_update_b64 != '' }}
+        shell: pwsh
+        run: Copy-Item stdesk-update-build.json ./SignOutput/
+
       - name: Publish local build artifacts
         if: ${{ inputs.config_ref != '' }}
         uses: actions/upload-artifact@v4
@@ -818,6 +835,7 @@ jobs:
           path: |-
             ./SignOutput/*.exe
             ./SignOutput/*.msi
+            ./SignOutput/stdesk-update-build.json
           if-no-files-found: error
           retention-days: 14
 

@@ -3,6 +3,7 @@ import re
 from django import forms
 from PIL import Image
 from customization.profile import validate_profile
+from updates.config import validate as validate_update_config
 
 # App/company names are interpolated into single/double-quoted bash sed
 # scripts in every generator workflow: & \ | corrupt the substitution
@@ -42,6 +43,15 @@ class GenerateForm(forms.Form):
     key = forms.CharField(label="Key", required=False)
     urlLink = forms.CharField(label="Custom URL for links", required=False)
     downloadLink = forms.CharField(label="Custom URL for downloading new versions", required=False)
+    updates_config = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 7}))
+
+    def clean_updates_config(self):
+        raw = self.cleaned_data.get('updates_config', '')
+        try:
+            validate_update_config(raw, self.cleaned_data.get('version'), self.cleaned_data.get('platform'))
+        except ValueError as exc:
+            raise forms.ValidationError(str(exc))
+        return raw
     compname = forms.CharField(label="Company name",required=False)
 
     ui_profile = forms.CharField(label="UI profile (JSON, Windows 64-bit / RustDesk 1.5.0)", required=False, widget=forms.Textarea(attrs={"rows": 8}))

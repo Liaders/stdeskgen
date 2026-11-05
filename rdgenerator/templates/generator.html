@@ -421,6 +421,11 @@
                         <label for="{{ form.enableCamera.id_for_label }}">{{ form.enableCamera }} Enable remote camera</label>
                         <label for="{{ form.enableTerminal.id_for_label }}">{{ form.enableTerminal }} Enable remote terminal</label>
                     </div><br>
+                <h2>StatusDesk updates</h2>
+                    <label for="{{ form.updates_config.id_for_label }}">Update channel configuration (JSON; leave empty to disable)</label>
+                    {{ form.updates_config }}
+                    <p>Installed Windows x64 clients only. Use the public signing key and increase the revision for each release. Never enter the private signing key here.</p>
+                    <details><summary>Example configuration</summary><pre>{"base_url":"https://desk.status16.ru/client","public_key":"PUBLIC_KEY_64_HEX","product":"statusdesk","channel":"test","revision":1}</pre></details>
                 <h2><i class="fas fa-code"></i> Code Changes</h2>
                     <label for="{{ form.xOffline.id_for_label }}">{{ form.xOffline }} Display an X for offline devices in the addressbook.</label><br>
                     <label for="{{ form.removeNewVersionNotif.id_for_label }}">{{ form.removeNewVersionNotif }} Remove notification for new versions.</label><br>

@@ -1,5 +1,6 @@
 import json
 from customization.profile import validate_profile
+from updates.config import validate as validate_update_config
 import os
 import re
 from django.http import JsonResponse
@@ -113,6 +114,11 @@ def validate_generate_params(data):
         cleaned['ui_profile'] = json.dumps(profile) if profile is not None else ''
     except ValueError as exc:
         errors['ui_profile'] = str(exc)
+    try:
+        updates = validate_update_config(data.get('updates_config'), cleaned.get('version'), cleaned.get('platform'))
+        cleaned['updates_config'] = json.dumps(updates) if updates is not None else ''
+    except ValueError as exc:
+        errors['updates_config'] = str(exc)
     return cleaned, errors
 
 
