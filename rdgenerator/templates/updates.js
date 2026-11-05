@@ -4,7 +4,7 @@
     function sync(){
         if(raw.value)channel=raw.value;
         let reason='';
-        if(!['windows','windows-x86'].includes(el('id_platform').value))reason='Для Linux/macOS доступна ручная загрузка; автообновление пока поддерживает только Windows.';
+        if(!['windows','windows-x86'].includes(el('id_platform').value))reason='Для Linux/macOS/Android доступна ручная загрузка; автообновление пока поддерживает только Windows.';
         else if(!['1.5.0','1.5.1'].includes(el('id_version').value))reason='Эта базовая версия RustDesk пока не поддерживается нашим каналом.';
         else if(el('id_installation').value!=='installationY')reason='Автообновление требует клиента с разрешённой установкой.';
         else if(document.querySelector('[name=direction]:checked')?.value==='outgoing')reason='Автообновление требует клиента с поддержкой входящих подключений и службы Windows.';

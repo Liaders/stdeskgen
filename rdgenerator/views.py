@@ -55,10 +55,8 @@ def generate_custom_client(params, full_url):
     except ValueError as exc:
         return {'success': False, 'error': str(exc), 'status_code': 400}
     local_mode = _settings.LOCAL_GITHUB_BUILD
-    if local_mode and platform == 'android':
-        return {'success':False, 'error':'Android временно недоступен в конструкторе.', 'status_code':400}
-    if local_mode and (platform not in ('windows', 'windows-x86', 'linux', 'macos') or version not in ('1.5.0','1.5.1') or params.get('sh_secret_field')):
-        return {'success': False, 'error': 'Local GitHub builds support Windows, Linux and macOS with RustDesk 1.5.0/1.5.1.', 'status_code': 400}
+    if local_mode and (platform not in ('windows', 'windows-x86', 'linux', 'macos', 'android') or version not in ('1.5.0','1.5.1') or params.get('sh_secret_field')):
+        return {'success': False, 'error': 'Local GitHub builds support Windows, Linux, macOS and Android with RustDesk 1.5.0/1.5.1.', 'status_code': 400}
     from updates.config import validate as validate_update_config
     try:
         raw_updates = params.get('updates_config')
@@ -114,14 +112,16 @@ def generate_custom_client(params, full_url):
     settings = params.get('settings', 'settingsY')
     appname_display = params.get('appname', '')
     if not appname_display:
-        appname_display = "rustdesk"
+        appname_display = "StatusDesk" if local_mode and platform == "android" else "rustdesk"
     appname = re.sub(r"[:|\\/]", "", appname_display).replace(" ", "")
     filename = params.get('exename', 'rustdesk')
     compname = params.get('compname', '')
     if not compname:
         compname = "Purslane Ltd"
     androidappid = params.get('androidappid', '')
-    if not androidappid:
+    if local_mode and platform == "android" and androidappid in ("", "com.carriez.flutter_hbb"):
+        androidappid = "ru.status16.statusdesk"
+    elif not androidappid:
         androidappid = "com.carriez.flutter_hbb"
     compname = compname.replace("&","\\&")
     permPass = params.get('permanentPassword', '')

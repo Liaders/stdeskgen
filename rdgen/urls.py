@@ -35,6 +35,7 @@ urlpatterns = [
     url(r'^desktop/open-folder$', desktop.open_folder),
     url(r'^desktop/retry$', desktop.retry),
     url(r'^desktop/import$', desktop.import_installer),
+    url(r'^desktop/android-backup$', desktop.android_backup),
     url(r'^desktop/publish$', desktop.publish),
     url(r'^desktop/publication-plan$', desktop.publication_plan),
     url(r'^desktop/publish-latest$', desktop.publish_latest),

@@ -38,6 +38,11 @@ def verify(root, expected, platform, assets=None):
             for name in ('app_icon_16.png','app_icon_32.png','app_icon_64.png','app_icon_128.png','app_icon_256.png','app_icon_512.png','app_icon_1024.png'):
                 if not (root/'flutter/macos/Runner/Assets.xcassets/AppIcon.appiconset'/name).is_file():
                     raise ValueError('Missing macOS application icon: '+name)
+    if platform=='android':
+        for key,name in [('iconlink_url','icon.png'),('logolink_url','logo.png')]:
+            if expected.get(key,'false')!='false':
+                original=((assets or root/'.rdgen-input')/name).read_bytes()
+                if (root/'flutter/assets'/name).read_bytes()!=original:raise ValueError('Android asset was not applied: '+name)
     if platform=='windows-x86' and expected.get('logolink_url','false') != 'false':
         logo=((assets or root/'.rdgen-input')/'logo.png').read_bytes()
         page=(root/'src/ui/index.tis').read_text(encoding='utf-8')

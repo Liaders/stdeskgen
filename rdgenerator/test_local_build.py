@@ -61,13 +61,13 @@ class LocalBuildTests(SimpleTestCase):
     @override_settings(LOCAL_GITHUB_BUILD=True)
     def test_unsupported_platform_never_dispatches(self):
         with patch('rdgenerator.views.dispatch_local') as dispatch:
-            result=generate_custom_client({'platform':'android','exename':'Test'}, 'http://127.0.0.1:8765')
+            result=generate_custom_client({'platform':'ios','exename':'Test'}, 'http://127.0.0.1:8765')
         self.assertFalse(result['success'])
         dispatch.assert_not_called()
 
     @override_settings(LOCAL_GITHUB_BUILD=True, SH_SECRET='unused')
     def test_supported_platforms_route_to_their_workflows(self):
-        for platform in ('windows-x86','linux','macos'):
+        for platform in ('windows-x86','linux','macos','android'):
             with self.subTest(platform=platform), patch('rdgenerator.views.dispatch_local',return_value={'success':True}) as dispatch:
                 result=generate_custom_client({'platform':platform,'version':'1.5.0','exename':'Test'},'http://127.0.0.1:8765')
                 self.assertTrue(result['success'])

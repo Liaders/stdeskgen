@@ -16,3 +16,5 @@ downloads/
 default-config.json
 .default-config-*.tmp
 .local-version-counters.*
+
+.local-android-signing/

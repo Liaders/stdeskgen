@@ -9,7 +9,7 @@ import zipfile
 from django.conf import settings
 
 _lock = threading.Lock()
-EXTENSIONS = {'.exe', '.msi', '.deb', '.rpm', '.AppImage', '.dmg', '.flatpak'}
+EXTENSIONS = {'.exe', '.msi', '.deb', '.rpm', '.AppImage', '.dmg', '.flatpak', '.apk'}
 
 
 def library_root():
@@ -29,6 +29,13 @@ def detect_platform(path, artifact=''):
             if header == b'PE\0\0\x4c\x01': return 'windows-x86'
             raise ValueError('Unsupported EXE architecture')
         return 'windows-x86' if 'x86' in artifact and 'x86_64' not in artifact and 'x64' not in artifact else 'windows-x64'
+    if path.suffix == '.apk':
+        with zipfile.ZipFile(path) as archive:
+            if 'AndroidManifest.xml' not in archive.namelist():raise ValueError('Invalid Android APK')
+            abis={name.split('/')[1] for name in archive.namelist() if name.startswith('lib/') and name.endswith('/librustdesk.so')}
+        platforms={'arm64-v8a':'android-arm64','armeabi-v7a':'android-armv7','x86_64':'android-x64'}
+        if len(abis)!=1 or not abis.issubset(platforms):raise ValueError('Unsupported Android APK architecture')
+        return platforms[next(iter(abis))]
     text = (artifact + ' ' + path.name).lower()
     arm = 'arm64' in text or 'aarch64' in text
     if path.suffix == '.dmg': return 'macos-arm64' if arm else 'macos-x64'
@@ -75,7 +82,7 @@ def download_build(record, session, request):
                         if item.is_dir(): continue
                         if relative.is_absolute() or '..' in relative.parts or '\\' in item.filename or ':' in item.filename:
                             raise ValueError('Unsafe archive path')
-                        if relative.suffix not in EXTENSIONS and relative.name != 'stdesk-update-build.json': continue
+                        if relative.suffix not in EXTENSIONS and relative.name not in ('stdesk-update-build.json','stdesk-android-build.json'): continue
                         target = folder.joinpath(*relative.parts)
                         if not target.resolve().is_relative_to(destination.resolve()): raise ValueError('Unsafe extraction target')
                         target.parent.mkdir(parents=True, exist_ok=True)
@@ -84,6 +91,12 @@ def download_build(record, session, request):
                             import shutil
                             shutil.copyfileobj(source, output)
                         temporary.replace(target)
+                android_record=folder/'stdesk-android-build.json'
+                android_metadata=json.loads(android_record.read_text(encoding='utf-8')) if android_record.exists() else {}
+                for apk in list(folder.rglob('*-unsigned.apk')):
+                    from .android_signing import sign_apk
+                    signed, android_metadata = sign_apk(apk, json.loads((apk.parent/'stdesk-android-build.json').read_text(encoding='utf-8')))
+                    apk.unlink()
                 for path in folder.rglob('*'):
                     if path.is_file() and path.suffix in EXTENSIONS:
                         relative = path.relative_to(library_root()).as_posix()
@@ -94,7 +107,7 @@ def download_build(record, session, request):
                         entries.append({'id': hashlib.sha256(relative.encode()).hexdigest(), 'relative_path': relative,
                             'filename': path.name, 'platform': detect_platform(path, name), 'size': path.stat().st_size,
                             'sha256': digest, 'version': (receipt or {}).get('version') or record.get('app_version') or record.get('version', '1.5.0'),
-                            'build_id': record['id'], 'run_id': record['run_id'], 'receipt': receipt})
+                            'build_id': record['id'], 'run_id': record['run_id'], 'receipt': receipt, 'android': android_metadata if path.suffix == '.apk' else None})
             except Exception as exc:
                 raise LocalBuildError('Could not download installer artifacts: ' + str(exc)) from exc
             finally:

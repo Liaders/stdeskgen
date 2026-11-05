@@ -198,3 +198,19 @@ def publish_latest(request):
         return _start_publications(jobs)
     except (ValueError,KeyError,TypeError) as exc:
         return JsonResponse({'error':str(exc)},status=400)
+
+
+@require_POST
+@csrf_protect
+def android_backup(request):
+    if not local(request): return HttpResponseForbidden('Local only')
+    from .android_signing import export_backup
+    try:
+        folder=Path(settings.BASE_DIR)/'.local-android-signing'
+        folder.mkdir(exist_ok=True)
+        target=folder/('android-signing-backup-'+uuid.uuid4().hex[:8]+'.zip')
+        export_backup(target)
+        os.startfile(folder)
+        return JsonResponse({'path':str(target)})
+    except (OSError,ValueError) as exc:
+        return JsonResponse({'error':str(exc)},status=400)

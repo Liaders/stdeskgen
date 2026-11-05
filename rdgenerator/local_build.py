@@ -115,7 +115,7 @@ def dispatch_local(inputs, images, version, app_version='', platform='windows'):
     branch = 'codex/build-input-' + build_id
     secret = 'STDESK_BUILD_' + build_id.replace('-', '').upper()
     payload, password = pack_configuration(inputs, images)
-    workflows = {'windows':'generator-windows.yml','windows-x86':'generator-windows-x86.yml','linux':'generator-linux.yml','macos':'generator-macos.yml'}
+    workflows = {'windows':'generator-windows.yml','windows-x86':'generator-windows-x86.yml','linux':'generator-linux.yml','macos':'generator-macos.yml','android':'generator-android.yml'}
     if platform not in workflows:
         raise LocalBuildError('Unsupported build platform.')
     workflow = workflows[platform]

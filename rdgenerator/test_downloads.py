@@ -66,3 +66,43 @@ class DownloadsTests(SimpleTestCase):
             item = library()[0]
             self.assertEqual(item['platform'], 'windows-x64')
             self.assertEqual(response.json()['id'], item['id'])
+
+    def test_android_apk_architecture_comes_from_archive(self):
+        from .build_downloads import detect_platform
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'wrong-x64-name.apk'
+            with zipfile.ZipFile(path,'w') as archive:
+                archive.writestr('AndroidManifest.xml',b'manifest')
+                archive.writestr('lib/arm64-v8a/librustdesk.so',b'native')
+            self.assertEqual(detect_platform(path),'android-arm64')
+
+    def test_unsigned_android_download_is_signed_before_entering_library(self):
+        payload=io.BytesIO()
+        metadata={'schema':1,'platform':'android','package':'ru.status16.statusdesk','version':'1.5.1.3','version_code':688193539,'signing':'local-required'}
+        with zipfile.ZipFile(payload,'w') as archive:
+            apk=io.BytesIO()
+            with zipfile.ZipFile(apk,'w') as package:
+                package.writestr('AndroidManifest.xml',b'manifest')
+                package.writestr('lib/arm64-v8a/librustdesk.so',b'native')
+            archive.writestr('StatusDesk-arm64-unsigned.apk',apk.getvalue())
+            archive.writestr('stdesk-android-build.json',json.dumps(metadata))
+        class Response:
+            def __enter__(self):return self
+            def __exit__(self,*args):return False
+            def raise_for_status(self):pass
+            def iter_content(self,size):yield payload.getvalue()
+        def sign(path,data):
+            target=path.with_name(path.name.replace('-unsigned',''));target.write_bytes(path.read_bytes())
+            return target,{**data,'signing':'signed-locally','certificate_sha256':'a'*64}
+        identifier=str(uuid.uuid4())
+        with tempfile.TemporaryDirectory() as directory,override_settings(BASE_DIR=Path(directory)):
+            from .build_downloads import download_build
+            with patch('rdgenerator.local_build.github_session') as session,patch('rdgenerator.android_signing.sign_apk',side_effect=sign):
+                session.return_value.get.return_value=Response()
+                record={'id':identifier,'run_id':1,'app_version':'1.5.1.3'}
+                download_build(record,session.return_value,lambda *a,**k:{'artifacts':[{'name':'client-android-arm64','expired':False,'archive_download_url':'https://example.test/apk'}]})
+            item=library()[0]
+            self.assertEqual(item['filename'],'StatusDesk-arm64.apk')
+            self.assertEqual(item['platform'],'android-arm64')
+            self.assertEqual(item['android']['signing'],'signed-locally')
+            self.assertEqual(item['android']['certificate_sha256'],'a'*64)

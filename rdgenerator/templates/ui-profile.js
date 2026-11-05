@@ -50,7 +50,7 @@
     }
 
     function prepare(forBuild = true) {
-        const legacy = el('id_platform').value === 'windows-x86';
+        const legacy = ['windows-x86','android'].includes(el('id_platform').value);
         el('ui-customization').hidden = legacy;
         if (el('visual-customization')) el('visual-customization').hidden = legacy;
         if (legacy) {raw.value='';controls.disabled=true;return true;}

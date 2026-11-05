@@ -280,17 +280,17 @@
                         <strong class="fa-stack-1x text-32">32</strong>
                     </span>
                     <i class="fab fa-linux platform-icon" data-platform="linux"></i>
-                    <i class="fab fa-android platform-icon unavailable" aria-disabled="true" title="Android временно недоступен"></i>
+                    <i class="fab fa-android platform-icon" data-platform="android" title="Android APK"></i>
                     <i class="fab fa-apple platform-icon" data-platform="macos"></i>
                 </div>
                 <select name="platform" id="id_platform">
                     <option value="windows" selected>Windows 64Bit</option>
                     <option value="windows-x86">Windows 32Bit</option>
                     <option value="linux">Linux</option>
-                    <option value="android" disabled>Android — временно недоступен</option>
+                    <option value="android">Android APK</option>
                     <option value="macos">macOS</option>
                 </select>
-                <p>Android временно недоступен. «Создать все клиенты» собирает Windows x64, Windows x86, Linux и macOS.</p>
+                <p>«Создать все клиенты» собирает Windows x64, Windows x86, Linux, macOS и Android. Android APK подписывается локально после скачивания.</p>
                 <div class="build-actions"><button type="submit" name="build_scope" value="single" id="build-single">Собрать клиент</button><button type="submit" name="build_scope" value="all" id="build-all">Создать все клиенты</button></div>
                 <input type="hidden" name="batch_ui_profile" id="batch-ui-profile"><input type="hidden" name="batch_auto_update_enabled" id="batch-auto-update-enabled">
                 <label for="{{ form.version.id_for_label }}">Rustdesk Version:</label>

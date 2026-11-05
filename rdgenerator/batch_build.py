@@ -6,10 +6,10 @@ def build_all(params, full_url):
     from .views import generate_custom_client
     release = params.get('build_number') or current_number(params['version'])
     results = []
-    for platform in ('windows', 'windows-x86', 'linux', 'macos'):
+    for platform in ('windows', 'windows-x86', 'linux', 'macos', 'android'):
         config = {**params, 'platform': platform, 'build_number': release}
-        if platform == 'windows-x86': config['ui_profile'] = ''
-        if platform in ('linux','macos'): config['updates_config'] = ''
+        if platform in ('windows-x86','android'): config['ui_profile'] = ''
+        if platform in ('linux','macos','android'): config['updates_config'] = ''
         try:
             result = generate_custom_client(config, full_url)
         except Exception:
