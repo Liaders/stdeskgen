@@ -428,12 +428,10 @@
                         <label for="{{ form.enableTerminal.id_for_label }}">{{ form.enableTerminal }} Enable remote terminal</label>
                     </div><br>
                 <h2>StatusDesk updates</h2>
-                    <label for="{{ form.updates_config.id_for_label }}">Update channel configuration (JSON; leave empty to disable)</label>
+                    <label for="id_auto_update_enabled">{{ form.auto_update_enabled }} Включить автоматическое обновление клиента</label>
                     {{ form.updates_config }}
-                    <button type="button" id="configure-auto-update">Настроить автообновление Windows для новой сборки</button>
                     <p id="update-config-message"></p>
-                    <p>Installed Windows x64/x86 clients only. Increase the revision for each release.</p>
-                    <details><summary>Example configuration</summary><pre>{"base_url":"https://desk.status16.ru/client","product":"statusdesk","channel":"test","revision":1}</pre></details>
+                    <p>Сборка не публикуется автоматически. Готовый установщик нужно отдельно опубликовать на вкладке «Публикация».</p>
                 <h2><i class="fas fa-code"></i> Code Changes</h2>
                     <label for="{{ form.xOffline.id_for_label }}">{{ form.xOffline }} Display an X for offline devices in the addressbook.</label><br>
                     <label for="{{ form.removeNewVersionNotif.id_for_label }}">{{ form.removeNewVersionNotif }} Remove notification for new versions.</label><br>
@@ -802,6 +800,7 @@
                                 }
                             }
                             if (window.rdgenUI) window.rdgenUI.loadConfig(formData);
+                            if (window.rdgenUpdates) window.rdgenUpdates.loadConfig(formData);
                             showLoadWarnings(skippedKeys);
                             document.getElementById('id_platform').dispatchEvent(new Event('change'));
                             document.getElementById('id_version').dispatchEvent(new Event('change'));
@@ -830,6 +829,7 @@
     </script>
     <script>{% include "ui-profile.js" %}</script>
     <script>{% include "recent-builds.js" %}</script>
+    <script>{% include "updates.js" %}</script>
     {{ default_config|json_script:"default-config-data" }}
     <script>
     const initialConfiguration = JSON.parse(document.getElementById('default-config-data').textContent);
@@ -865,15 +865,6 @@
     }
     document.getElementById('id_version').addEventListener('change',versionChanged);
     versionChanged();
-    </script>
-    <script>
-    document.getElementById('configure-auto-update').onclick = () => {
-        const platform = document.getElementById('id_platform').value;
-        const message = document.getElementById('update-config-message');
-        if (!['windows','windows-x86'].includes(platform)) {message.textContent='Пока поддерживается автообновление установленного Windows-клиента. Для Linux/macOS доступна публикация установщиков.';return;}
-        document.getElementById('id_updates_config').value = JSON.stringify({base_url:'https://desk.status16.ru/client',product:'statusdesk',channel:'stable',revision:Math.floor(Date.now()/1000)},null,2);
-        message.textContent='Канал stable настроен. Номер ревизии будет определён автоматически по версии клиента при запуске сборки.';
-    };
     </script>
 <script>{% include "i18n.js" %}</script>
 </body>

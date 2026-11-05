@@ -45,10 +45,13 @@ class GenerateForm(forms.Form):
     key = forms.CharField(label="Key", required=False)
     urlLink = forms.CharField(label="Custom URL for links", required=False)
     downloadLink = forms.CharField(label="Custom URL for downloading new versions", required=False)
-    updates_config = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 7}))
+    auto_update_enabled = forms.BooleanField(initial=True, required=False)
+    updates_config = forms.CharField(required=False, widget=forms.HiddenInput())
 
     def clean_updates_config(self):
         raw = self.cleaned_data.get('updates_config', '')
+        if not self.cleaned_data.get('auto_update_enabled'):
+            return ''
         try:
             validate_update_config(raw, self.cleaned_data.get('version'), self.cleaned_data.get('platform'))
         except ValueError as exc:

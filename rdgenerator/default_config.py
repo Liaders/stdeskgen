@@ -22,7 +22,7 @@ def save(config):
 def load():
     if not path().exists():
         save({'version': '1.5.0', 'platform': 'windows', 'exename': 'StatusDesk', 'appname': 'StatusDesk',
-              'direction': 'both', 'installation': 'installationY', 'settings': 'settingsY', 'build_number': '',
+              'direction': 'both', 'installation': 'installationY', 'settings': 'settingsY', 'build_number': '', 'auto_update_enabled': True,
               'ui_profile': {'schema_version': 1, 'accent': '#EF7F1A', 'button': '#EF7F1A', 'navigation': 'text',
                              'colleagues': True, 'device_names': True, 'resizable_panels': True,
                              'group_width': 260, 'address_book_width': 260}})

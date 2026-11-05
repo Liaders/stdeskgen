@@ -59,7 +59,12 @@ def generate_custom_client(params, full_url):
         return {'success': False, 'error': 'Local GitHub builds support Windows, Linux and macOS with RustDesk 1.5.0/1.5.1.', 'status_code': 400}
     from updates.config import validate as validate_update_config
     try:
-        updates_config = validate_update_config(params.get('updates_config'), version, platform)
+        raw_updates = params.get('updates_config')
+        if params.get('auto_update_enabled') is False:
+            raw_updates = None
+        elif local_mode and not raw_updates and platform in ('windows','windows-x86') and version in ('1.5.0','1.5.1') and params.get('installation', 'installationY') == 'installationY' and params.get('direction', 'both') != 'outgoing' and not selfhosted and not params.get('update_public_key'):
+            raw_updates = {'base_url':'https://desk.status16.ru/client', 'product':'statusdesk', 'channel':'stable', 'revision':1}
+        updates_config = validate_update_config(raw_updates, version, platform)
         if updates_config and (selfhosted or params.get('update_public_key')):
             raise ValueError('Use StatusDesk updates without the legacy update patch or self-hosted generator mode')
         if updates_config and params.get('installation') == 'installationN':
@@ -101,7 +106,7 @@ def generate_custom_client(params, full_url):
     if not urlLink:
         urlLink = "https://rustdesk.com"
     if not downloadLink:
-        downloadLink = "https://rustdesk.com/download"
+        downloadLink = "https://desk.status16.ru/client/" if updates_config else "https://rustdesk.com/download"
     direction = params.get('direction', 'both')
     installation = params.get('installation', 'installationY')
     settings = params.get('settings', 'settingsY')
@@ -280,6 +285,8 @@ def generate_custom_client(params, full_url):
     
     if updates_config:
         decodedCustom['default-settings'].setdefault('allow-auto-update', 'Y')
+    elif local_mode and platform in ('windows','windows-x86') and params.get('auto_update_enabled') is False:
+        decodedCustom['override-settings']['allow-auto-update'] = 'N'
     decodedCustomJson = json.dumps(decodedCustom)
 
     string_bytes = decodedCustomJson.encode("ascii")

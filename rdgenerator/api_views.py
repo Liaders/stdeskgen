@@ -22,7 +22,7 @@ PERMISSIONS_TYPE_CHOICES = ['custom', 'full', 'view']
 
 # Boolean fields
 BOOL_FIELDS = [
-    'delayFix', 'xOffline', 'hidecm', 'removeNewVersionNotif',
+    'auto_update_enabled', 'delayFix', 'xOffline', 'hidecm', 'removeNewVersionNotif',
     'denyLan', 'enableDirectIP', 'autoClose',
     'enableKeyboard', 'enableClipboard', 'enableFileTransfer', 'enableAudio',
     'enableTCP', 'enableRemoteRestart', 'enableRecording', 'enableBlockingInput',
@@ -80,7 +80,7 @@ def validate_generate_params(data):
 
     # Boolean fields
     for field in BOOL_FIELDS:
-        value = data.get(field, False)
+        value = data.get(field, field == 'auto_update_enabled')
         
         if isinstance(value, str) and value.lower() == 'on':
             value = True
@@ -123,7 +123,7 @@ def validate_generate_params(data):
     except ValueError as exc:
         errors['ui_profile'] = str(exc)
     try:
-        updates = validate_update_config(data.get('updates_config'), cleaned.get('version'), cleaned.get('platform'))
+        updates = validate_update_config(data.get('updates_config') if cleaned.get('auto_update_enabled') else None, cleaned.get('version'), cleaned.get('platform'))
         cleaned['updates_config'] = json.dumps(updates) if updates is not None else ''
     except ValueError as exc:
         errors['updates_config'] = str(exc)
