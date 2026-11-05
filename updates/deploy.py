@@ -62,6 +62,9 @@ def deploy(bundle, root):
         temporary.write_bytes(data)
         temporary.chmod(0o644)
         os.replace(temporary, current)
+        if channel == 'stable':
+            from download_catalog import update
+            update(root, 'windows-x64', url='/client/' + relative.as_posix() + '/client-windows-x64.exe', version=manifest['version'])
         print(f'Published {product}/{channel} revision {revision}')
 
 

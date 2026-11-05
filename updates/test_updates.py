@@ -42,6 +42,15 @@ class UpdateTests(unittest.TestCase):
             self.assertEqual(len(result['sha256']), 64)
             self.assertNotIn('signature', result)
 
+    def test_catalog_preserves_other_platforms(self):
+        from download_catalog import update
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            update(root, 'windows-x86', url='/client/downloads/x86.exe', version='1.5.0')
+            update(root, 'macos-arm64', url='/client/downloads/mac.dmg', version='1.5.0')
+            catalog = json.loads((root / 'downloads.json').read_text())
+            self.assertEqual(set(catalog['items']), {'windows-x86', 'macos-arm64'})
+
     def test_bad_configuration_and_unsupported_platform_fail(self):
         for patch in ({'base_url': 'http://desk.status16.ru/client'}, {'revision': True}, {'product': '../other'}, {'public_key': 'obsolete'}):
             with self.subTest(patch=patch), self.assertRaises(ValueError):

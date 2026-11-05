@@ -15,6 +15,8 @@ def main():
         root.chmod(0o755)
         public = root / 'public'
         public.mkdir(mode=0o755)
+        homepage = Path(__file__).with_name('index.html').read_bytes()
+        (public / 'index.html').write_bytes(homepage)
         samples = {
             '/client/windows-x64.json': b'{"app_name":"CortenDesk RustDesk", "schema":2}',
             '/client/client-windows-x64.exe': b'MZ\x00CortenDesk\x00RustDesk\xff',
@@ -75,7 +77,9 @@ def main():
             status, body, _ = get('/client/windows-x64.json', {'Connection': 'Upgrade', 'Upgrade': 'websocket'})
             assert status == 200 and body == samples['/client/windows-x64.json']
             assert get('/client/missing.json')[0] == 404
-            assert get('/client/')[0] == 403
+            status, body, _ = get('/client/')
+            assert status == 200 and body == homepage
+            assert get('/client/downloads/')[0] in (403, 404)
             status, _, headers = get('/client')
             assert status == 301 and headers.get('Location', '').endswith('/client/'), (status, headers)
             # No backend is running in this container: a proxy error proves the

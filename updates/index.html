@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Скачать StatusDesk</title>
+  <style>
+    :root{font-family:Segoe UI,Arial,sans-serif;color:#edeaf8;background:#111018;font-synthesis:none}
+    *{box-sizing:border-box}body{margin:0}main{max-width:1000px;margin:auto;padding:48px 24px 64px}
+    header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:64px}
+    .brand{font-size:23px;font-weight:700;letter-spacing:-.6px}.brand span{color:#bba3ff}
+    .back{color:#c6c0d8;text-decoration:none;font-size:14px}.back:hover{text-decoration:underline}
+    .eyebrow{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#bba3ff}
+    h1{font-size:clamp(32px,5vw,48px);letter-spacing:-1.6px;line-height:1.12;margin:14px 0 18px}
+    .lead{color:#b8b2c8;font-size:17px;line-height:1.6;max-width:640px;margin-bottom:36px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    article{background:#1b1925;border:1px solid #322d43;border-radius:18px;padding:26px}
+    h2{font-size:21px;margin:0 0 7px}.description{color:#b8b2c8;font-size:14px;margin:0 0 24px;line-height:1.5}
+    .row{display:flex;gap:14px;justify-content:space-between;align-items:center;padding:14px 0;border-top:1px solid #322d43}
+    .arch{font-size:14px}.version{display:block;color:#aaa2bd;font-size:12px;margin-top:5px}
+    .button{display:inline-block;background:#b99bff;color:#191025;text-decoration:none;border-radius:9px;padding:11px 16px;font-weight:600;font-size:14px;white-space:nowrap}
+    .button:hover{background:#cdb8ff}.button:focus-visible,.back:focus-visible{outline:3px solid #e5d8ff;outline-offset:4px}
+    .unavailable{color:#9c94ad;font-size:13px;white-space:nowrap}
+    .notice{color:#b8b2c8;font-size:14px;line-height:1.6;margin-top:28px;min-height:24px}
+    footer{margin-top:48px;padding-top:22px;border-top:1px solid #322d43;color:#8f879f;font-size:13px;line-height:1.6}
+    @media(max-width:640px){main{padding:28px 18px 40px}header{margin-bottom:42px}.grid{grid-template-columns:1fr}article{padding:22px}h1{letter-spacing:-1px}}
+  </style>
+</head>
+<body>
+<main>
+  <header><div class="brand">Status<span>Desk</span></div><a class="back" href="/">Войти в панель →</a></header>
+  <div class="eyebrow">Удалённый доступ</div>
+  <h1>Скачать StatusDesk</h1>
+  <p class="lead">Выберите вашу операционную систему и скачайте приложение для подключения к компьютерам.</p>
+  <div class="grid">
+    <article><h2>Windows</h2><p class="description">Выберите разрядность вашей системы.</p>
+      <div class="row" data-platform="windows-x64"><div class="arch">Windows 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
+      <div class="row" data-platform="windows-x86"><div class="arch">Windows 32 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
+    </article>
+    <article><h2>macOS</h2><p class="description">Тип процессора указан в меню  → «Об этом Mac».</p>
+      <div class="row" data-platform="macos-arm64"><div class="arch">Apple Silicon · M1 и новее<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
+      <div class="row" data-platform="macos-x64"><div class="arch">Intel<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
+    </article>
+    <article><h2>Linux</h2><p class="description">Выберите архитектуру вашего компьютера.</p>
+      <div class="row" data-platform="linux-x64"><div class="arch">Intel / AMD · x64<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
+      <div class="row" data-platform="linux-arm64"><div class="arch">ARM64<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
+    </article>
+    <article><h2>Как начать</h2><p class="description">Скачайте и запустите приложение. Для доступа к устройствам организации войдите в свою учётную запись.</p><p class="description">Если не знаете, какой вариант выбрать, уточните у вашего системного администратора.</p></article>
+  </div>
+  <p class="notice" role="status" id="status">Проверяем доступные дистрибутивы…</p>
+  <footer>Доступ к удалённому компьютеру предоставляется с разрешения его владельца или администратора.</footer>
+</main>
+<script>
+(async () => {
+  const status = document.getElementById('status');
+  try {
+    const response = await fetch('./downloads.json', {cache: 'no-store'});
+    if (response.status === 404) {status.textContent = 'Дистрибутивы скоро появятся. Если приложение нужно сейчас, обратитесь к администратору.'; return;}
+    if (!response.ok) throw Error('catalog');
+    const catalog = await response.json();
+    if (catalog.schema !== 1 || !catalog.items || typeof catalog.items !== 'object') throw Error('catalog');
+    let available = 0;
+    for (const row of document.querySelectorAll('[data-platform]')) {
+      const item = catalog.items[row.dataset.platform];
+      if (!item || typeof item.url !== 'string') continue;
+      const url = new URL(item.url, location.href);
+      if (url.origin !== location.origin || !url.pathname.startsWith('/client/') || url.username || url.password || url.hash) continue;
+      const button = document.createElement('a');
+      button.className = 'action button'; button.textContent = 'Скачать'; button.href = url.href; button.setAttribute('download', '');
+      button.setAttribute('aria-label', 'Скачать StatusDesk — ' + row.querySelector('.arch').firstChild.textContent);
+      row.querySelector('.action').replaceWith(button);
+      row.querySelector('.version').textContent = typeof item.version === 'string' ? 'Версия ' + item.version : '';
+      available++;
+    }
+    status.textContent = available ? 'Выберите подходящий вариант выше. Если нужной версии пока нет, обратитесь к администратору.' : 'Дистрибутивы скоро появятся.';
+  } catch {status.textContent = 'Не удалось получить список загрузок. Обновите страницу или обратитесь к администратору.';}
+})();
+</script>
+</body>
+</html>
