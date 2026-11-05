@@ -39,6 +39,8 @@ jobs:
         run: python -m unittest discover -s generator/customization -p 'test_android*.py'
       - name: Test Sciter account response and Windows window icon
         run: python -m unittest discover -s generator/customization -p test_sciter_compat.py
+      - name: Test branded Linux DRM library staging
+        run: python -m unittest discover -s generator/customization -p test_linux_packaging.py
       - name: Test independent update adapter and publication
         env:
           RUSTDESK_TEST_REF: ${{ matrix.source.ref }}

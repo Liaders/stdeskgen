@@ -19,6 +19,12 @@ on:
         default: ''
         type: string
 
+      build_scope:
+        description: 'all clients or focused DRM verification'
+        required: false
+        type: choice
+        default: all
+        options: [all, drm]
       config_ref:
         description: 'config_ref'
         required: false
@@ -75,6 +81,7 @@ jobs:
       version: ${{ inputs.version }}
 
   build-rustdesk-linux:
+    if: ${{ inputs.build_scope != 'drm' }}
     needs: [generate-bridge-linux, setup]
     name: build rustdesk linux ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.on }}
@@ -330,7 +337,6 @@ jobs:
           sed -i -e 's|OriginalFilename = "rustdesk.exe"|OriginalFilename = "${{ env.appname }}.exe"|' ./libs/portable/Cargo.toml
           sed -i -e 's|const APP_PREFIX: \&str = "rustdesk";|const APP_PREFIX: \&str = "${{ env.appname }}";|' ./libs/portable/src/main.rs
           find ./src/lang -name "*.rs" -exec sed -i -e 's|RustDesk|${{ env.appname }}|' {} \;
-          sed -i -e '/-p tmpdeb\/usr\/lib\/rustdesk/d' ./build.py
 
       - name: change company name
         if: env.compname != 'Purslane Ltd'
@@ -817,10 +823,17 @@ jobs:
           retention-days: 14
 
   build-rustdesk-linux-drm:
+    timeout-minutes: 90
     needs: [generate-bridge-linux, setup]
     name: build rustdesk linux drm x86_64
     runs-on: ubuntu-22.04
     steps:
+      - name: Configure bounded Ubuntu package downloads
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          printf '%s\n' 'Acquire::Retries "2";' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80rdgen-network >/dev/null
       - name: Checkout Repository
         uses: actions/checkout@v4
         
@@ -1046,7 +1059,6 @@ jobs:
           sed -i -e 's|OriginalFilename = "rustdesk.exe"|OriginalFilename = "${{ env.appname }}.exe"|' ./libs/portable/Cargo.toml
           sed -i -e 's|const APP_PREFIX: \&str = "rustdesk";|const APP_PREFIX: \&str = "${{ env.appname }}";|' ./libs/portable/src/main.rs
           find ./src/lang -name "*.rs" -exec sed -i -e 's|RustDesk|${{ env.appname }}|' {} \;
-          sed -i -e '/-p tmpdeb\/usr\/lib\/rustdesk/d' ./build.py
 
       - name: change company name
         if: env.compname != 'Purslane Ltd'
@@ -1363,7 +1375,6 @@ jobs:
                 for FILE in $(echo $FILES | sed "s/\n/ /g"); do
                   sed -ie "s|rustdesk|${{ env.appname }}|g" $FILE
                 done
-                mkdir -p %{buildroot}/tmpdeb/usr/lib/rustdesk
                 for file in "./res/rpm-flutter.spec" "./res/rpm-flutter-suse.spec"; do
                   sed -ie "s|^\(URL:\s*\).*|\1${{ env.downloadLink }}|g" "$file"
                   sed -ie "s|^\(Vendor:\s*\).*|\1${{ env.compname }}|g" "$file"
@@ -1544,51 +1555,15 @@ jobs:
             </svg>
             EOF
 
-      - name: Configure bounded Ubuntu package downloads
-        timeout-minutes: 2
-        shell: bash
-        run: |
-          printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
-          printf '%s\n' 'Acquire::Retries "2";' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80rdgen-network >/dev/null
-
       - name: Build AppImage
         timeout-minutes: 25
         shell: bash
         env:
           DEBIAN_FRONTEND: noninteractive
-        run: |
-          if [ "${{ env.appname }}" != "rustdesk" ] && [ "${{ env.appname }}" != "RustDesk" ]; then
-            # The recipe's script does `bsdtar -zxvf rustdesk.deb`, so after the sed
-            # below it looks for <appname>.deb -- the deb must end up under exactly
-            # that name. Renaming it to <filename>.deb only matched when appname and
-            # filename happened to be equal. The deb is moved out of the way first
-            # because `appimage/*` globs it too, and sed over an ar archive rewrites
-            # bytes inside it.
-            mv appimage/rustdesk.deb "${RUNNER_TEMP}/appimage-payload.deb"
-            sed -ie "s|rustdesk|${{ env.appname }}|g" appimage/*
-            mv "${RUNNER_TEMP}/appimage-payload.deb" "appimage/${{ env.appname }}.deb"
-          fi
-          sudo apt-get update -y
-          sudo apt-get install -y libarchive-tools libfuse2
-          sudo pip3 install "setuptools_scm<10"
-          sudo pip3 install git+https://github.com/rustdesk-org/appimage-builder.git
-          pushd appimage
-          sudo appimage-builder --skip-tests --recipe ./AppImageBuilder-${{ matrix.job.arch }}.yml
-          # recipe output is <name>-<version>-<arch>.AppImage, where <version> is the
-          # version stamped in AppImageBuilder-<arch>.yml -- NOT the workflow's VERSION
-          # input. They coincide for a tagged build, which is why globbing on VERSION
-          # worked there, but a master build passes VERSION=master while the recipe
-          # still carries a release number, so the glob matched nothing:
-          #   mv: cannot stat './*-master-x86_64.AppImage': No such file or directory
-          # Match on the arch suffix instead, and exclude the destination name so this
-          # can never try to move a file onto itself.
-          dest="${{ env.filename }}-${{ matrix.job.arch }}.AppImage"
-          src=$(find . -maxdepth 1 -name "*-${{ matrix.job.arch }}.AppImage" ! -name "$dest" | head -1)
-          if [ -z "$src" ]; then
-            echo "::error::no *-${{ matrix.job.arch }}.AppImage produced by appimage-builder"; ls -l; exit 1
-          fi
-          sudo mv "$src" "./$dest"
-          popd
+          RDGEN_APP_NAME: ${{ env.appname }}
+          RDGEN_FILENAME: ${{ env.filename }}
+          RDGEN_APPIMAGE_ARCH: ${{ matrix.job.arch }}
+        run: bash "$RUNNER_TEMP/rdgen-tools/build_appimage.sh"
 
       - name: send file to rdgen server
         if: ${{ inputs.config_ref == '' && env.rdgen == 'true' }}
@@ -1846,7 +1821,7 @@ jobs:
             name: ${{ env.filename }}-*.deb
 
   cleanup:
-    needs: [build-rustdesk-linux,build-flatpak,build-appimage,deploy]
+    needs: [build-rustdesk-linux,build-rustdesk-linux-drm,build-flatpak,build-appimage,deploy]
     runs-on: ubuntu-latest
     continue-on-error: true
     if: always()

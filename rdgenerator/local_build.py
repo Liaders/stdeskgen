@@ -97,7 +97,9 @@ def _save(record):
     temporary.replace(path)
 
 
-def dispatch_local(inputs, images, version, app_version='', platform='windows'):
+def dispatch_local(inputs, images, version, app_version='', platform='windows', scope='all'):
+    if scope not in ('all','drm') or (scope!='all' and platform!='linux'):
+        raise LocalBuildError('Unsupported focused build scope')
     from .version_numbers import reserve
     from customization.versioning import revision
     try:
@@ -137,6 +139,7 @@ def dispatch_local(inputs, images, version, app_version='', platform='windows'):
         _save(record)
         dispatch_inputs={'version':version,'app_version':app_version,'config_ref':branch,'config_secret':secret,'request_id':build_id}
         if platform=='android': dispatch_inputs['architecture']=inputs.get('android_architecture') or 'all'
+        if platform=='linux': dispatch_inputs['build_scope']=scope
         details = _request(session, 'POST', f'/actions/workflows/{workflow}/dispatches', json={
             'ref': settings.GHBRANCH, 'inputs':dispatch_inputs, 'return_run_details':True})
         record['run_id'] = details.get('workflow_run_id')

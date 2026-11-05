@@ -1,0 +1,87 @@
+name: Verify ARM64 AppImage packaging
+run-name: Verify ARM64 AppImage from run ${{ inputs.source_run }}
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Existing successful ARM64 DEB artifact run
+        required: true
+        type: string
+        default: '42067127217'
+      version:
+        description: Upstream source version of the DEB
+        required: true
+        type: choice
+        default: '1.5.0'
+        options: ['1.5.0', '1.5.1']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  appimage:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: generator
+      - uses: actions/checkout@v4
+        with:
+          repository: rustdesk/rustdesk
+          ref: refs/tags/${{ inputs.version }}
+          path: source
+      - uses: actions/download-artifact@v4
+        with:
+          name: client-linux-packages-aarch64
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: payload
+      - name: Restore branded assets from the existing package
+        shell: python
+        env:
+          BASE_VERSION: ${{ inputs.version }}
+        run: |
+          import os, shutil, subprocess, sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path('generator/customization').resolve()))
+          from versioning import parts
+          files=list(Path('payload').rglob('*aarch64.deb'))
+          if len(files)!=1:raise SystemExit('Expected one ARM64 DEB')
+          package=files[0].resolve()
+          version=subprocess.check_output(['dpkg-deb','-f',str(package),'Version'],text=True).strip()
+          parts(os.environ['BASE_VERSION'],version)
+          shutil.copyfile(package,'source/appimage/rustdesk.deb')
+          extracted=Path(os.environ['RUNNER_TEMP'])/'verified-deb'
+          subprocess.run(['dpkg-deb','-x',str(package),str(extracted)],check=True)
+          icons=extracted/'usr/share/icons/hicolor'
+          icon=icons/'256x256/apps/StatusDesk.png'
+          for size in (32,64,128):
+              subprocess.run(['convert',str(icon),'-resize',f'{size}x{size}',f'source/res/{size}x{size}.png'],check=True)
+          shutil.copyfile(icons/'scalable/apps/StatusDesk.svg','source/res/scalable.svg')
+          with open(os.environ['GITHUB_ENV'],'a') as output:output.write('RDGEN_FILENAME=StatusDesk-'+version+'-linux\n')
+      - name: Build with the production packaging script
+        timeout-minutes: 25
+        working-directory: source
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          RDGEN_APP_NAME: StatusDesk
+          RDGEN_APPIMAGE_ARCH: aarch64
+        run: bash ../generator/customization/build_appimage.sh
+      - name: Verify ARM64 runtime and packaged native library
+        shell: python
+        run: |
+          import struct
+          from pathlib import Path
+          files=list(Path('source/appimage').glob('*.AppImage'))
+          if len(files)!=1:raise SystemExit('Expected one AppImage')
+          for path in [files[0],Path('source/appimage/AppDir/usr/share/StatusDesk/lib/librustdesk.so')]:
+              with path.open('rb') as stream:header=stream.read(20)
+              if header[:4]!=b'\x7fELF' or struct.unpack('<H',header[18:20])[0]!=183:
+                  raise SystemExit('ARM64 ELF verification failed: '+str(path))
+          print('ARM64 AppImage runtime and native library verified; no publication performed.')
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-linux-appimage-aarch64
+          path: source/appimage/*.AppImage
+          if-no-files-found: error
+          retention-days: 14
