@@ -5,6 +5,8 @@ import struct
 import subprocess
 import sys
 import tempfile
+import io
+import zipfile
 import unittest
 
 from nacl.exceptions import BadSignatureError
@@ -40,6 +42,15 @@ class UpdateTests(unittest.TestCase):
             result = prepare(source, root / 'bundle', key.encode().hex(), 'StatusDesk', '1.5.0', '123', 'abc')
             data = (root / 'bundle/channels/statusdesk/test/windows-x64.json').read_bytes()
             self.assertEqual(verify_envelope(data, receipt['public_key']), result)
+            from signed_bundle import pack, unpack
+            package = pack(root / 'bundle', receipt['public_key'])
+            unpack(package, receipt['public_key'], root / 'unpacked')
+            # Extra files, including accidentally included private keys, never get uploaded.
+            buffer = io.BytesIO(package)
+            with zipfile.ZipFile(buffer, 'a') as archive:
+                archive.writestr('signing-key.dpapi', b'private material')
+            with self.assertRaisesRegex(ValueError, 'unexpected files'):
+                unpack(buffer.getvalue(), receipt['public_key'], root / 'rejected')
             envelope = json.loads(data)
             envelope['payload'] = envelope['payload'].replace('"revision":2', '"revision":3')
             with self.assertRaises(BadSignatureError):
@@ -73,6 +84,31 @@ class UpdateTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 adapter.apply(root, self.config(SigningKey.generate()))
             self.assertEqual(after, (root / 'src/updater.rs').read_bytes())
+
+    @unittest.skipUnless(sys.platform == 'win32', 'Windows DPAPI')
+    def test_local_key_is_encrypted_and_reused_without_replacement(self):
+        from local_key import initialize, load
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'key.dpapi'
+            public = initialize(path)
+            key = load(path)
+            self.assertEqual(key.verify_key.encode().hex(), public)
+            self.assertNotEqual(path.read_bytes(), key.encode())
+            self.assertNotIn(key.encode().hex().encode(), path.read_bytes())
+            before = path.read_bytes()
+            self.assertEqual(initialize(path), public)
+            self.assertEqual(path.read_bytes(), before)
+            # A password-encrypted backup must restore the same signing identity.
+            from unittest.mock import patch
+            import local_release
+            backup = Path(temporary) / 'backup.enc'
+            with patch.object(local_release, 'KEY_FILE', path):
+                with patch.object(sys, 'argv', ['local_release', 'backup', '--output', str(backup)]), patch('getpass.getpass', return_value='temporary-test-password-123'):
+                    local_release.main()
+                path.unlink()
+                with patch.object(sys, 'argv', ['local_release', 'restore', '--backup', str(backup)]), patch('getpass.getpass', return_value='temporary-test-password-123'):
+                    local_release.main()
+            self.assertEqual(load(path).verify_key.encode().hex(), public)
 
     @unittest.skipIf(sys.platform == 'win32', 'Apache publication uses Linux file locking')
     def test_publication_is_monotonic_and_tampering_keeps_current_channel(self):

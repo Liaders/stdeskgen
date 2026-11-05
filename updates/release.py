@@ -2,7 +2,6 @@
 import argparse
 import hashlib
 import json
-import os
 from pathlib import Path
 import re
 import shutil
@@ -82,8 +81,10 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--run-id', required=True)
     parser.add_argument('--commit', required=True)
+    parser.add_argument('--key-file', type=Path, required=True)
     args = parser.parse_args()
     receipt = json.loads((args.source / 'stdesk-update-build.json').read_text(encoding='utf-8'))
-    release = prepare(args.source, args.output, os.environ['STDESK_UPDATE_SIGNING_SEED'],
+    from local_key import load
+    release = prepare(args.source, args.output, load(args.key_file).encode().hex(),
                       receipt['app_name'], receipt['version'], args.run_id, args.commit)
     print(json.dumps(release, ensure_ascii=False))

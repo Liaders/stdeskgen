@@ -9,11 +9,12 @@ import zipfile
 import requests
 
 
-def fetch(run_id, output):
-    repository = os.environ['GITHUB_REPOSITORY']
-    session = requests.Session()
-    session.headers.update({'Authorization': 'Bearer ' + os.environ['GITHUB_TOKEN'],
-                            'Accept': 'application/vnd.github+json'})
+def fetch(run_id, output, session=None, repository=None):
+    repository = repository or os.environ['GITHUB_REPOSITORY']
+    if session is None:
+        session = requests.Session()
+        session.headers.update({'Authorization': 'Bearer ' + os.environ['GITHUB_TOKEN'],
+                                'Accept': 'application/vnd.github+json'})
     base = f'https://api.github.com/repos/{repository}'
 
     def get(path):
@@ -41,8 +42,10 @@ def fetch(run_id, output):
                 (output / item.filename).write_bytes(archive.read(item))
     if not (output / 'stdesk-update-build.json').exists():
         raise ValueError('This client was built without the signed update channel; rebuild it first')
-    with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as stream:
-        stream.write(f"commit={run['head_sha']}\n")
+    if os.environ.get('GITHUB_OUTPUT'):
+        with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as stream:
+            stream.write(f"commit={run['head_sha']}\n")
+    return run['head_sha']
 
 
 if __name__ == '__main__':

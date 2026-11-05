@@ -7,3 +7,5 @@ gunicorn.conf
 *.zip
 .local-builds/
 .tools/
+.local-update-keys/
+.local-update-bundles/

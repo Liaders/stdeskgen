@@ -1,10 +1,18 @@
 name: Publish StatusDesk update
-run-name: Publish StatusDesk update from build ${{ inputs.build_run_id }}
+run-name: Publish locally signed StatusDesk update ${{ inputs.release_id }}
 on:
   workflow_dispatch:
     inputs:
-      build_run_id:
-        description: 'Successful Windows x64 generator run ID, already tested'
+      release_id:
+        description: 'Draft release containing the locally signed package'
+        type: string
+        required: true
+      asset_id:
+        description: 'Signed package asset ID'
+        type: string
+        required: true
+      package_sha256:
+        description: 'SHA-256 of the locally signed ZIP'
         type: string
         required: true
       deploy:
@@ -28,18 +36,14 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install PyNaCl==1.6.0 requests==2.32.5
-      - name: Fetch tested build
-        id: build
+      - name: Fetch and verify locally signed package
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          BUILD_RUN_ID: ${{ inputs.build_run_id }}
-        run: python updates/fetch_build.py --run-id "$BUILD_RUN_ID" --output input
-      - name: Sign update bundle
-        env:
-          STDESK_UPDATE_SIGNING_SEED: ${{ secrets.STDESK_UPDATE_SIGNING_SEED }}
-          BUILD_RUN_ID: ${{ inputs.build_run_id }}
-          BUILD_COMMIT: ${{ steps.build.outputs.commit }}
-        run: python updates/release.py --source input --output bundle --run-id "$BUILD_RUN_ID" --commit "$BUILD_COMMIT"
+          STDESK_UPDATE_PUBLIC_KEY: ${{ vars.STDESK_UPDATE_PUBLIC_KEY }}
+          RELEASE_ID: ${{ inputs.release_id }}
+          ASSET_ID: ${{ inputs.asset_id }}
+          PACKAGE_SHA256: ${{ inputs.package_sha256 }}
+        run: python updates/fetch_signed_bundle.py --release-id "$RELEASE_ID" --asset-id "$ASSET_ID" --sha256 "$PACKAGE_SHA256" --output bundle
       - uses: actions/upload-artifact@v4
         with:
           name: signed-client-update
