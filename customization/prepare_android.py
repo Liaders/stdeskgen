@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import xml.etree.ElementTree as ET
 from apply_version import apply as apply_version
 from versioning import parts
 
@@ -61,6 +62,15 @@ def apply(root,inputs,assets):
             for target in targets:
                 path=root/target;path.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(assets/filename,path)
     if (assets/'icon.png').exists():
+        # flutter_launcher_icons writes this color into colors.xml itself.
+        # RustDesk also ships a separate resource with the same name.
+        background=root/'flutter/android/app/src/main/res/values/ic_launcher_background.xml'
+        if background.exists():
+            tree=ET.parse(background);resources=tree.getroot()
+            for item in list(resources):
+                if item.tag=='color' and item.get('name')=='ic_launcher_background':resources.remove(item)
+            if len(resources):tree.write(background,encoding='utf-8',xml_declaration=True)
+            else:background.unlink()
         path=root/'flutter/pubspec.yaml';source=path.read_text(encoding='utf-8').replace('  android: true','  android: true\n  adaptive_icon_background: "#ffffff"\n  adaptive_icon_foreground: "../res/icon.png"\n  adaptive_icon_foreground_inset: 24',1);path.write_text(source,encoding='utf-8')
     # Avoid advertising upstream desktop releases from our Android package.
     change('src/common.rs','pub async fn do_check_software_update() -> hbb_common::ResultType<()> {','pub async fn do_check_software_update() -> hbb_common::ResultType<()> {\n    return Ok(());')
