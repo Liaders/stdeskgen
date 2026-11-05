@@ -9,3 +9,4 @@ gunicorn.conf
 .tools/
 .local-update-keys/
 .local-update-bundles/
+!updates/logo.png

@@ -17,6 +17,8 @@ def main():
         public.mkdir(mode=0o755)
         homepage = Path(__file__).with_name('index.html').read_bytes()
         (public / 'index.html').write_bytes(homepage)
+        logo = Path(__file__).with_name('logo.png').read_bytes()
+        (public / 'logo.png').write_bytes(logo)
         samples = {
             '/client/windows-x64.json': b'{"app_name":"CortenDesk RustDesk", "schema":2}',
             '/client/client-windows-x64.exe': b'MZ\x00CortenDesk\x00RustDesk\xff',
@@ -79,6 +81,8 @@ def main():
             assert get('/client/missing.json')[0] == 404
             status, body, _ = get('/client/')
             assert status == 200 and body == homepage
+            status, body, _ = get('/client/logo.png')
+            assert status == 200 and body == logo
             assert get('/client/downloads/')[0] in (403, 404)
             status, _, headers = get('/client')
             assert status == 301 and headers.get('Location', '').endswith('/client/'), (status, headers)
