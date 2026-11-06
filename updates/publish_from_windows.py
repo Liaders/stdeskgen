@@ -11,7 +11,7 @@ import subprocess
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-PLATFORMS = ('windows-x64', 'windows-x86', 'linux-x64', 'linux-arm64', 'macos-x64', 'macos-arm64')
+PLATFORMS = ('windows-x64', 'windows-x86', 'linux-x64', 'linux-arm64', 'macos-x64', 'macos-arm64', 'android-arm64', 'android-armv7', 'android-x64')
 
 
 def main():
@@ -20,6 +20,7 @@ def main():
     parser.add_argument('--platform', choices=PLATFORMS, required=True)
     parser.add_argument('--version', required=True)
     parser.add_argument('--receipt', type=Path)
+    parser.add_argument('--android-metadata', type=Path)
     parser.add_argument('--config', type=Path, default=ROOT / '.local-publish.json')
     args = parser.parse_args()
     if args.receipt:
@@ -31,7 +32,7 @@ def main():
     if not re.fullmatch('[A-Za-z0-9.-]+', host) or not re.fullmatch('[a-z_][a-z0-9_-]*', user) or type(port) is not int or not 1 <= port <= 65535:
         raise ValueError('Invalid SSH settings')
     source = args.file.resolve(strict=True)
-    extensions = {'windows': {'.exe'}, 'linux': {'.deb', '.AppImage'}, 'macos': {'.dmg'}}
+    extensions = {'windows': {'.exe'}, 'linux': {'.deb', '.AppImage'}, 'macos': {'.dmg'}, 'android': {'.apk'}}
     if source.suffix not in extensions[args.platform.split('-')[0]] or not 0 < source.stat().st_size <= 512 * 1024 * 1024:
         raise ValueError('Choose the appropriate installer (up to 512 MB)')
     if not key.is_file() or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:[+-][0-9]+)?', args.version):
@@ -46,6 +47,10 @@ def main():
             expected = b'PE\0\0' + (b'\x64\x86' if args.platform == 'windows-x64' else b'\x4c\x01')
             if stream.read(6) != expected:
                 raise ValueError('EXE architecture does not match the selected platform')
+    if args.platform.startswith('android-'):
+        if args.receipt: raise ValueError('Android updates require manual APK installation')
+        from verify_apk import verify
+        verify(source,args.platform,args.version,args.android_metadata or source.parent/'stdesk-android-build.json')
     plink = shutil.which('plink') or 'C:/Program Files/PuTTY/plink.exe'
     pscp = shutil.which('pscp') or 'C:/Program Files/PuTTY/pscp.exe'
     connection = ['-batch', '-P', str(port), '-i', str(key)]

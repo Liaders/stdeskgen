@@ -79,3 +79,15 @@ class BatchActionTests(SimpleTestCase):
             self.assertEqual(desktop._task['state'],'error')
             self.assertIn('one.exe — ОШИБКА',desktop._task['message'])
             self.assertIn('two.deb — опубликовано',desktop._task['message'])
+
+    def test_android_publication_requires_local_signature_and_manual_updates(self):
+        from .desktop import _publication_job
+        signed=dict(id='signed',platform='android-arm64',version='1.5.1.2',filename='client.apk',
+                    android={'signing':'signed-locally'},receipt=None)
+        unsigned={**signed,'id':'unsigned','version':'1.5.1.99','android':None}
+        self.assertEqual([i['id'] for i in latest_installers([unsigned,signed])],['signed'])
+        with patch('rdgenerator.desktop.find_installer',return_value=(signed,Path('client.apk'))):
+            self.assertFalse(_publication_job('signed')[-1])
+            with self.assertRaises(ValueError):_publication_job('signed',auto=True)
+        with patch('rdgenerator.desktop.find_installer',return_value=(unsigned,Path('client.apk'))):
+            with self.assertRaises(ValueError):_publication_job('unsigned')

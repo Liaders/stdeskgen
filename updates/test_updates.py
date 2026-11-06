@@ -52,6 +52,26 @@ class UpdateTests(unittest.TestCase):
             catalog = json.loads((root / 'downloads.json').read_text())
             self.assertEqual(set(catalog['items']), {'windows-x86', 'macos-arm64'})
 
+    @unittest.skipIf(sys.platform == 'win32', 'Apache publication uses Linux file locking')
+    def test_android_publication_preserves_desktop_and_rejects_wrong_architecture(self):
+        import zipfile
+        from publish_download import publish
+        from download_catalog import update
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);public=root/'public';public.mkdir()
+            update(public,'windows-x64',url='/client/old.exe',version='1.5.0.3')
+            apk=root/'client.apk'
+            with zipfile.ZipFile(apk,'w') as archive:
+                archive.writestr('AndroidManifest.xml',b'fixture manifest')
+                archive.writestr('lib/arm64-v8a/librustdesk.so',b'fixture library')
+            with self.assertRaises(ValueError):publish(public,apk,'android-armv7','1.5.1.2')
+            publish(public,apk,'android-arm64','1.5.1.2')
+            items=json.loads((public/'downloads.json').read_text())['items']
+            self.assertEqual(items['windows-x64'],{'url':'/client/old.exe','version':'1.5.0.3'})
+            self.assertEqual(items['android-arm64']['version'],'1.5.1.2')
+            self.assertEqual((public/items['android-arm64']['url'].removeprefix('/client/')).read_bytes(),apk.read_bytes())
+            self.assertFalse((public/'channels').exists())
+
     def test_bad_configuration_and_unsupported_platform_fail(self):
         self.assertEqual(validate(self.config, platform='windows-x86'), self.config)
         for patch in ({'base_url': 'http://desk.status16.ru/client'}, {'revision': True}, {'product': '../other'}, {'public_key': 'obsolete'}):

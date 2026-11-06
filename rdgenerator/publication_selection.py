@@ -2,7 +2,7 @@
 from pathlib import Path
 import re
 
-PLATFORMS = ('windows-x64','windows-x86','linux-x64','linux-arm64','macos-x64','macos-arm64')
+PLATFORMS = ('windows-x64','windows-x86','linux-x64','linux-arm64','macos-x64','macos-arm64','android-arm64','android-armv7','android-x64')
 
 
 def latest_installers(items):
@@ -10,7 +10,8 @@ def latest_installers(items):
     for item in items:
         if item.get('platform') not in PLATFORMS: continue
         extension = Path(item['filename']).suffix
-        if extension not in ('.exe','.deb','.AppImage','.dmg'): continue
+        if extension not in ('.exe','.deb','.AppImage','.dmg','.apk'): continue
+        if extension=='.apk' and (item.get('android') or {}).get('signing')!='signed-locally': continue
         match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?', item.get('version',''))
         if not match: continue
         receipt = item.get('receipt')

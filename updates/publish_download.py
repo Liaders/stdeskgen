@@ -11,7 +11,8 @@ from download_catalog import update
 
 EXTENSIONS = {'windows-x64': {'.exe'}, 'windows-x86': {'.exe'},
               'linux-x64': {'.deb', '.AppImage'}, 'linux-arm64': {'.deb', '.AppImage'},
-              'macos-x64': {'.dmg'}, 'macos-arm64': {'.dmg'}}
+              'macos-x64': {'.dmg'}, 'macos-arm64': {'.dmg'},
+              'android-arm64': {'.apk'}, 'android-armv7': {'.apk'}, 'android-x64': {'.apk'}}
 
 
 def publish(root, source, platform, version, receipt=None):
@@ -19,6 +20,14 @@ def publish(root, source, platform, version, receipt=None):
         raise ValueError('Choose a supported platform, installer extension and version')
     if not source.is_file() or not 0 < source.stat().st_size <= 512 * 1024 * 1024:
         raise ValueError('Expected an installer of at most 512 MB')
+    if platform.startswith('android-'):
+        import zipfile
+        abi={'android-arm64':'arm64-v8a','android-armv7':'armeabi-v7a','android-x64':'x86_64'}[platform]
+        with zipfile.ZipFile(source) as archive:
+            abis={n.split('/')[1] for n in archive.namelist() if n.startswith('lib/') and n.endswith('/librustdesk.so')}
+            if archive.testzip() or 'AndroidManifest.xml' not in archive.namelist() or abis!={abi}:
+                raise ValueError('Android APK architecture mismatch')
+        if receipt: raise ValueError('Android has no Windows automatic update channel')
     if receipt:
         import json
         import tempfile

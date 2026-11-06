@@ -136,8 +136,10 @@ def _publication_job(identifier, version=None, auto=False):
     entry, path = find_installer(identifier)
     if auto and not entry.get('receipt'):
         raise ValueError('В этой сборке нет поддержки канала обновлений.')
-    if path.suffix not in ('.exe', '.deb', '.AppImage', '.dmg'):
-        raise ValueError('Выберите EXE, DEB, AppImage или DMG.')
+    if path.suffix not in ('.exe', '.deb', '.AppImage', '.dmg', '.apk'):
+        raise ValueError('Выберите EXE, DEB, AppImage, DMG или подписанный APK.')
+    if path.suffix=='.apk' and (auto or (entry.get('android') or {}).get('signing')!='signed-locally'):
+        raise ValueError('Для Android выберите подписанный локально APK; обновление выполняется вручную.')
     return entry, path, version or entry['version'], auto
 
 
