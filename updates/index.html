@@ -7,29 +7,29 @@
   <title>Скачать StatusDesk</title>
   <style>
     :root{font-family:Segoe UI,Arial,sans-serif;color:#f3f3f3;background:#141414;font-synthesis:none}
-    *{box-sizing:border-box}body{margin:0}main{max-width:1000px;margin:auto;padding:48px 24px 64px}
-    header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:64px}
+    *{box-sizing:border-box}body{margin:0}main{max-width:1000px;margin:auto;padding:24px 24px 28px}
+    header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:24px}
     .brand{display:block;width:170px;max-width:40vw;height:auto}
-    .back{color:#cccccc;text-decoration:none;font-size:14px}.back:hover{text-decoration:underline}
     .eyebrow{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#EF7F1A}
-    h1{font-size:clamp(32px,5vw,48px);letter-spacing:-1.6px;line-height:1.12;margin:14px 0 18px}
-    .lead{color:#bcbcbc;font-size:17px;line-height:1.6;max-width:640px;margin-bottom:36px}
-    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-    article{background:#202020;border:1px solid #383838;border-radius:18px;padding:26px}
-    h2{font-size:21px;margin:0 0 7px}.description{color:#bcbcbc;font-size:14px;margin:0 0 24px;line-height:1.5}
-    .row{display:flex;gap:14px;justify-content:space-between;align-items:center;padding:14px 0;border-top:1px solid #383838}
-    .arch{font-size:14px}.version{display:block;color:#aaaaaa;font-size:12px;margin-top:5px}
+    h1{font-size:clamp(32px,5vw,48px);letter-spacing:-1.6px;line-height:1.12;margin:10px 0 12px}
+    .lead{color:#bcbcbc;font-size:17px;line-height:1.6;max-width:640px;margin:0 0 22px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+    article{background:#202020;border:1px solid #383838;border-radius:18px;padding:18px}
+    h2{font-size:21px;margin:0 0 7px}.description{color:#bcbcbc;font-size:14px;margin:0 0 12px;line-height:1.5}
+    .row{display:flex;gap:14px;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid #383838}
+    .arch{font-size:14px}.version{display:block;color:#aaaaaa;font-size:12px;margin-top:3px}
     .button{display:inline-block;background:#EF7F1A;color:#1c1208;text-decoration:none;border-radius:9px;padding:11px 16px;font-weight:600;font-size:14px;white-space:nowrap}
-    .button:hover{background:#ff983d}.button:focus-visible,.back:focus-visible{outline:3px solid #ffb36b;outline-offset:4px}
+    .button:hover{background:#ff983d}.button:focus-visible{outline:3px solid #ffb36b;outline-offset:4px}
     .unavailable{color:#a5a5a5;font-size:13px;white-space:nowrap}
-    .notice{color:#bcbcbc;font-size:14px;line-height:1.6;margin-top:28px;min-height:24px}
-    footer{margin-top:48px;padding-top:22px;border-top:1px solid #383838;color:#999999;font-size:13px;line-height:1.6}
-    @media(max-width:640px){main{padding:28px 18px 40px}header{margin-bottom:42px}.grid{grid-template-columns:1fr}article{padding:22px}h1{letter-spacing:-1px}}
+    .notice{color:#bcbcbc;font-size:14px;line-height:1.6;margin:16px 0 0}
+    footer{margin-top:20px;padding-top:14px;border-top:1px solid #383838;color:#999999;font-size:13px;line-height:1.6}
+    article .description:last-child{margin-bottom:0}
+    @media(max-width:640px){main{padding:20px 16px 24px}header{margin-bottom:20px}.grid{grid-template-columns:1fr}article{padding:16px}h1{letter-spacing:-1px}}
   </style>
 </head>
 <body>
 <main>
-  <header><img class="brand" src="./logo.png" width="1187" height="564" alt="StatusDesk"><a class="back" href="/">Войти в панель →</a></header>
+  <header><img class="brand" src="./logo.png" width="1187" height="564" alt="StatusDesk"></header>
   <div class="eyebrow">Программа удалённого доступа</div>
   <h1>Скачать StatusDesk</h1>
   <p class="lead">Выберите вашу операционную систему и скачайте приложение для подключения к компьютерам.</p>
@@ -38,7 +38,7 @@
       <div class="row" data-platform="windows-x64"><div class="arch">Windows 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="windows-x86"><div class="arch">Windows 32 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
     </article>
-    <article><h2>macOS</h2><p class="description">Тип процессора указан в меню  → «Об этом Mac».</p>
+    <article><h2>macOS</h2><p class="description">Тип процессора указан в меню Apple → «Об этом Mac».</p>
       <div class="row" data-platform="macos-arm64"><div class="arch">Apple Silicon · M1 и новее<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="macos-x64"><div class="arch">Intel<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
     </article>
