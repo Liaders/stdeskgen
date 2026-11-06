@@ -160,7 +160,7 @@ jobs:
         if: ${{ inputs.config_ref != '' }}
         shell: bash
         run: |
-          python3 "$RUNNER_TEMP/rdgen-tools/prepare_local_source.py" --version "$VERSION"
+          python3 "$RUNNER_TEMP/rdgen-tools/prepare_local_source.py" --version "$VERSION" --legacy
 
       - name: Set custom app version
         if: ${{ inputs.app_version != '' }}

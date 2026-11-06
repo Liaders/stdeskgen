@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 from urllib.parse import urlsplit
+from desktop_chrome import apply_sciter
 
 
 def apply(root, api, icon=False, logo=None):
@@ -49,6 +50,7 @@ def apply(root, api, icon=False, logo=None):
         uri='data:image/png;base64,'+base64.b64encode(logo).decode()
         edits[path]=source+'\n#rdgen-client-logo { width:*; height:76dip; margin-bottom:12dip; background-image:url("'+uri+'"); background-size:contain; background-position:center; background-repeat:no-repeat; }\n'
     for path,source in edits.items():path.write_text(source,encoding='utf-8')
+    apply_sciter(root)
 
 
 if __name__=='__main__':

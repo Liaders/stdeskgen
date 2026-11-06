@@ -177,6 +177,16 @@ jobs:
           repository: rustdesk/rustdesk
           submodules: recursive
 
+      - name: Apply local desktop branding and ID actions
+        if: ${{ inputs.config_ref != '' }}
+        shell: python
+        run: |
+          import os, sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path(os.environ['RUNNER_TEMP']) / 'rdgen-ui'))
+          from desktop_chrome import apply_flutter
+          apply_flutter(Path.cwd())
+
       - name: Apply UI profile
         if: ${{ env.ui_profile_b64 != '' }}
         shell: python

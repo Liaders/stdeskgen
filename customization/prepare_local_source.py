@@ -6,10 +6,13 @@ import os
 from pathlib import Path
 import shutil
 from apply_profile import apply
+from desktop_chrome import apply_flutter
 
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--version', required=True)
+parser.add_argument('--legacy', action='store_true')
 args=parser.parse_args()
+if not args.legacy: apply_flutter(Path.cwd())
 assets=Path(os.environ['RUNNER_TEMP'])/'rdgen-input'
 if assets.exists():
     target=Path('.rdgen-input')
