@@ -30,7 +30,7 @@ class AndroidSourceTests(unittest.TestCase):
         inputs['VERSION']=re.search(rb'^version = "([^"]+)"',cargo,re.M)[1].decode()
         inputs['STDESK_DISPLAY_VERSION']=inputs['VERSION']+'.3'
         names=['src/ui_interface.rs','src/platform/windows.rs','build.py','flutter/pubspec.yaml','flutter/windows/runner/Runner.rc','build.rs','libs/portable/build.rs','Cargo.toml','libs/hbb_common/src/config.rs','src/common.rs','flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/MainService.kt','flutter/lib/models/native_model.dart','flutter/android/app/build.gradle','flutter/android/gradle.properties','flutter/android/app/src/main/AndroidManifest.xml','flutter/android/app/src/main/res/values/ic_launcher_background.xml']
-        names+=['flutter/lib/mobile/pages/home_page.dart','flutter/lib/common.dart','flutter/lib/mobile/pages/settings_page.dart','flutter/lib/common/widgets/my_group.dart',
+        names+=['flutter/lib/mobile/pages/connection_page.dart','flutter/lib/mobile/pages/home_page.dart','flutter/lib/common.dart','flutter/lib/mobile/pages/settings_page.dart','flutter/lib/common/widgets/my_group.dart',
                 'flutter/lib/models/peer_tab_model.dart','flutter/lib/common/widgets/peer_tab_page.dart','src/lang/ru.rs',
                 'flutter/android/app/src/main/res/values/strings.xml',
                 'flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/BootReceiver.kt',
@@ -61,15 +61,20 @@ class AndroidSourceTests(unittest.TestCase):
             settings=(root/'flutter/lib/mobile/pages/settings_page.dart').read_text(encoding='utf-8')
             self.assertNotIn('rustdesk.com',settings)
             self.assertIn('https://status16.ru/',settings)
-            self.assertEqual((root/'flutter/lib/models/peer_tab_model.dart').read_bytes(),self.original('flutter/lib/models/peer_tab_model.dart'))
-            self.assertEqual((root/'flutter/lib/common/widgets/peer_tab_page.dart').read_bytes(),self.original('flutter/lib/common/widgets/peer_tab_page.dart'))
-            home=(root/'flutter/lib/mobile/pages/home_page.dart').read_text(encoding='utf-8')
-            self.assertIn('_pages.add(RdgenColleaguesPage());',home)
-            self.assertIn("label: page is RdgenColleaguesPage ? '' : page.title",home)
-            page=(root/'flutter/lib/mobile/pages/rdgen_colleagues_page.dart').read_text(encoding='utf-8')
-            self.assertIn('Icon(Icons.people)',page)
-            self.assertIn('child: RdgenColleagues()',page)
-            self.assertIn('groupModel.pull(force: true)',page)
+            model=(root/'flutter/lib/models/peer_tab_model.dart').read_text(encoding='utf-8')
+            self.assertIn("'Accessible devices',\n    'Colleagues',",model)
+            self.assertIn('maxTabCount = 6;',model)
+            self.assertIn('IconFont.deviceGroupFill,\n    Icons.people,',model)
+            page=(root/'flutter/lib/common/widgets/peer_tab_page.dart').read_text(encoding='utf-8')
+            self.assertIn('_TabEntry(RdgenColleagues(',page)
+            self.assertEqual((root/'flutter/lib/mobile/pages/home_page.dart').read_bytes(),self.original('flutter/lib/mobile/pages/home_page.dart'))
+            self.assertFalse((root/'flutter/lib/mobile/pages/rdgen_colleagues_page.dart').exists())
+            self.assertIn('backgroundColor: isAndroid ? MyTheme.accent : null',common)
+            self.assertIn('foregroundColor: isAndroid ? Colors.white : null',common)
+            connection=(root/'flutter/lib/mobile/pages/connection_page.dart').read_text(encoding='utf-8')
+            self.assertIn('color: isAndroid ? MyTheme.accent : MyTheme.idColor',connection)
+            self.assertEqual(common.split('  static ThemeData darkTheme =',1)[1].split('Widget loadPowered',1)[0],
+                self.original('flutter/lib/common.dart').decode('utf-8').split('  static ThemeData darkTheme =',1)[1].split('Widget loadPowered',1)[0])
             self.assertTrue((root/'flutter/lib/common/widgets/rdgen_colleagues.dart').exists())
             service=(root/'flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/MainService.kt').read_text(encoding='utf-8')
             self.assertIn('DEFAULT_NOTIFY_TITLE = "StatusDesk"',service)
