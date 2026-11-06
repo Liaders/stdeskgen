@@ -21,10 +21,12 @@
     .button{display:inline-block;background:#EF7F1A;color:#1c1208;text-decoration:none;border-radius:9px;padding:11px 16px;font-weight:600;font-size:14px;white-space:nowrap}
     .button:hover{background:#ff983d}.button:focus-visible{outline:3px solid #ffb36b;outline-offset:4px}
     .button-connect{background:#D51F26;color:#fff}.button-connect:hover{background:#bd1b21}.button-connect:focus-visible{outline-color:#f5898d}
-    .download-card{display:flex;flex-direction:column}
-    .download-card .description{min-height:42px}
+    .download-card{display:flex;flex-direction:column;padding:14px 16px}
+    .download-card h2{font-size:19px;margin-bottom:5px}
+    .download-card .description{min-height:21px;margin-bottom:8px}
     .download-card .rows{display:flex;flex-direction:column;flex:1}
-    .download-card .row{flex:1}
+    .download-card .row{flex:1;padding:7px 0}
+    .download-card .button{padding:8px 14px}
     .connect-download,.getting-started{margin-top:12px}
     .unavailable{color:#a5a5a5;font-size:13px;white-space:nowrap}
     .notice{color:#bcbcbc;font-size:14px;line-height:1.6;margin:16px 0 0}
@@ -45,7 +47,7 @@
       <div class="row" data-platform="windows-x86"><div class="arch">Windows · 32 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       </div>
     </article>
-    <article class="download-card"><h2>macOS</h2><p class="description">Тип процессора указан в меню Apple → «Об этом Mac». Apple Silicon — M1 и новее.</p>
+    <article class="download-card"><h2>macOS</h2><p class="description">Процессор: меню Apple → «Об этом Mac».</p>
       <div class="rows">
       <div class="row" data-platform="macos-arm64"><div class="arch">Apple Silicon · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="macos-x64"><div class="arch">Intel · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
@@ -57,7 +59,7 @@
       <div class="row" data-platform="linux-arm64"><div class="arch">ARM64 · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       </div>
     </article>
-    <article class="download-card"><h2>Android</h2><p class="description">Скачайте APK для вашего устройства. Новые версии устанавливаются вручную поверх приложения.</p>
+    <article class="download-card"><h2>Android</h2><p class="description">APK для установки и обновления вручную.</p>
       <div class="rows">
       <div class="row" data-platform="android-arm64"><div class="arch">ARM64 · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="android-armv7"><div class="arch">ARMv7 · 32 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
