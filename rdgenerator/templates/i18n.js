@@ -1,8 +1,8 @@
 (() => {
     const ru = {
-        'Main screen logo: light theme (PNG)':'Логотип главного экрана: светлая тема (PNG)',
-        'Main screen logo: dark theme (PNG)':'Логотип главного экрана: тёмная тема (PNG)',
-        'Theme logos replace the common logo. Empty fields use the common logo. Windows x86 uses the light logo.':'Логотип выбирается по теме клиента, в том числе системной. Если отдельный не задан, используется общий. Windows x86 использует светлый логотип.',
+        'Application logo: light theme (PNG)':'Логотип: светлая тема (PNG)',
+        'Application logo: dark theme (PNG)':'Логотип: тёмная тема (PNG)',
+        'Logo above Your Desktop. Select images for the light and dark themes. Windows x86 uses the light logo.':'Логотип над текстом «Ваш рабочий стол». Выберите изображения для светлой и тёмной темы. Windows x86 использует светлый логотип.',
         'Clear':'Очистить',
         'StatusDesk updates':'Обновления StatusDesk',
         'Update channel configuration (JSON; leave empty to disable)':'Конфигурация канала обновлений (JSON; пусто — выключено)',

@@ -369,19 +369,14 @@
                     {{ form.iconfile }}<br><br>
                     <!-- <input type="file" name="iconfile" id="iconfile" accept="image/png"> -->
                     <div id="icon-preview"></div><br><br>
-                {{ form.logobase64.as_hidden }}
-                    <label for="{{ form.logofile.id_for_label }}">Custom App Logo (in .png format)</label>
-                    {{ form.logofile }}<br><br>
-                    <!-- <input type="file" name="logofile" id="logofile" accept="image/png"> -->
-                    <div id="logo-preview"></div><br><br>
-                    <p>Theme logos replace the common logo. Empty fields use the common logo. Windows x86 uses the light logo.</p>
+                    <p>Logo above Your Desktop. Select images for the light and dark themes. Windows x86 uses the light logo.</p>
                     {{ form.logolightbase64.as_hidden }}
-                    <label for="id_logolightfile">Main screen logo: light theme (PNG)</label>
+                    <label for="id_logolightfile">Application logo: light theme (PNG)</label>
                     {{ form.logolightfile }}
                     <button type="button" data-clear-logo="logolight">Clear</button>
                     <div id="logolight-preview"></div><br>
                     {{ form.logodarkbase64.as_hidden }}
-                    <label for="id_logodarkfile">Main screen logo: dark theme (PNG)</label>
+                    <label for="id_logodarkfile">Application logo: dark theme (PNG)</label>
                     {{ form.logodarkfile }}
                     <button type="button" data-clear-logo="logodark">Clear</button>
                     <div id="logodark-preview"></div><br><br>
@@ -511,9 +506,7 @@
                 document.getElementById(prefix+'-preview').replaceChildren();
             });
         }
-        document.getElementById("{{ form.logofile.id_for_label }}").addEventListener('change', function(event) {
-            previewImage(event.target, 'logo-preview');
-        });
+
         document.getElementById("{{ form.privacyfile.id_for_label }}").addEventListener('change', function(event) {
             previewImage(event.target, 'privacy-preview');
         });
@@ -693,16 +686,6 @@
                 }
             }
 
-            const logoPreview = document.getElementById('logo-preview');
-            if (logoPreview.firstChild && logoPreview.firstChild.src.startsWith('data:image/png;base64')) {
-                formData.logofile = logoPreview.firstChild.src; // Use existing base64
-            } else { //if it's a file upload
-                const logoFile = document.getElementById("{{ form.logofile.id_for_label }}").files[0];
-                if (logoFile) {
-                    formData.logofile = await readFileAsBase64(logoFile);
-                }
-            }
-
             for (const prefix of ['logolight','logodark']) {
                 const file=document.getElementById('id_'+prefix+'file').files[0];
                 const value=file ? await readFileAsBase64(file) : document.getElementById('id_'+prefix+'base64').value;
@@ -778,7 +761,21 @@
             banner.textContent = 'Warning: ignored invalid (non-text) values for: ' + keys.join(', ') + '. They were dropped.';
         }
 
+        function normalizeLogoConfiguration(config) {
+            const result={...config};
+            const legacy=[result.logofile,result.logobase64].find(value => typeof value==='string' && value && value!=='[object Object]') || '';
+            for (const prefix of ['logolight','logodark']) {
+                const value=[result[prefix+'file'],result[prefix+'base64']].find(value => typeof value==='string' && value && value!=='[object Object]');
+                result[prefix+'base64']=value || legacy;
+                delete result[prefix+'file'];
+            }
+            delete result.logofile;
+            delete result.logobase64;
+            return result;
+        }
+
         function applyLoadedConfiguration(formData) {
+                            formData=normalizeLogoConfiguration(formData);
                             carriedUnknownFields = {};
                             const skippedKeys = [];
                             for (const prefix of ['logolight','logodark']) {
@@ -833,10 +830,6 @@
                                         if (key === 'iconfile' && formData[key]) {
                                             document.getElementById('id_iconbase64').value = formData[key];
                                             document.getElementById('icon-preview').innerHTML = `<img src="${formData[key]}" style="max-width: 300px; max-height: 60px;">`;
-                                        }
-                                        if (key === 'logofile' && formData[key]) {
-                                            document.getElementById('id_logobase64').value = formData[key];
-                                            document.getElementById('logo-preview').innerHTML = `<img src="${formData[key]}" style="max-width: 300px; max-height: 60px;">`;
                                         }
                                         if (key === 'privacyfile' && formData[key]) {
                                             document.getElementById('id_privacybase64').value = formData[key];
