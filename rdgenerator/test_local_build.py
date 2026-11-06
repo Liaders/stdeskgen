@@ -86,3 +86,25 @@ class LocalBuildTests(SimpleTestCase):
         self.assertEqual(images,{'icon.png':buffer.getvalue(),'logo.png':buffer.getvalue()})
         self.assertEqual(inputs['iconlink_url'],'local')
         self.assertNotIn('allow-darktheme', inputs['custom'])
+
+    @override_settings(LOCAL_GITHUB_BUILD=True, SH_SECRET='unused')
+    def test_theme_logos_are_encrypted_and_x86_selects_light(self):
+        from PIL import Image
+        from .local_build import collect_images
+        values={}
+        for prefix,color in [('logo','orange'),('logolight','black'),('logodark','white')]:
+            buffer=io.BytesIO();Image.new('RGB',(2,2),color).save(buffer,format='PNG')
+            values[prefix+'base64']=base64.b64encode(buffer.getvalue()).decode()
+        images=collect_images(values)
+        self.assertEqual(set(images),{'logo.png','logo_light.png','logo_dark.png'})
+        payload,password=pack_configuration({},images)
+        with pyzipper.AESZipFile(io.BytesIO(payload)) as archive:
+            archive.setpassword(password.encode())
+            for name,data in images.items():self.assertEqual(archive.read(name),data)
+        for platform in ('windows','windows-x86'):
+            with self.subTest(platform=platform), patch('rdgenerator.views.dispatch_local',return_value={'success':True}) as dispatch:
+                result=generate_custom_client(dict(values,platform=platform,version='1.5.1',exename='Test'),'http://127.0.0.1:8765')
+                self.assertTrue(result['success'])
+                actual=dispatch.call_args.args[1]
+                self.assertEqual(actual,{'logo.png':images['logo_light.png']} if platform=='windows-x86' else images)
+                self.assertEqual(dispatch.call_args.args[0]['logolink_url'],'local')

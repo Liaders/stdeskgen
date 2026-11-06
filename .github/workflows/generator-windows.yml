@@ -149,7 +149,7 @@ jobs:
           echo "STATUS_URL=${{ env.apiServer }}/api/updategh" >> $env:GITHUB_ENV
 
       - name: Preserve UI adapter before source checkout
-        if: ${{ env.ui_profile_b64 != '' }}
+        if: ${{ inputs.config_ref != '' || env.ui_profile_b64 != '' }}
         shell: pwsh
         run: Copy-Item -Recurse customization "$env:RUNNER_TEMP/rdgen-ui"
 
@@ -186,6 +186,8 @@ jobs:
           sys.path.insert(0, str(Path(os.environ['RUNNER_TEMP']) / 'rdgen-ui'))
           from desktop_chrome import apply_flutter
           apply_flutter(Path.cwd())
+          from theme_logos import stage
+          stage(Path(os.environ['RUNNER_TEMP']) / 'rdgen-input', Path('flutter/assets'))
 
       - name: Apply UI profile
         if: ${{ env.ui_profile_b64 != '' }}
@@ -689,7 +691,7 @@ jobs:
           continue_on_error: true
           command: |
             if ('${{ inputs.config_ref }}' -ne '') {
-              Copy-Item "$env:RUNNER_TEMP/rdgen-input/logo.png" ./rustdesk/data/flutter_assets/assets/logo.png
+              Copy-Item "$env:RUNNER_TEMP/rdgen-input/logo*.png" ./rustdesk/data/flutter_assets/assets/
             } else {
               Invoke-WebRequest -Uri ${{ env.logolink_url }}/get_png?filename=${{ env.logolink_file }}"&"uuid=${{ env.logolink_uuid }} -OutFile ./rustdesk/data/flutter_assets/assets/logo.png
             }

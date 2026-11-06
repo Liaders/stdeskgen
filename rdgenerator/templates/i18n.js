@@ -1,5 +1,9 @@
 (() => {
     const ru = {
+        'Main screen logo: light theme (PNG)':'Логотип главного экрана: светлая тема (PNG)',
+        'Main screen logo: dark theme (PNG)':'Логотип главного экрана: тёмная тема (PNG)',
+        'Theme logos replace the common logo. Empty fields use the common logo. Windows x86 uses the light logo.':'Логотип выбирается по теме клиента, в том числе системной. Если отдельный не задан, используется общий. Windows x86 использует светлый логотип.',
+        'Clear':'Очистить',
         'StatusDesk updates':'Обновления StatusDesk',
         'Update channel configuration (JSON; leave empty to disable)':'Конфигурация канала обновлений (JSON; пусто — выключено)',
         'Installed Windows x64/x86 clients only. Increase the revision for each release.':'Только установленные клиенты Windows x64/x86. Повышайте ревизию при каждом выпуске.',

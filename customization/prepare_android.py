@@ -12,6 +12,7 @@ import xml.etree.ElementTree as ET
 from apply_version import apply as apply_version
 from versioning import parts
 from android_branding import apply_ui, ICONS
+from theme_logos import stage
 
 
 def android_version_code(base,display):
@@ -63,7 +64,8 @@ def apply(root,inputs,assets):
     properties.write_text(source+'\norg.gradle.workers.max=2\n',encoding='utf-8')
     change('flutter/android/app/src/main/AndroidManifest.xml','android:label="RustDesk"','android:label="'+html.escape(name,quote=True)+'"')
     path=root/'flutter/android/app/src/main/AndroidManifest.xml';source=path.read_text(encoding='utf-8').replace('package="com.carriez.flutter_hbb"','').replace('android:label="RustDesk Input"','android:label="'+html.escape(name,quote=True)+'"');path.write_text(source,encoding='utf-8')
-    for filename,targets in [('icon.png',['res/icon.png','flutter/assets/icon.png']),('logo.png',['flutter/assets/logo.png','flutter/assets/logo_light.png','flutter/assets/logo_dark.png'])]:
+    stage(assets,root/'flutter/assets')
+    for filename,targets in [('icon.png',['res/icon.png','flutter/assets/icon.png'])]:
         if (assets/filename).exists():
             for target in targets:
                 path=root/target;path.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(assets/filename,path)
@@ -85,6 +87,7 @@ def apply(root,inputs,assets):
             'configuration_sha256':hashlib.sha256(inputs['custom'].encode()).hexdigest(),
             'icon_sha256':hashlib.sha256((assets/'icon.png').read_bytes()).hexdigest() if (assets/'icon.png').exists() else None,
             'logo_sha256':hashlib.sha256((assets/'logo.png').read_bytes()).hexdigest() if (assets/'logo.png').exists() else None,
+            **{name.replace('.png','_sha256'):hashlib.sha256((assets/name).read_bytes()).hexdigest() if (assets/name).exists() else None for name in ('logo_light.png','logo_dark.png')},
             'signing':'local-required','accent':'#EF7F1A','colleagues':True}
     (root/'stdesk-android-build.json').write_text(json.dumps(record,indent=2),encoding='utf-8')
     return record

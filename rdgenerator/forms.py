@@ -77,6 +77,10 @@ class GenerateForm(forms.Form):
     privacyfile = forms.FileField(label="Custom privacy screen (in .png format)", required=False, widget=forms.FileInput(attrs={'accept': 'image/png'}))
     iconbase64 = forms.CharField(required=False)
     logobase64 = forms.CharField(required=False)
+    logolightfile = forms.FileField(required=False, widget=forms.FileInput(attrs={'accept': 'image/png'}))
+    logodarkfile = forms.FileField(required=False, widget=forms.FileInput(attrs={'accept': 'image/png'}))
+    logolightbase64 = forms.CharField(required=False)
+    logodarkbase64 = forms.CharField(required=False)
     privacybase64 = forms.CharField(required=False)
     theme = forms.ChoiceField(choices=[
         ('light', 'Light'),

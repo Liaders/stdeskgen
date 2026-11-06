@@ -18,10 +18,11 @@ class AndroidApkAuditTests(unittest.TestCase):
         with zipfile.ZipFile(folder/'app-release.apk','w') as archive:
             archive.writestr('lib/arm64-v8a/librustdesk.so',b'fixture native library')
             if extra_abi:archive.writestr('lib/armeabi-v7a/librustdesk.so',b'other architecture')
-            for name in ('icon.png','logo.png'):
+            for name in ('icon.png','logo.png','logo_light.png','logo_dark.png'):
                 archive.writestr('assets/flutter_assets/assets/'+name,image)
         metadata={'package':'ru.status16.statusdesk','version':'1.5.1.2','version_code':688193538,
-                  'icon_sha256':hashlib.sha256(image).hexdigest(),'logo_sha256':hashlib.sha256(image).hexdigest()}
+                  'icon_sha256':hashlib.sha256(image).hexdigest(),'logo_sha256':hashlib.sha256(image).hexdigest(),
+                  'logo_light_sha256':hashlib.sha256(image).hexdigest(),'logo_dark_sha256':hashlib.sha256(image).hexdigest()}
         (root/'stdesk-android-build.json').write_text(json.dumps(metadata),encoding='utf-8')
 
     def run_audit(self, root, code=688193538):

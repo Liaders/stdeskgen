@@ -37,6 +37,8 @@ jobs:
         run: git submodule update --init libs/hbb_common
       - name: Test Android configuration and package versions
         run: python -m unittest discover -s generator/customization -p 'test_android*.py'
+      - name: Test theme logo packaging and runtime source compatibility
+        run: python -m unittest discover -s generator/customization -p test_theme_logos.py
       - name: Test desktop branding and local ID actions
         run: python -m unittest discover -s generator/customization -p test_desktop_chrome.py
       - name: Test Sciter account response and Windows window icon

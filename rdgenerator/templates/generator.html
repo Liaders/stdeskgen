@@ -374,6 +374,17 @@
                     {{ form.logofile }}<br><br>
                     <!-- <input type="file" name="logofile" id="logofile" accept="image/png"> -->
                     <div id="logo-preview"></div><br><br>
+                    <p>Theme logos replace the common logo. Empty fields use the common logo. Windows x86 uses the light logo.</p>
+                    {{ form.logolightbase64.as_hidden }}
+                    <label for="id_logolightfile">Main screen logo: light theme (PNG)</label>
+                    {{ form.logolightfile }}
+                    <button type="button" data-clear-logo="logolight">Clear</button>
+                    <div id="logolight-preview"></div><br>
+                    {{ form.logodarkbase64.as_hidden }}
+                    <label for="id_logodarkfile">Main screen logo: dark theme (PNG)</label>
+                    {{ form.logodarkfile }}
+                    <button type="button" data-clear-logo="logodark">Clear</button>
+                    <div id="logodark-preview"></div><br><br>
                 <p>В Windows x86 иконка используется в заголовке окна, логотип — над «Ваш рабочий стол». Остальное оформление Sciter сохраняется.</p>
             </div>
             <div class="section" id="visual-customization">
@@ -488,6 +499,18 @@
         document.getElementById("{{ form.iconfile.id_for_label }}").addEventListener('change', function(event) {
             previewImage(event.target, 'icon-preview');
         });
+        for (const prefix of ['logolight','logodark']) {
+            document.getElementById('id_'+prefix+'file').addEventListener('change', event => {
+                document.getElementById('id_'+prefix+'base64').value='';
+                document.getElementById(prefix+'-preview').replaceChildren();
+                previewImage(event.target, prefix+'-preview');
+            });
+            document.querySelector('[data-clear-logo="'+prefix+'"]').addEventListener('click', () => {
+                document.getElementById('id_'+prefix+'file').value='';
+                document.getElementById('id_'+prefix+'base64').value='';
+                document.getElementById(prefix+'-preview').replaceChildren();
+            });
+        }
         document.getElementById("{{ form.logofile.id_for_label }}").addEventListener('change', function(event) {
             previewImage(event.target, 'logo-preview');
         });
@@ -680,6 +703,12 @@
                 }
             }
 
+            for (const prefix of ['logolight','logodark']) {
+                const file=document.getElementById('id_'+prefix+'file').files[0];
+                const value=file ? await readFileAsBase64(file) : document.getElementById('id_'+prefix+'base64').value;
+                formData[prefix+'base64']=value;
+                delete formData[prefix+'file'];
+            }
             const privacyPreview = document.getElementById('privacy-preview');
             if (privacyPreview.firstChild && privacyPreview.firstChild.src.startsWith('data:image/png;base64')) {
                 formData.privacyfile = privacyPreview.firstChild.src; // Use existing base64
@@ -752,9 +781,26 @@
         function applyLoadedConfiguration(formData) {
                             carriedUnknownFields = {};
                             const skippedKeys = [];
+                            for (const prefix of ['logolight','logodark']) {
+                                document.getElementById('id_'+prefix+'file').value='';
+                                document.getElementById('id_'+prefix+'base64').value='';
+                                document.getElementById(prefix+'-preview').replaceChildren();
+                            }
                             for (const key in formData) {
                                 if (key === 'updates_config') {document.getElementById('id_updates_config').value=typeof formData[key]==='object'?JSON.stringify(formData[key]):formData[key]||'';continue;}
                                 if (key === 'ui_profile' || key === 'csrfmiddlewaretoken') continue;
+                                if (['logolightfile','logodarkfile','logolightbase64','logodarkbase64'].includes(key)) {
+                                    const prefix=key.startsWith('logolight')?'logolight':'logodark';
+                                    const value=typeof formData[key]==='string'?formData[key]:'';
+                                    document.getElementById('id_'+prefix+'file').value='';
+                                    document.getElementById('id_'+prefix+'base64').value=value;
+                                    const preview=document.getElementById(prefix+'-preview');preview.replaceChildren();
+                                    if(value.startsWith('data:image/png;base64,')) {
+                                        const image=document.createElement('img');image.src=value;
+                                        image.style.maxWidth='300px';image.style.maxHeight='60px';preview.appendChild(image);
+                                    }
+                                    continue;
+                                }
                                 // More robust selector: checks for name OR id
                                 const elements = document.querySelectorAll(`[name="${key}"], [id="${key}"]`);
 

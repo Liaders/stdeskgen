@@ -43,6 +43,11 @@ def verify(root, expected, platform, assets=None):
             if expected.get(key,'false')!='false':
                 original=((assets or root/'.rdgen-input')/name).read_bytes()
                 if (root/'flutter/assets'/name).read_bytes()!=original:raise ValueError('Android asset was not applied: '+name)
+    if platform!='windows-x86' and expected.get('logolink_url','false')!='false':
+        for name in ('logo.png','logo_light.png','logo_dark.png'):
+            original=((assets or root/'.rdgen-input')/name).read_bytes()
+            if (root/'flutter/assets'/name).read_bytes()!=original:
+                raise ValueError('Themed logo was not applied: '+name)
     if platform=='windows-x86' and expected.get('logolink_url','false') != 'false':
         logo=((assets or root/'.rdgen-input')/'logo.png').read_bytes()
         page=(root/'src/ui/index.tis').read_text(encoding='utf-8')

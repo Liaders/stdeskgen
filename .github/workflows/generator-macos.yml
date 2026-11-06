@@ -631,7 +631,7 @@ jobs:
           ASSETS_DIR="build/macos/Build/Products/Release/RustDesk.app/Contents/Frameworks/App.framework/Versions/Current/Resources/flutter_assets/assets"
           mkdir -p "$ASSETS_DIR"
           if [ -n "${{ inputs.config_ref }}" ]; then
-            cp ./.rdgen-input/logo.png "$ASSETS_DIR/logo.png"
+            cp ./.rdgen-input/logo*.png "$ASSETS_DIR/"
           else
           curl -k -L --tlsv1.2 --proto =https --ssl-reqd \
             -H "User-Agent: Mozilla/5.0" \

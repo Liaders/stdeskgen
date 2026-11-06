@@ -32,3 +32,8 @@ The standalone Windows workflow runs three Flutter tests for the display priorit
 Enable `resizable_panels: true` to let users drag the divider of the accessible-device sidebar and address-book sidebar. The configured widths are initial values. The client saves each panel independently using stable local-option keys, and double-clicking its divider clears the saved preference and restores the configured initial width.
 
 The viewport constrains the displayed width without overwriting a wider saved preference. Portrait layout and profiles with this feature disabled keep the original code path. Windows x86/Sciter is not supported by this Flutter feature.
+
+## Theme-specific main-screen logos
+The local constructor accepts a common PNG logo plus optional light/dark PNG logos. Saved configurations and JSON API use `logolightbase64` / `logodarkbase64`; uploads use `logolightfile` / `logodarkfile`. All images travel in the encrypted build archive. Each missing theme uses the common logo; if only a theme-specific image is supplied, it becomes the fallback too.
+
+Windows x64, Linux, macOS and Android stage all three assets before Flutter builds its manifest. The existing RustDesk 1.5.0/1.5.1 logo widget follows `Theme.of(context).brightness`, including system-theme changes. Windows x86 always uses the light logo, falling back to the common logo; the dark-only logo is ignored on x86. Application icons are unaffected. Changes apply to newly built clients.

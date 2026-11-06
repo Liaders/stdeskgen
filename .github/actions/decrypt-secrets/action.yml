@@ -42,7 +42,7 @@ runs:
             from pathlib import Path
             assets = Path(os.environ['RUNNER_TEMP']) / 'rdgen-input'
             assets.mkdir(exist_ok=True)
-            for name in ('icon.png', 'logo.png', 'privacy.png'):
+            for name in ('icon.png', 'logo.png', 'logo_light.png', 'logo_dark.png', 'privacy.png'):
                 if name in zf.namelist():
                     (assets / name).write_bytes(zf.read(name))
 

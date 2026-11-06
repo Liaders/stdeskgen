@@ -20,8 +20,8 @@ def audit(root,abi):
         if archive.testzip():raise ValueError('Corrupt APK archive')
         native_abis={name.split('/')[1] for name in archive.namelist() if name.startswith('lib/') and name.endswith('/librustdesk.so')}
         if native_abis!={abi}:raise ValueError('APK native architecture mismatch: '+str(sorted(native_abis)))
-        for field,name in [('icon_sha256','icon.png'),('logo_sha256','logo.png')]:
-            if metadata[field] and hashlib.sha256(archive.read('assets/flutter_assets/assets/'+name)).hexdigest()!=metadata[field]:
+        for field,name in [('icon_sha256','icon.png'),('logo_sha256','logo.png'),('logo_light_sha256','logo_light.png'),('logo_dark_sha256','logo_dark.png')]:
+            if metadata.get(field) and hashlib.sha256(archive.read('assets/flutter_assets/assets/'+name)).hexdigest()!=metadata[field]:
                 raise ValueError('APK branding mismatch: '+name)
     sdk=Path(os.environ['ANDROID_HOME'])/'build-tools/36.0.0'
     badging=subprocess.check_output([str(sdk/'aapt'),'dump','badging',str(path)],text=True)

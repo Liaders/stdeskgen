@@ -34,7 +34,7 @@ OPTIONAL_STR_FIELDS = [
     'sh_secret_field', 'serverIP', 'serverPort', 'key', 'apiServer', 'urlLink', 'downloadLink',
     'appname', 'compname', 'androidappid', 'permanentPassword',
     'defaultManual', 'overrideManual',
-    'iconbase64', 'logobase64', 'privacybase64',
+    'iconbase64', 'logobase64', 'logolightbase64', 'logodarkbase64', 'privacybase64',
     'update_public_key',
     'app_version',
 ]
@@ -116,6 +116,8 @@ def validate_generate_params(data):
     # File fields are not used in API mode (base64 fields are used instead)
     cleaned['iconfile'] = None
     cleaned['logofile'] = None
+    cleaned['logolightfile'] = None
+    cleaned['logodarkfile'] = None
     cleaned['privacyfile'] = None
 
     try:

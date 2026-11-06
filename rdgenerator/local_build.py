@@ -74,7 +74,7 @@ def pack_configuration(inputs, images):
         archive.setpassword(password.encode())
         archive.writestr('secrets.json', json.dumps(inputs).encode())
         for name, data in images.items():
-            if name not in ('icon.png', 'logo.png', 'privacy.png'):
+            if name not in ('icon.png', 'logo.png', 'logo_light.png', 'logo_dark.png', 'privacy.png'):
                 raise LocalBuildError('Unsupported build asset.')
             archive.writestr(name, data)
     if buffer.tell() > 8 * 1024 * 1024:
@@ -213,7 +213,7 @@ def _local_status(build_id, download):
 
 def collect_images(params):
     images = {}
-    for prefix in ('icon', 'logo', 'privacy'):
+    for prefix, filename in (('icon','icon.png'), ('logo','logo.png'), ('logolight','logo_light.png'), ('logodark','logo_dark.png'), ('privacy','privacy.png')):
         value = params.get(prefix + 'file') or params.get(prefix + 'base64')
         if not value:
             continue
@@ -230,7 +230,7 @@ def collect_images(params):
             image.verify()
         except Exception as exc:
             raise LocalBuildError(f'Invalid {prefix} PNG image.') from exc
-        images[prefix + '.png'] = data
+        images[filename] = data
     return images
 
 

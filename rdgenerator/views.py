@@ -165,7 +165,13 @@ def generate_custom_client(params, full_url):
         except LocalBuildError as exc:
             return {'success': False, 'error': str(exc), 'status_code': 400}
         iconlink_url = 'local' if 'icon.png' in local_images else 'false'
-        logolink_url = 'local' if 'logo.png' in local_images else 'false'
+        # The legacy x86 client uses the light logo regardless of its settings.
+        if platform == 'windows-x86' and 'logo_light.png' in local_images:
+            local_images['logo.png'] = local_images['logo_light.png']
+        if platform == 'windows-x86':
+            local_images.pop('logo_light.png', None)
+            local_images.pop('logo_dark.png', None)
+        logolink_url = 'local' if any(name in local_images for name in ('logo.png','logo_light.png','logo_dark.png')) else 'false'
         privacylink_url = 'local' if 'privacy.png' in local_images else 'false'
         iconlink_uuid = iconlink_file = logolink_uuid = logolink_file = privacylink_uuid = privacylink_file = 'false'
     else:
