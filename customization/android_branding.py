@@ -6,12 +6,37 @@ from pathlib import Path
 import shutil
 import xml.etree.ElementTree as ET
 from apply_profile import apply as apply_profile
+from colleagues import add_colleagues
 
 ICONS=Path(__file__).with_name('android_icons')
 
 
 def apply_ui(root,version,name):
-    apply_profile(root,version,{'schema_version':1,'accent':'#EF7F1A','button':'#EF7F1A','colleagues':True})
+    apply_profile(root,version,{'schema_version':1,'accent':'#EF7F1A','button':'#EF7F1A'})
+    edits={}
+    def replace(relative,old,new):
+        path=root/relative;source=edits.get(path,path.read_text(encoding='utf-8'))
+        if source.count(old)!=1:raise ValueError('Incompatible Android colleagues navigation: '+relative)
+        edits[path]=source.replace(old,new,1)
+    add_colleagues(root,edits,replace,{},standalone=True)
+    page='flutter/lib/mobile/pages/home_page.dart'
+    replace(page,"import 'connection_page.dart';","import 'connection_page.dart';\nimport 'rdgen_colleagues_page.dart';")
+    replace(page,'    _pages.add(SettingsPage());', '''    _pages.add(SettingsPage());
+    if (isAndroid && !bind.isIncomingOnly() &&
+        !bind.isDisableGroupPanel() && !bind.isDisableAccount()) {
+      _pages.add(RdgenColleaguesPage());
+    }
+    _selectedIndex = _selectedIndex.clamp(0, _pages.length - 1).toInt();''')
+    replace(page,'BottomNavigationBarItem(icon: page.icon, label: page.title)', '''BottomNavigationBarItem(
+                      icon: page.icon,
+                      label: page is RdgenColleaguesPage ? '' : page.title,
+                      tooltip: page is RdgenColleaguesPage ? page.title : null)''')
+    replace(page,'  Widget appTitle() {', '''  Widget appTitle() {
+    if (_pages[_selectedIndex] is RdgenColleaguesPage) {
+      return Text(translate('Colleagues'));
+    }''')
+    edits[root/'flutter/lib/mobile/pages/rdgen_colleagues_page.dart']=Path(__file__).with_name('mobile_colleagues.dart').read_text(encoding='utf-8')
+    for path,source in edits.items():path.write_text(source,encoding='utf-8')
     path=root/'flutter/lib/common.dart';source=path.read_text(encoding='utf-8')
     anchor='Widget loadPowered(BuildContext context) {\n  if ('
     if source.count(anchor)!=1:raise ValueError('Incompatible Android powered-by widget')

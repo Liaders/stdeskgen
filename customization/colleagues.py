@@ -1,7 +1,7 @@
 """Add a users-only view over the existing server-authorized group data."""
 
 
-def add_colleagues(root, edits, replace, profile):
+def add_colleagues(root, edits, replace, profile, standalone=False):
     group = root / 'flutter/lib/common/widgets/my_group.dart'
     source = edits.get(group, group.read_text(encoding='utf-8'))
     source = source.replace('MyGroup', 'RdgenColleagues')
@@ -51,6 +51,13 @@ class RdgenColleaguesPeerView extends BasePeersView {
 }
 '''
     edits[root / 'flutter/lib/common/widgets/rdgen_colleagues.dart'] = source
+    if standalone:
+        if source.count('onPressed: loginDialog,')!=1:raise ValueError('Incompatible colleagues login action')
+        edits[root / 'flutter/lib/common/widgets/rdgen_colleagues.dart'] = source.replace(
+            'onPressed: loginDialog,',
+            'onPressed: () async { await loginDialog(); await gFFI.groupModel.pull(force: true); },')
+        replace('src/lang/ru.rs', '("Accessible devices", "Доступные устройства"),', '("Accessible devices", "Доступные устройства"),\n        ("Colleagues", "Коллеги"),')
+        return
     model = 'flutter/lib/models/peer_tab_model.dart'
     replace(model, 'maxTabCount = 5;', 'maxTabCount = 6;')
     replace(model, "    'Accessible devices',", "    'Accessible devices',\n    'Colleagues',")
