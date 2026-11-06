@@ -160,6 +160,8 @@ jobs:
       run: 'flutter pub get
 
         dart run flutter_launcher_icons'
+    - name: Apply supplied Android launcher resource bundle
+      run: python3 "$RUNNER_TEMP/rdgen-tools/android_branding.py" --source .
     - name: Verify server settings and branding
       run: python3 "$RUNNER_TEMP/rdgen-tools/verify_build_inputs.py" --source . --platform android
     - name: Build native library

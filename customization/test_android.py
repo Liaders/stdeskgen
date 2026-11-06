@@ -30,6 +30,11 @@ class AndroidSourceTests(unittest.TestCase):
         inputs['VERSION']=re.search(rb'^version = "([^"]+)"',cargo,re.M)[1].decode()
         inputs['STDESK_DISPLAY_VERSION']=inputs['VERSION']+'.3'
         names=['src/ui_interface.rs','src/platform/windows.rs','build.py','flutter/pubspec.yaml','flutter/windows/runner/Runner.rc','build.rs','libs/portable/build.rs','Cargo.toml','libs/hbb_common/src/config.rs','src/common.rs','flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/MainService.kt','flutter/lib/models/native_model.dart','flutter/android/app/build.gradle','flutter/android/gradle.properties','flutter/android/app/src/main/AndroidManifest.xml','flutter/android/app/src/main/res/values/ic_launcher_background.xml']
+        names+=['flutter/lib/common.dart','flutter/lib/mobile/pages/settings_page.dart','flutter/lib/common/widgets/my_group.dart',
+                'flutter/lib/models/peer_tab_model.dart','flutter/lib/common/widgets/peer_tab_page.dart','src/lang/ru.rs',
+                'flutter/android/app/src/main/res/values/strings.xml',
+                'flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/BootReceiver.kt',
+                'flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/FloatingWindowService.kt']
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
             for name in names:
@@ -46,6 +51,25 @@ class AndroidSourceTests(unittest.TestCase):
             self.assertIn('org.gradle.jvmargs=-Xmx4g',(root/'flutter/android/gradle.properties').read_text())
             self.assertEqual(metadata['logo_sha256'],hashlib.sha256(png).hexdigest())
             self.assertTrue(verify(root,inputs,'android',assets))
+            common=(root/'flutter/lib/common.dart').read_text(encoding='utf-8')
+            self.assertIn('accent = Color(0xFFEF7F1A)',common)
+            self.assertIn('if (isAndroid || bind.mainGetBuildinOption',common)
+            settings=(root/'flutter/lib/mobile/pages/settings_page.dart').read_text(encoding='utf-8')
+            self.assertNotIn('rustdesk.com',settings)
+            self.assertIn('https://status16.ru/',settings)
+            self.assertIn('Icons.people',(root/'flutter/lib/models/peer_tab_model.dart').read_text())
+            self.assertTrue((root/'flutter/lib/common/widgets/rdgen_colleagues.dart').exists())
+            service=(root/'flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/MainService.kt').read_text(encoding='utf-8')
+            self.assertIn('DEFAULT_NOTIFY_TITLE = "StatusDesk"',service)
+            self.assertIn('val channelName = "StatusDesk"',service)
+            from android_branding import apply_launcher, ICONS
+            (root/'flutter/android/app/src/main/res/values/colors.xml').write_text('<resources><color name="primary">#0000ff</color><color name="ic_launcher_background">#ffffff</color></resources>')
+            apply_launcher(root)
+            self.assertIn('#FFEF7F1A',(root/'flutter/android/app/src/main/res/values/colors.xml').read_text())
+            self.assertNotIn('ic_launcher_background',(root/'flutter/android/app/src/main/res/values/colors.xml').read_text())
+            self.assertEqual((root/'flutter/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png').read_bytes(),(ICONS/'mipmap-xxxhdpi/ic_launcher.png').read_bytes())
+            self.assertIn('android:roundIcon=',(root/'flutter/android/app/src/main/AndroidManifest.xml').read_text())
+
 
     def test_android_version_code_increases_across_upstream_bases(self):
         self.assertLess(android_version_code('1.5.0','1.5.0.65535'),android_version_code('1.5.1','1.5.1.1'))

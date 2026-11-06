@@ -18,3 +18,5 @@ default-config.json
 .local-version-counters.*
 
 .local-android-signing/
+
+!customization/android_icons/**/*.png

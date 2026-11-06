@@ -11,6 +11,7 @@ import shutil
 import xml.etree.ElementTree as ET
 from apply_version import apply as apply_version
 from versioning import parts
+from android_branding import apply_ui, ICONS
 
 
 def android_version_code(base,display):
@@ -23,6 +24,7 @@ def android_version_code(base,display):
 def apply(root,inputs,assets):
     base=inputs['VERSION'];display=inputs['STDESK_DISPLAY_VERSION']
     code=android_version_code(base,display)
+    shutil.copyfile(ICONS/'app_icon.png',assets/'icon.png')
     package=inputs.get('androidappid') or 'ru.status16.statusdesk'
     if not re.fullmatch(r'[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*){2,}',package):raise ValueError('Invalid Android application ID')
     if package=='com.carriez.flutter_hbb':raise ValueError('Use a separate StatusDesk package ID, not the original RustDesk ID')
@@ -60,7 +62,7 @@ def apply(root,inputs,assets):
     if count!=1:raise ValueError('Missing Android Gradle memory configuration')
     properties.write_text(source+'\norg.gradle.workers.max=2\n',encoding='utf-8')
     change('flutter/android/app/src/main/AndroidManifest.xml','android:label="RustDesk"','android:label="'+html.escape(name,quote=True)+'"')
-    path=root/'flutter/android/app/src/main/AndroidManifest.xml';source=path.read_text(encoding='utf-8').replace('package="com.carriez.flutter_hbb"','').replace('android:label="RustDesk Input"','android:label="'+html.escape(name+' Input',quote=True)+'"');path.write_text(source,encoding='utf-8')
+    path=root/'flutter/android/app/src/main/AndroidManifest.xml';source=path.read_text(encoding='utf-8').replace('package="com.carriez.flutter_hbb"','').replace('android:label="RustDesk Input"','android:label="'+html.escape(name,quote=True)+'"');path.write_text(source,encoding='utf-8')
     for filename,targets in [('icon.png',['res/icon.png','flutter/assets/icon.png']),('logo.png',['flutter/assets/logo.png','flutter/assets/logo_light.png','flutter/assets/logo_dark.png'])]:
         if (assets/filename).exists():
             for target in targets:
@@ -78,11 +80,12 @@ def apply(root,inputs,assets):
         path=root/'flutter/pubspec.yaml';source=path.read_text(encoding='utf-8').replace('  android: true','  android: true\n  adaptive_icon_background: "#ffffff"\n  adaptive_icon_foreground: "../res/icon.png"\n  adaptive_icon_foreground_inset: 24',1);path.write_text(source,encoding='utf-8')
     # Avoid advertising upstream desktop releases from our Android package.
     change('src/common.rs','pub async fn do_check_software_update() -> hbb_common::ResultType<()> {','pub async fn do_check_software_update() -> hbb_common::ResultType<()> {\n    return Ok(());')
+    apply_ui(root,base,name)
     record={'schema':1,'platform':'android','package':package,'version':display,'version_code':code,'base_version':base,
             'configuration_sha256':hashlib.sha256(inputs['custom'].encode()).hexdigest(),
             'icon_sha256':hashlib.sha256((assets/'icon.png').read_bytes()).hexdigest() if (assets/'icon.png').exists() else None,
             'logo_sha256':hashlib.sha256((assets/'logo.png').read_bytes()).hexdigest() if (assets/'logo.png').exists() else None,
-            'signing':'local-required'}
+            'signing':'local-required','accent':'#EF7F1A','colleagues':True}
     (root/'stdesk-android-build.json').write_text(json.dumps(record,indent=2),encoding='utf-8')
     return record
 
