@@ -21,14 +21,14 @@
     .button{display:inline-block;background:#EF7F1A;color:#1c1208;text-decoration:none;border-radius:9px;padding:11px 16px;font-weight:600;font-size:14px;white-space:nowrap}
     .button:hover{background:#ff983d}.button:focus-visible{outline:3px solid #ffb36b;outline-offset:4px}
     .button-connect{background:#D51F26;color:#fff}.button-connect:hover{background:#bd1b21}.button-connect:focus-visible{outline-color:#f5898d}
-    .download-card{display:flex;flex-direction:column;padding:10px 14px}
-    .download-card h2{font-size:18px;margin-bottom:3px}
-    .download-card .description{min-height:18px;margin-bottom:5px;font-size:12px;line-height:1.5}
+    .download-card{display:flex;flex-direction:column;padding:8px 12px}
+    .download-card h2{font-size:17px;margin-bottom:2px}
+    .download-card .description{min-height:16px;margin-bottom:3px;font-size:12px;line-height:1.3}
     .download-card .rows{display:flex;flex-direction:column;flex:1}
-    .download-card .row{flex:1;padding:5px 0}
+    .download-card .row{flex:1;padding:3px 0}
     .download-card .version{display:inline;margin:0 0 0 8px;font-size:11px}
     .download-card .arch{font-size:13px}
-    .download-card .button{padding:6px 12px;font-size:13px}
+    .download-card .button{padding:4px 10px;font-size:12px;line-height:1.2;border-radius:6px}
     .connect-download,.getting-started{margin-top:12px}
     .unavailable{color:#a5a5a5;font-size:13px;white-space:nowrap}
     .notice{color:#bcbcbc;font-size:14px;line-height:1.6;margin:16px 0 0}
@@ -43,25 +43,25 @@
   <div class="eyebrow">Программа удалённого доступа</div>
   <p class="lead">Выберите вашу операционную систему и скачайте приложение для подключения к компьютерам.</p>
   <div class="grid">
-    <article class="download-card"><h2>Windows</h2><p class="description">Выберите разрядность вашей системы.</p>
+    <article class="download-card"><h2>Windows</h2><p class="description">Разрядность системы.</p>
       <div class="rows">
       <div class="row" data-platform="windows-x64"><div class="arch">Windows · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="windows-x86"><div class="arch">Windows · 32 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       </div>
     </article>
-    <article class="download-card"><h2>macOS</h2><p class="description">Процессор: меню Apple → «Об этом Mac».</p>
+    <article class="download-card"><h2>macOS</h2><p class="description">Процессор: «Об этом Mac».</p>
       <div class="rows">
       <div class="row" data-platform="macos-arm64"><div class="arch">Apple Silicon · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="macos-x64"><div class="arch">Intel · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       </div>
     </article>
-    <article class="download-card"><h2>Linux</h2><p class="description">Выберите архитектуру вашего компьютера.</p>
+    <article class="download-card"><h2>Linux</h2><p class="description">Архитектура процессора.</p>
       <div class="rows">
       <div class="row" data-platform="linux-x64"><div class="arch">Intel / AMD · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="linux-arm64"><div class="arch">ARM64 · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       </div>
     </article>
-    <article class="download-card"><h2>Android</h2><p class="description">APK для установки и обновления вручную.</p>
+    <article class="download-card"><h2>Android</h2><p class="description">Установка APK вручную.</p>
       <div class="rows">
       <div class="row" data-platform="android-arm64"><div class="arch">ARM64 · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="android-armv7"><div class="arch">ARMv7 · 32 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
