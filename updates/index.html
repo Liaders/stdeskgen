@@ -13,7 +13,7 @@
     .eyebrow{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#EF7F1A;margin-bottom:12px}
     h1{font-size:clamp(32px,5vw,48px);letter-spacing:-1.6px;line-height:1.12;margin:10px 0 12px}
     .lead{color:#bcbcbc;font-size:17px;line-height:1.6;max-width:640px;margin:0 0 22px}
-    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;grid-auto-rows:1fr}
     article{background:#202020;border:1px solid #383838;border-radius:18px;padding:18px}
     h2{font-size:21px;margin:0 0 7px}.description{color:#bcbcbc;font-size:14px;margin:0 0 12px;line-height:1.5}
     .row{display:flex;gap:14px;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid #383838}
@@ -21,12 +21,16 @@
     .button{display:inline-block;background:#EF7F1A;color:#1c1208;text-decoration:none;border-radius:9px;padding:11px 16px;font-weight:600;font-size:14px;white-space:nowrap}
     .button:hover{background:#ff983d}.button:focus-visible{outline:3px solid #ffb36b;outline-offset:4px}
     .button-connect{background:#D51F26;color:#fff}.button-connect:hover{background:#bd1b21}.button-connect:focus-visible{outline-color:#f5898d}
-    .connect-download{margin-top:16px}
+    .download-card{display:flex;flex-direction:column}
+    .download-card .description{min-height:42px}
+    .download-card .rows{display:flex;flex-direction:column;flex:1}
+    .download-card .row{flex:1}
+    .connect-download,.getting-started{margin-top:12px}
     .unavailable{color:#a5a5a5;font-size:13px;white-space:nowrap}
     .notice{color:#bcbcbc;font-size:14px;line-height:1.6;margin:16px 0 0}
     footer{margin-top:20px;padding-top:14px;border-top:1px solid #383838;color:#999999;font-size:13px;line-height:1.6}
     article .description:last-child{margin-bottom:0}
-    @media(max-width:640px){main{padding:20px 16px 24px}header{margin-bottom:20px}.grid{grid-template-columns:1fr}article{padding:16px}h1{letter-spacing:-1px}}
+    @media(max-width:640px){main{padding:20px 16px 24px}header{margin-bottom:20px}.grid{grid-template-columns:1fr;grid-auto-rows:auto}.download-card .description{min-height:0}article{padding:16px}h1{letter-spacing:-1px}}
   </style>
 </head>
 <body>
@@ -35,30 +39,39 @@
   <div class="eyebrow">Программа удалённого доступа</div>
   <p class="lead">Выберите вашу операционную систему и скачайте приложение для подключения к компьютерам.</p>
   <div class="grid">
-    <article><h2>Windows</h2><p class="description">Выберите разрядность вашей системы.</p>
+    <article class="download-card"><h2>Windows</h2><p class="description">Выберите разрядность вашей системы.</p>
+      <div class="rows">
       <div class="row" data-platform="windows-x64"><div class="arch">Windows · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="windows-x86"><div class="arch">Windows · 32 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
+      </div>
     </article>
-    <article><h2>macOS</h2><p class="description">Тип процессора указан в меню Apple → «Об этом Mac». Apple Silicon — M1 и новее.</p>
+    <article class="download-card"><h2>macOS</h2><p class="description">Тип процессора указан в меню Apple → «Об этом Mac». Apple Silicon — M1 и новее.</p>
+      <div class="rows">
       <div class="row" data-platform="macos-arm64"><div class="arch">Apple Silicon · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="macos-x64"><div class="arch">Intel · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
+      </div>
     </article>
-    <article><h2>Linux</h2><p class="description">Выберите архитектуру вашего компьютера.</p>
+    <article class="download-card"><h2>Linux</h2><p class="description">Выберите архитектуру вашего компьютера.</p>
+      <div class="rows">
       <div class="row" data-platform="linux-x64"><div class="arch">Intel / AMD · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="linux-arm64"><div class="arch">ARM64 · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
+      </div>
     </article>
-    <article><h2>Android</h2><p class="description">Скачайте APK для вашего устройства. Новые версии устанавливаются вручную поверх приложения.</p>
+    <article class="download-card"><h2>Android</h2><p class="description">Скачайте APK для вашего устройства. Новые версии устанавливаются вручную поверх приложения.</p>
+      <div class="rows">
       <div class="row" data-platform="android-arm64"><div class="arch">ARM64 · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="android-armv7"><div class="arch">ARMv7 · 32 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="android-x64"><div class="arch">Intel / AMD · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
+      </div>
     </article>
-    <article style="grid-column:1/-1"><h2>Как начать</h2><p class="description">Скачайте и запустите приложение. Для доступа к устройствам организации войдите в свою учётную запись.</p><p class="description">Если не знаете, какой вариант выбрать, уточните у вашего системного администратора.</p></article>
   </div>
-  <p class="notice" role="status" id="status">Проверяем доступные дистрибутивы…</p>
   <article class="connect-download" aria-labelledby="connect-title">
     <h2 id="connect-title">1С-Коннект</h2>
     <div class="row"><div class="arch">Windows · 64 бита<span class="version">Установщик MSI</span></div><a class="button button-connect" href="https://updates.1c-connect.com/desktop/distribs/1C-Connect-Windows-x64.msi" aria-label="Скачать 1С-Коннект для Windows — 64 бита">Скачать</a></div>
   </article>
+  <article class="getting-started"><h2>Как начать</h2><p class="description">Скачайте и запустите приложение. Для доступа к устройствам организации войдите в свою учётную запись.</p><p class="description">Если не знаете, какой вариант выбрать, уточните у вашего системного администратора.</p></article>
+  <p class="notice" role="status" id="status">Проверяем доступные дистрибутивы…</p>
+
   <footer>Доступ к удалённому компьютеру предоставляется с разрешения его владельца или администратора.</footer>
 </main>
 <script>
