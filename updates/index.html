@@ -25,11 +25,12 @@
     .download-card h2{font-size:18px;margin-bottom:4px}
     .card-title{display:flex;align-items:center;gap:8px;position:relative;margin-bottom:4px}
     .download-card .card-title h2{margin:0}
-    .hint summary{display:flex;align-items:center;justify-content:center;width:22px;height:22px;list-style:none;cursor:pointer;color:#bcbcbc;font-size:18px}
+    .hint summary{display:flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;border:1px solid #666;border-radius:50%;background:#ffffff08;list-style:none;cursor:pointer;color:#c8c8c8;transition:color .15s,border-color .15s,background .15s}
+    .hint summary svg{display:block;width:14px;height:14px;flex:none}
     .hint summary::-webkit-details-marker{display:none}
-    .hint summary:hover,.hint[open] summary{color:#EF7F1A}
-    .hint summary:focus-visible{outline:2px solid #ffb36b;outline-offset:2px;border-radius:4px}
-    .hint-content{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:2;margin:0;padding:12px;background:#303030;border:1px solid #555;border-radius:8px;color:#f3f3f3;font-size:13px;font-weight:400;line-height:1.5;box-shadow:0 6px 18px #0006}
+    .hint summary:hover,.hint[open] summary{color:#ffad66;border-color:#EF7F1A;background:#EF7F1A18}
+    .hint summary:focus-visible{outline:2px solid #ffb36b;outline-offset:3px;border-radius:50%}
+    .hint-content{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:2;margin:0;padding:12px 14px;background:#292929;border:1px solid #484848;border-radius:14px;color:#f3f3f3;font-size:13px;font-weight:400;line-height:1.5;box-shadow:0 6px 18px #0006}
     .download-card .rows{display:flex;flex-direction:column;flex:1}
     .download-card .row{flex:1;padding:6px 0}
     .download-card .version{display:inline;margin:0 0 0 8px;font-size:11px}
@@ -50,25 +51,25 @@
   <div class="eyebrow">Программа удалённого доступа</div>
   <p class="lead">Выберите вашу операционную систему и скачайте приложение для подключения к компьютерам.</p>
   <div class="grid">
-    <article class="download-card"><h2>Windows</h2>
+    <article class="download-card"><div class="card-title"><h2>Windows</h2><details class="hint"><summary aria-label="Подсказка для Windows"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 7v5"/><circle cx="8" cy="4" r=".85" fill="currentColor" stroke="none"/></svg></summary><p class="hint-content">Разрядность указана в настройках Windows: «Система» → «О системе» → «Тип системы». Для 64-разрядной Windows выберите 64 бита, для 32-разрядной — 32 бита.</p></details></div>
       <div class="rows">
       <div class="row" data-platform="windows-x64"><div class="arch">Windows · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="windows-x86"><div class="arch">Windows · 32 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       </div>
     </article>
-    <article class="download-card"><div class="card-title"><h2>macOS</h2><details class="hint"><summary aria-label="Подсказка для macOS"><span aria-hidden="true">&#9432;</span></summary><p class="hint-content">Тип процессора указан в меню Apple → «Об этом Mac». Для процессоров M1 и новее выберите Apple Silicon, для процессоров Intel — Intel.</p></details></div>
+    <article class="download-card"><div class="card-title"><h2>macOS</h2><details class="hint"><summary aria-label="Подсказка для macOS"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 7v5"/><circle cx="8" cy="4" r=".85" fill="currentColor" stroke="none"/></svg></summary><p class="hint-content">Тип процессора указан в меню Apple → «Об этом Mac». Для процессоров M1 и новее выберите Apple Silicon, для процессоров Intel — Intel.</p></details></div>
       <div class="rows">
       <div class="row" data-platform="macos-arm64"><div class="arch">Apple Silicon · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="macos-x64"><div class="arch">Intel · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       </div>
     </article>
-    <article class="download-card"><h2>Linux</h2>
+    <article class="download-card"><div class="card-title"><h2>Linux</h2><details class="hint"><summary aria-label="Подсказка для Linux"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 7v5"/><circle cx="8" cy="4" r=".85" fill="currentColor" stroke="none"/></svg></summary><p class="hint-content">Откройте терминал и выполните uname -m. Для x86_64 выберите Intel / AMD, для aarch64 или arm64 — ARM64.</p></details></div>
       <div class="rows">
       <div class="row" data-platform="linux-x64"><div class="arch">Intel / AMD · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="linux-arm64"><div class="arch">ARM64 · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       </div>
     </article>
-    <article class="download-card"><div class="card-title"><h2>Android</h2><details class="hint"><summary aria-label="Подсказка для Android"><span aria-hidden="true">&#9432;</span></summary><p class="hint-content">Скачайте APK и откройте его на устройстве. Если Android запросит разрешение на установку из этого источника, разрешите её. Новые версии устанавливаются вручную поверх приложения.</p></details></div>
+    <article class="download-card"><div class="card-title"><h2>Android</h2><details class="hint"><summary aria-label="Подсказка для Android"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 7v5"/><circle cx="8" cy="4" r=".85" fill="currentColor" stroke="none"/></svg></summary><p class="hint-content">Скачайте APK и откройте его на устройстве. Если Android запросит разрешение на установку из этого источника, разрешите её. Новые версии устанавливаются вручную поверх приложения.</p></details></div>
       <div class="rows">
       <div class="row" data-platform="android-arm64"><div class="arch">ARM64 · 64 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
       <div class="row" data-platform="android-armv7"><div class="arch">ARMv7 · 32 бита<span class="version"></span></div><span class="action unavailable">Пока недоступно</span></div>
