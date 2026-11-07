@@ -102,7 +102,9 @@
       const url = new URL(item.url, location.href);
       if (url.origin !== location.origin || !url.pathname.startsWith('/client/') || url.username || url.password || url.hash) continue;
       const button = document.createElement('a');
-      button.className = 'action button'; button.textContent = 'Скачать'; button.href = url.href; button.setAttribute('download', '');
+      const windowsNames = {'windows-x64': 'StatusDesk-x64.exe', 'windows-x86': 'StatusDesk-x32.exe'};
+      const downloadName = /\.exe$/i.test(url.pathname) ? windowsNames[row.dataset.platform] || '' : '';
+      button.className = 'action button'; button.textContent = 'Скачать'; button.href = url.href; button.setAttribute('download', downloadName);
       button.setAttribute('aria-label', 'Скачать StatusDesk — ' + row.querySelector('.arch').firstChild.textContent);
       row.querySelector('.action').replaceWith(button);
       row.querySelector('.version').textContent = typeof item.version === 'string' ? 'Версия ' + item.version : '';
