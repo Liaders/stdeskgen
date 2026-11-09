@@ -14,6 +14,15 @@ ROOT = Path(__file__).resolve().parents[1]
 PLATFORMS = ('windows-x64', 'windows-x86', 'linux-x64', 'linux-arm64', 'macos-x64', 'macos-arm64', 'android-arm64', 'android-armv7', 'android-x64')
 
 
+def putty_connection(port, key, host_key=None):
+    connection = ['-batch', '-P', str(port), '-i', str(key)]
+    if host_key is not None:
+        if not isinstance(host_key, str) or not re.fullmatch(r'SHA256:[A-Za-z0-9+/]{43}', host_key):
+            raise ValueError('Expected a verified SSH SHA256 host-key fingerprint')
+        connection.extend(['-hostkey', host_key])
+    return connection
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--file', type=Path, required=True)
@@ -53,7 +62,7 @@ def main():
         verify(source,args.platform,args.version,args.android_metadata or source.parent/'stdesk-android-build.json')
     plink = shutil.which('plink') or 'C:/Program Files/PuTTY/plink.exe'
     pscp = shutil.which('pscp') or 'C:/Program Files/PuTTY/pscp.exe'
-    connection = ['-batch', '-P', str(port), '-i', str(key)]
+    connection = putty_connection(port, key, config.get('host_key'))
     target = user + '@' + host
 
     def remote(command):
