@@ -11,7 +11,7 @@ ICONS=Path(__file__).with_name('android_icons')
 
 
 def apply_ui(root,version,name):
-    apply_profile(root,version,{'schema_version':1,'accent':'#EF7F1A','button':'#EF7F1A','colleagues':True})
+    apply_profile(root,version,{'schema_version':1,'accent':'#EF7F1A','button':'#EF7F1A','colleagues':True},desktop_navigation=False)
     path=root/'flutter/lib/common.dart';source=path.read_text(encoding='utf-8')
     anchor='Widget loadPowered(BuildContext context) {\n  if ('
     if source.count(anchor)!=1:raise ValueError('Incompatible Android powered-by widget')

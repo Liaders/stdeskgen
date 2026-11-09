@@ -27,7 +27,7 @@ class ProfileTests(unittest.TestCase):
             module.apply(root, '1.5.0', profile)
             self.assertIn('accent = Color(0xFF123456)', (root / 'flutter/lib/common.dart').read_text())
             self.assertIn('initialWidth: 280,', (root / 'flutter/lib/common/widgets/my_group.dart').read_text())
-            self.assertIn('child: Text(model.tabTooltip(t)', (root / 'flutter/lib/common/widgets/peer_tab_page.dart').read_text())
+            self.assertIn('Text(model.tabTooltip(t)', (root / 'flutter/lib/common/widgets/peer_tab_page.dart').read_text())
             colleagues = (root / 'flutter/lib/common/widgets/rdgen_colleagues.dart').read_text(encoding='utf-8')
             self.assertNotIn('_buildDeviceGroupItem', colleagues)
             self.assertNotIn('gFFI.groupModel.selectedAccessibleItemName', colleagues)

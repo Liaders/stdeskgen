@@ -7,7 +7,7 @@ import re
 SUPPORTED_VERSIONS = ("1.5.0", "1.5.1")
 
 
-def apply(root, version, profile, check=False):
+def apply(root, version, profile, check=False, desktop_navigation=True):
     if version not in SUPPORTED_VERSIONS:
         raise ValueError(f"UI customization is not supported for RustDesk {version}")
     allowed = {"schema_version", "accent", "button", "navigation", "group_width", "address_book_width", "device_names", "resizable_panels", "colleagues"}
@@ -96,10 +96,6 @@ def apply(root, version, profile, check=False):
     navigation = profile.get("navigation", "icons")
     if navigation not in ("icons", "text"):
         raise ValueError("navigation must be icons or text")
-    if navigation == "text":
-        file = "flutter/lib/common/widgets/peer_tab_page.dart"
-        replace(file, "physics: NeverScrollableScrollPhysics(),", "physics: ClampingScrollPhysics(),")
-        replace(file, "child: Icon(model.tabIcon(t), color: color)", "child: Text(model.tabTooltip(t), style: TextStyle(color: color))")
     if "device_names" in profile and type(profile["device_names"]) is not bool:
         raise ValueError("device_names must be boolean")
     if profile.get("device_names", False):
@@ -187,6 +183,9 @@ def apply(root, version, profile, check=False):
     if profile.get("colleagues", False):
         from colleagues import add_colleagues
         add_colleagues(root, edits, replace, profile)
+    if desktop_navigation:
+        from navigation import add_navigation
+        add_navigation(root, edits, replace, navigation)
     # Validate all anchors and inputs before writing any source file.
     if not check:
         for path, text in edits.items():

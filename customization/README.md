@@ -37,3 +37,13 @@ The viewport constrains the displayed width without overwriting a wider saved pr
 The local constructor shows two PNG logo fields, light and dark, for the image above Your Desktop. Loading an older configuration migrates its common logo into both fields without replacing explicit theme logos. The API still accepts the legacy common logo for backward compatibility. Saved configurations and JSON API use `logolightbase64` / `logodarkbase64`; uploads use `logolightfile` / `logodarkfile`. All images travel in the encrypted build archive. Each missing theme uses the common logo; if only a theme-specific image is supplied, it becomes the fallback too.
 
 Windows x64, Linux, macOS and Android stage all three assets before Flutter builds its manifest. The existing RustDesk 1.5.0/1.5.1 logo widget follows `Theme.of(context).brightness`, including system-theme changes. Windows x86 always uses the light logo, falling back to the common logo; the dark-only logo is ignored on x86. Application icons are unaffected. Changes apply to newly built clients.
+
+## Desktop navigation switch
+Desktop UI profiles now include a text/icon tab toggle immediately beside the
+view and sorting controls. It uses the existing hover-action style and rounded
+18px icons. The profile's navigation value is the initial setting; a local choice
+under rdgen-navigation-style-v1 takes precedence after restarting the client.
+Text tabs scroll horizontally. Mobile keeps its icon navigation and has no extra
+control; the Android adapter opts out explicitly. Windows x86/Sciter is unchanged.
+Source compatibility checks cover RustDesk 1.5.0 and 1.5.1. Installed clients need
+a new build; a binary/runtime UI check is still required after compilation.
