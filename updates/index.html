@@ -108,14 +108,14 @@
       button.className = 'action button'; button.textContent = 'Скачать'; button.href = url.href; button.setAttribute('download', downloadName);
       button.setAttribute('aria-label', 'Скачать StatusDesk — ' + row.querySelector('.arch').firstChild.textContent);
       if (windowsNames[row.dataset.platform]) {
-        button.textContent = 'EXE';
+        button.textContent = 'Скачать';
         const actions = document.createElement('div'); actions.className = 'download-actions'; actions.appendChild(button);
         if (typeof item.zip_url === 'string') {
           const zipUrl = new URL(item.zip_url, location.href);
           if (zipUrl.origin === location.origin && zipUrl.pathname.startsWith('/client/') && zipUrl.pathname.endsWith('.zip') && !zipUrl.username && !zipUrl.password && !zipUrl.hash) {
-            const zipButton = document.createElement('a'); zipButton.className = 'button'; zipButton.textContent = 'ZIP'; zipButton.href = zipUrl.href;
+            const zipButton = document.createElement('a'); zipButton.className = 'button'; zipButton.textContent = 'Архив'; zipButton.href = zipUrl.href;
             zipButton.setAttribute('download', windowsNames[row.dataset.platform].replace(/\.exe$/, '.zip'));
-            zipButton.setAttribute('aria-label', 'Скачать ZIP — ' + windowsNames[row.dataset.platform]); actions.appendChild(zipButton);
+            zipButton.setAttribute('aria-label', 'Скачать архив — ' + windowsNames[row.dataset.platform]); actions.appendChild(zipButton);
           }
         }
         row.querySelector('.action').replaceWith(actions);
