@@ -1,5 +1,5 @@
 <header class="app-header">
-<a class="app-brand" href="/">Status<span>Desk</span></a>
+<span class="app-brand">Status<span>Desk</span></span>
 <nav aria-label="Основные разделы">
 <a href="/" {% if active == 'builder' %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 6h5m5 0h8M3 12h10m5 0h3M3 18h2m5 0h11M8 3v6m5 0v6M5 15v6"/></svg>Конструктор</a>
 <a href="/desktop/builds-page" {% if active == 'builds' %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 6 2 2 4-4m4 2h8M3 13h6m4 0h8M3 20h6m4 0h8"/></svg>Сборки <span id="active-build-count" class="count-badge" hidden></span></a>

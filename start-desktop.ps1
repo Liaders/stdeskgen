@@ -57,6 +57,8 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Не удалось загрузить SDK Microsoft WebView2. См. .desktop/webview-setup.log.' }
     }
     $env:PATH = (Join-Path $sdk 'runtimes/win-x64/native') + ';' + $env:PATH
+    # Set before controller creation: the property alone can still flash white.
+    $env:WEBVIEW2_DEFAULT_BACKGROUND_COLOR = 'FF171819'
     Add-Type -Path (Join-Path $sdk 'lib/net462/Microsoft.Web.WebView2.Core.dll')
     Add-Type -Path $formsDll
     $form = New-Object System.Windows.Forms.Form
@@ -64,9 +66,10 @@ try {
     $form.Size = New-Object Drawing.Size(1280,900)
     $form.MinimumSize = New-Object Drawing.Size(960,680)
     $form.StartPosition = 'CenterScreen'
-    $form.BackColor = [Drawing.Color]::FromArgb(20,20,20)
+    $form.BackColor = [Drawing.Color]::FromArgb(23,24,25)
     $content = New-Object System.Windows.Forms.Panel
     $content.Dock = 'Fill'
+    $content.BackColor = $form.BackColor
     $viewsByRoute = @{}
     $navigation = @{ Route = '/' }
     function Show-ConstructorPage([string]$route) {
@@ -81,11 +84,16 @@ try {
                 if ($otherRoute -ne $route) { $viewsByRoute[$otherRoute].Visible = $false }
             }
         } finally { $content.ResumeLayout() }
-        $targetView.Focus() | Out-Null
+    }
+    function Initialize-ConstructorPages {
+        foreach ($preloadView in $viewsByRoute.Values) {
+            $null = $preloadView.EnsureCoreWebView2Async($null)
+        }
     }
     foreach ($route in @('/', '/desktop/builds-page', '/desktop/publication')) {
         $view = New-Object Microsoft.Web.WebView2.WinForms.WebView2
         $view.Dock='Fill'
+        $view.DefaultBackgroundColor = $form.BackColor
         $view.Visible = ($route -eq '/')
         $view.Tag = $route
         $properties = New-Object Microsoft.Web.WebView2.WinForms.CoreWebView2CreationProperties
@@ -130,6 +138,7 @@ try {
         $content.Controls.Add($view)
     }
     $form.Controls.Add($content)
+    $form.add_Shown({ Initialize-ConstructorPages })
     [System.Windows.Forms.Application]::Run($form)
 } catch {
     [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'StatusDesk — ошибка',[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null

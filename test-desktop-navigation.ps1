@@ -6,6 +6,9 @@ if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
 $switch = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Show-ConstructorPage' }, $true)
 if (-not $switch) { throw 'Missing page switch function' }
 Invoke-Expression $switch.Extent.Text
+$preload = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Initialize-ConstructorPages' }, $true)
+if (-not $preload) { throw 'Missing page preload function' }
+Invoke-Expression $preload.Extent.Text
 
 # Execute the real switching function without starting Windows Forms or WebView2.
 $content = [pscustomobject]@{}
@@ -13,12 +16,16 @@ $content | Add-Member ScriptMethod SuspendLayout {}
 $content | Add-Member ScriptMethod ResumeLayout {}
 $viewsByRoute = @{}
 foreach ($route in @('/desktop/publication', '/', '/desktop/builds-page')) {
-    $page = [pscustomobject]@{ Page = $route; Visible = ($route -eq '/'); Draft = 'Retained configuration'; Raises = 0 }
+    $page = [pscustomobject]@{ Page = $route; Visible = ($route -eq '/'); Draft = 'Retained configuration'; Raises = 0; Initializations = 0 }
     $page | Add-Member ScriptMethod BringToFront { $this.Raises++ }
-    $page | Add-Member ScriptMethod Focus { $true }
+    $page | Add-Member ScriptMethod Focus { throw 'Page switch forced focus to first link' }
+    $page | Add-Member ScriptMethod EnsureCoreWebView2Async { param($environment) $this.Initializations++ }
     $viewsByRoute[$route] = $page
 }
 $navigation = @{ Route = '/' }
+Initialize-ConstructorPages
+if (@($viewsByRoute.Values | Where-Object { $_.Initializations -ne 1 }).Count) { throw 'Not all pages were preloaded' }
+if ($navigation.Route -ne '/') { throw 'Preload changed the selected page' }
 foreach ($route in @('/', '/desktop/builds-page', '/desktop/builds-page', '/desktop/publication', '/', '/desktop/publication', '/desktop/publication')) {
     $samePage = $navigation.Route -eq $route
     $raises = $viewsByRoute[$route].Raises
