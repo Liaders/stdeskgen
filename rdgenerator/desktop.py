@@ -165,16 +165,18 @@ def _publication_job(identifier, version=None, auto=False):
     return entry, path, version or entry['version'], auto
 
 
-def _start_publications(jobs):
+def _start_publications(jobs, mode='single'):
     with _task_lock:
         if _task['state'] == 'running': return JsonResponse({'error':'Публикация уже выполняется.'},status=409)
-        _task.update(state='running',message='Передаём файлы на сервер…')
+        _task.update(state='running',message='Передаём файлы на сервер…', id=uuid.uuid4().hex,
+                     mode=mode,total=len(jobs),completed=0,succeeded=0,current='',summary='')
     def run():
         logs = []
         failed = False
         for entry, path, version, auto in jobs:
             title = entry['platform'] + ' · ' + version + ' · ' + path.name
-            with _task_lock: _task['message'] = '\n'.join(logs + ['Публикуем: ' + title])[-24000:]
+            with _task_lock:
+                _task.update(current=title,message='\n'.join(logs + ['Публикуем: ' + title])[-24000:])
             command = [str(Path(settings.BASE_DIR) / '.venv/Scripts/python.exe'),
                        str(Path(settings.BASE_DIR) / 'updates/publish_from_windows.py'),
                        '--file', str(path), '--platform', entry['platform'], '--version', version]
@@ -183,12 +185,22 @@ def _start_publications(jobs):
                 result = subprocess.run(command,capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=1200,
                                         env={**os.environ,'PYTHONUTF8':'1'})
                 failed |= result.returncode != 0
+                if result.returncode == 0:
+                    with _task_lock: _task['succeeded'] += 1
                 logs.append(title + (' — ОШИБКА' if result.returncode else ' — опубликовано') + '\n' + result.stdout + '\n' + result.stderr)
             except Exception as exc:
                 failed = True
                 logs.append(title + ' — ОШИБКА: ' + str(exc))
+            finally:
+                with _task_lock: _task['completed'] += 1
         with _task_lock:
-            _task.update(state='error' if failed else 'success',message='\n'.join(logs)[-24000:])
+            if failed:
+                summary = f"Публикация завершена с ошибками. Успешно: {_task['succeeded']} из {len(jobs)}. Подробности — в журнале."
+            elif mode == 'all':
+                summary = f'Все последние версии клиентов успешно опубликованы. Сборок: {len(jobs)}.'
+            else:
+                summary = f'Сборка {jobs[0][0]["platform"]} · {jobs[0][2]} успешно опубликована.'
+            _task.update(state='error' if failed else 'success',message='\n'.join(logs)[-24000:],current='',summary=summary)
     threading.Thread(target=run,name='publish-installer',daemon=True).start()
     return JsonResponse({'ok':True,'count':len(jobs)})
 
@@ -222,7 +234,7 @@ def publish_latest(request):
         if sorted(data['ids']) != sorted(item['id'] for item in selected):
             return JsonResponse({'error':'Список последних версий изменился. Просмотрите и подтвердите его заново.'},status=409)
         jobs=[_publication_job(item['id'],auto=bool(item.get('receipt')) and item['filename'].endswith('.exe')) for item in selected]
-        return _start_publications(jobs)
+        return _start_publications(jobs, mode='all')
     except (ValueError,KeyError,TypeError) as exc:
         return JsonResponse({'error':str(exc)},status=400)
 

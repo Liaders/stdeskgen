@@ -79,6 +79,30 @@ class BatchActionTests(SimpleTestCase):
             self.assertEqual(desktop._task['state'],'error')
             self.assertIn('one.exe — ОШИБКА',desktop._task['message'])
             self.assertIn('two.deb — опубликовано',desktop._task['message'])
+            self.assertEqual((desktop._task['completed'],desktop._task['total'],desktop._task['succeeded']),(2,2,1))
+            self.assertIn('с ошибками',desktop._task['summary'])
+
+    def test_publication_progress_and_one_final_summary_for_single_and_batch(self):
+        from . import desktop
+        from types import SimpleNamespace
+        for mode,count in [('single',1),('all',3),('all',1)]:
+            with self.subTest(mode=mode,count=count), patch.dict(desktop._task,{'state':'idle','message':''}), patch('rdgenerator.desktop.threading.Thread') as thread:
+                jobs=[({'platform':'windows-x64'},Path(f'{i}.exe'),'1.5.1.7',False) for i in range(count)]
+                desktop._start_publications(jobs,mode=mode)
+                self.assertEqual((desktop._task['state'],desktop._task['completed'],desktop._task['total']),('running',0,count))
+                def upload(*args,**kwargs):
+                    self.assertEqual(desktop._task['completed'],upload.calls)
+                    self.assertIn(f'{upload.calls}.exe',desktop._task['current'])
+                    upload.calls+=1
+                    return SimpleNamespace(returncode=0,stdout='published',stderr='')
+                upload.calls=0
+                with patch('rdgenerator.desktop.subprocess.run',side_effect=upload):
+                    thread.call_args.kwargs['target']()
+                self.assertEqual(desktop._task['state'],'success')
+                self.assertEqual(desktop._task['completed'],count)
+                self.assertEqual(desktop._task['succeeded'],count)
+                self.assertTrue(desktop._task['id'])
+                self.assertIn('Все последние версии' if mode=='all' else 'Сборка windows-x64',desktop._task['summary'])
 
     def test_android_publication_requires_local_signature_and_manual_updates(self):
         from .desktop import _publication_job
