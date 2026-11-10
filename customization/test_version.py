@@ -20,7 +20,7 @@ class ProductVersionTests(unittest.TestCase):
         base = re.search(rb'^version = "([^"]+)"', cargo, re.M)[1].decode()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for name in ('src/ui_interface.rs','src/platform/windows.rs','build.py','flutter/pubspec.yaml','flutter/windows/runner/Runner.rc','build.rs','libs/portable/build.rs','Cargo.toml','src/common.rs'):
+            for name in ('src/ui_interface.rs','src/hbbs_http/sync.rs','src/platform/windows.rs','build.py','flutter/pubspec.yaml','flutter/windows/runner/Runner.rc','build.rs','libs/portable/build.rs','Cargo.toml','src/common.rs'):
                 path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(original(name))
             before=(root/'src/common.rs').read_text(encoding='utf-8')
             disable_notifications(root)
@@ -32,6 +32,11 @@ class ProductVersionTests(unittest.TestCase):
             apply(root,base,base+'.3')
             self.assertEqual((root/'Cargo.toml').read_bytes(),cargo)
             self.assertIn('"'+base+'.3".to_owned()', (root/'src/ui_interface.rs').read_text())
+            sync = (root/'src/hbbs_http/sync.rs').read_text(encoding='utf-8')
+            self.assertIn('v["version"] = json!(crate::ui_interface::get_version());', sync)
+            self.assertEqual(sync.replace('v["version"] = json!(crate::ui_interface::get_version());',
+                                          'v["version"] = json!(crate::VERSION);'),
+                             original('src/hbbs_http/sync.rs').decode('utf-8'))
             self.assertIn('FILEVERSION', (root/'libs/portable/build.rs').read_text())
             self.assertIn('version: '+base+'+3', (root/'flutter/pubspec.yaml').read_text())
             namespace={}

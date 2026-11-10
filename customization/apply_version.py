@@ -16,6 +16,13 @@ def apply(root, base, display):
     old = 'pub fn get_version() -> String {\n    crate::VERSION.to_owned()\n}'
     if source.count(old) != 1: raise ValueError('Incompatible version presentation function')
     edits[path] = source.replace(old, 'pub fn get_version() -> String {\n    ' + json.dumps(display) + '.to_owned()\n}', 1)
+    # Console inventory is display metadata; keep numeric heartbeat/protocol
+    # versions based on upstream VERSION for capability compatibility.
+    path = root / 'src/hbbs_http/sync.rs'
+    source = path.read_text(encoding='utf-8')
+    old = 'v["version"] = json!(crate::VERSION);'
+    if source.count(old) != 1: raise ValueError('Incompatible sysinfo version field')
+    edits[path] = source.replace(old, 'v["version"] = json!(crate::ui_interface::get_version());', 1)
     path = root / 'build.py'
     source = path.read_text(encoding='utf-8')
     start = source.index('def get_version():')
