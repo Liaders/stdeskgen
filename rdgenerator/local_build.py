@@ -191,6 +191,8 @@ def _local_status(build_id, download):
         record['status'] = run['status']
         record['conclusion'] = run['conclusion']
         record['log_url'] = run['html_url']
+        record['started_at'] = run.get('run_started_at') or run.get('created_at')
+        if run['status'] == 'completed': record['finished_at'] = run.get('updated_at')
         if run['status'] == 'completed' and not record.get('cleaned'):
             # Per-build keys are independent; cleanup never touches another build.
             try:

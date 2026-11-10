@@ -37,13 +37,36 @@ def status(request):
 def builds(request):
     if not local(request): return HttpResponseForbidden('Local only')
     start()
-    records = [{k: r.get(k) for k in ('id', 'filename', 'platform', 'run_id', 'status', 'conclusion', 'log_url', 'download_status', 'download_error', 'download_directory')} for r in recent_local_builds()]
+    records = [{k: r.get(k) for k in ('id', 'filename', 'platform', 'app_version', 'version', 'run_id', 'status', 'conclusion', 'log_url', 'download_status', 'download_error', 'download_directory', 'started_at', 'finished_at')} for r in recent_local_builds(limit=None)]
     return JsonResponse({'builds': records})
 
 
 def installers(request):
     if not local(request): return HttpResponseForbidden('Local only')
-    return JsonResponse({'items': library(), 'directory': str(library_root())})
+    from .publication_selection import latest_installers
+    items = library()
+    return JsonResponse({'items': items, 'latest': latest_installers(items), 'directory': str(library_root())})
+
+
+def builds_page(request):
+    if not local(request): return HttpResponseForbidden('Local only')
+    return render(request, 'builds.html', {'github_user': settings.GHUSER, 'github_repository': settings.REPONAME})
+
+
+def published_versions(request):
+    if not local(request): return HttpResponseForbidden('Local only')
+    import requests
+    try:
+        response = requests.get('https://desk.status16.ru/client/downloads.json', timeout=10)
+        response.raise_for_status()
+        catalog = response.json()
+        if not isinstance(catalog, dict) or catalog.get('schema') != 1 or not isinstance(catalog.get('items'), dict):
+            raise ValueError('Неизвестный формат каталога публикации.')
+        if any(not isinstance(item, dict) or not isinstance(item.get('version'), str) for item in catalog['items'].values()):
+            raise ValueError('Некорректная версия в каталоге публикации.')
+        return JsonResponse({'versions': {key: item['version'] for key, item in catalog['items'].items()}})
+    except (requests.RequestException, ValueError, KeyError, TypeError):
+        return JsonResponse({'error': 'Не удалось прочитать версии на сервере.'}, status=502)
 
 
 def publication_page(request):

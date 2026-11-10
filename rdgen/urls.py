@@ -30,6 +30,8 @@ urlpatterns = [
     url(r'^desktop/next-version$', desktop.next_version),
     url(r'^desktop/next-release$', desktop.next_release),
     url(r'^desktop/builds$', desktop.builds),
+    url(r'^desktop/builds-page$', desktop.builds_page),
+    url(r'^desktop/published$', desktop.published_versions),
     url(r'^desktop/installers$', desktop.installers),
     url(r'^desktop/publication$', desktop.publication_page),
     url(r'^desktop/cleanup$', desktop.cleanup_builds),

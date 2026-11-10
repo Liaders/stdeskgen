@@ -39,7 +39,8 @@ class BatchActionTests(SimpleTestCase):
         with tempfile.TemporaryDirectory() as directory, override_settings(BASE_DIR=Path(directory)), patch('rdgenerator.build_monitor.start'), patch('rdgenerator.views.dispatch_local',return_value={'success':True,'local_build':True,'uuid':'test','filename':'Test'}) as send:
             page=Client().get('/',REMOTE_ADDR='127.0.0.1')
             self.assertContains(page,'<option value="android">')
-            self.assertLess(page.content.index(b'id="build-single"'),page.content.index(b'id="id_version"'))
+            self.assertContains(page,'class="build-summary"')
+            self.assertContains(page,'Собрать все клиенты')
             data=self.form_data();data.update(platform='android',build_scope='single',ui_profile='')
             page=Client().post('/',data,REMOTE_ADDR='127.0.0.1')
             self.assertTrue(send.called)

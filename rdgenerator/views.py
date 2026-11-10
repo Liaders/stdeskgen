@@ -495,10 +495,15 @@ def generator_view(request):
             full_url = f"{_settings.PROTOCOL}://{request.get_host()}" if _settings.GENURL else f"{_settings.PROTOCOL}://{request.get_host()}"
             if batch:
                 from .batch_build import build_all
-                return render(request, 'build_batch.html', {'builds': build_all(params, full_url)})
+                builds = build_all(params, full_url)
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'builds': builds, 'success': all(b['success'] for b in builds)})
+                return render(request, 'build_batch.html', {'builds': builds})
             result = generate_custom_client(params, full_url)
             if result['success']:
                 if result.get('local_build'):
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse(result)
                     return render(request, 'local_waiting.html', result)
                 return render(request, 'waiting.html', {
                     'filename': result['filename'],
@@ -521,7 +526,9 @@ def generator_view(request):
         from .default_config import load
         try: default_config = load()
         except (OSError, ValueError) as exc: default_config_error = 'Не удалось прочитать default-config.json: ' + str(exc)
-    return render(request, 'generator.html', {'form': form, 'local_builds': recent_local_builds() if _settings.LOCAL_GITHUB_BUILD else [], 'default_config': default_config, 'default_config_error': default_config_error})
+    if _settings.LOCAL_GITHUB_BUILD and request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'error': 'Проверьте параметры конфигурации.', 'fields': form.errors.get_json_data()}, status=400)
+    return render(request, 'generator.html', {'form': form, 'local_constructor': _settings.LOCAL_GITHUB_BUILD, 'default_config': default_config, 'default_config_error': default_config_error})
 
 
 def _expected_files_for_platform(filename, platform):

@@ -75,7 +75,7 @@ try {
     $tabs = New-Object System.Windows.Forms.TabControl
     $tabs.Dock='Fill'; $tabs.Font=New-Object Drawing.Font('Segoe UI',11)
     $views = @()
-    foreach ($entry in @(@('Конструктор',"$url/"),@('Публикация',"$url/desktop/publication"))) {
+    foreach ($entry in @(@('Конструктор',"$url/"),@('Сборки',"$url/desktop/builds-page"),@('Публикация',"$url/desktop/publication"))) {
         $page = New-Object System.Windows.Forms.TabPage
         $page.Text=$entry[0]
         $view = New-Object Microsoft.Web.WebView2.WinForms.WebView2
@@ -89,6 +89,19 @@ try {
                 [System.Windows.Forms.MessageBox]::Show('Не удалось запустить Edge WebView2. Установите Microsoft Edge WebView2 Runtime. ' + $eventArgs.InitializationException.Message,'StatusDesk') | Out-Null
                 return
             }
+            $sender.CoreWebView2.add_WebMessageReceived({
+                param($web,$messageEvent)
+                if (-not $messageEvent.Source.StartsWith($url + '/')) { return }
+                try {
+                    $message = $messageEvent.WebMessageAsJson | ConvertFrom-Json
+                    if ($null -ne $message.tab -and ($message.tab -is [int] -or $message.tab -is [long]) -and $message.tab -ge 0 -and $message.tab -le 2) {
+                        $tabs.SelectedIndex = $message.tab
+                    }
+                    if ($null -ne $message.buildCount -and ($message.buildCount -is [int] -or $message.buildCount -is [long]) -and $message.buildCount -ge 0 -and $message.buildCount -le 999) {
+                        $tabs.TabPages[1].Text = if ($message.buildCount) { 'Сборки · ' + $message.buildCount } else { 'Сборки' }
+                    }
+                } catch { }
+            })
             $sender.CoreWebView2.add_NewWindowRequested({
                 param($web,$eventArgs)
                 $eventArgs.Handled=$true
