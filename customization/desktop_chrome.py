@@ -29,8 +29,16 @@ def apply_flutter(root):
                             },
                           ),"""
     source=source.replace(anchor,anchor+button,1)
+    server=root/'flutter/lib/desktop/pages/server_page.dart'
+    server_text=server.read_text(encoding='utf-8')
+    accept='''                      color: MyTheme.accent,
+                      onClick: () {
+                        handleAccept(context);'''
+    if server_text.count(accept)!=1:raise ValueError('Incompatible incoming connection accept button')
+    server_text=server_text.replace(accept,accept.replace('MyTheme.accent','Colors.green[700]'),1)
     common.write_text(common_text,encoding='utf-8')
     home.write_text(source,encoding='utf-8')
+    server.write_text(server_text,encoding='utf-8')
 
 
 def apply_sciter(root):

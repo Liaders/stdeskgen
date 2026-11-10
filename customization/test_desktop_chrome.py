@@ -16,7 +16,7 @@ class DesktopChromeTests(unittest.TestCase):
     def test_desktop_id_actions_match_settings_tab_and_keep_mobile_branding(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
-            for name in ['flutter/lib/common.dart','flutter/lib/desktop/pages/desktop_home_page.dart']:
+            for name in ['flutter/lib/common.dart','flutter/lib/desktop/pages/desktop_home_page.dart','flutter/lib/desktop/pages/server_page.dart']:
                 path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(self.original(name))
             apply_flutter(root)
             common=(root/'flutter/lib/common.dart').read_text(encoding='utf-8')
