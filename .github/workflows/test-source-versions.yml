@@ -32,6 +32,9 @@ jobs:
         run: python generator/customization/apply_profile.py --source rustdesk --version '${{ matrix.source.version }}' --profile generator/customization/example.json --check
       - name: Test display versions and disabling upstream notifications
         run: python -m unittest discover -s generator/customization -p test_version.py
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
       - name: Test relay retry compatibility and transport error classification
         run: |
           python -m unittest discover -s generator/customization -p test_relay_retry.py
@@ -48,9 +51,6 @@ jobs:
         run: python -m unittest discover -s generator/customization -p test_desktop_chrome.py
       - name: Test desktop text and icon navigation switch
         run: python -m unittest discover -s generator/customization -p test_navigation.py
-      - uses: dart-lang/setup-dart@v1
-        with:
-          sdk: stable
       - name: Test session title rules and desktop source compatibility
         run: python -m unittest discover -s generator/customization -p test_session_titles.py
       - name: Test Sciter account response and Windows window icon

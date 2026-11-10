@@ -1,5 +1,7 @@
 """Reuse RustDesk's relay hint for transport resets without an OS error number."""
 from pathlib import Path
+import json
+import re
 
 
 def apply(root, edits):
@@ -36,3 +38,26 @@ def apply(root, edits):
                 lc.peer_relay = true;
             }''')
     edits[root/'src/client/rdgen_relay_retry.rs'] = Path(__file__).with_name('relay_retry.rs').read_text(encoding='utf-8')
+    model = root/'flutter/lib/models/model.dart'
+    source = edits.get(model, model.read_text(encoding='utf-8'))
+    start = source.index('  Future<void> showRelayHintDialog(')
+    end = source.index('  void showConnectedWaitingForImage(', start)
+    original = source[start:end]
+    old_hint = '''    var hint = "\\n\\n${translate('relay_hint_tip')}";
+    if (text.contains("10054") || text.contains("104")) {
+      hint = "";
+    }'''
+    if original.count(old_hint) != 1: raise ValueError('Incompatible relay dialog hint')
+    updated = original.replace(old_hint, '''    final hint = "\\n\\n${translate('relay_hint_tip')}";''', 1)
+    dialog_start = updated.index('      return CustomAlertDialog(')
+    dialog_end = updated.index('      );', dialog_start) + len('      );')
+    dialog = Path(__file__).with_name('relay_dialog.dart').read_text(encoding='utf-8').rstrip()
+    updated = updated[:dialog_start] + dialog + updated[dialog_end:]
+    edits[model] = source[:start] + updated + source[end:]
+    language = root/'src/lang/ru.rs'
+    source = edits.get(language, language.read_text(encoding='utf-8'))
+    text = 'Прямое подключение может оказаться невозможным.\nВ этом случае рекомендуется подключиться через ретранслятор'
+    entry = '('+json.dumps('relay_hint_tip')+', '+json.dumps(text, ensure_ascii=False)+')'
+    source, count = re.subn(r'\("relay_hint_tip", "(?:\\.|[^"\\])*"\)', lambda _: entry, source)
+    if count != 1: raise ValueError('Incompatible Russian relay hint')
+    edits[language] = source

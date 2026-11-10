@@ -20,7 +20,7 @@ class ProductVersionTests(unittest.TestCase):
         base = re.search(rb'^version = "([^"]+)"', cargo, re.M)[1].decode()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for name in ('src/ui_interface.rs','src/lang/ru.rs','src/client.rs','src/client/io_loop.rs','src/ui_session_interface.rs','src/hbbs_http/sync.rs','src/platform/windows.rs','build.py','flutter/pubspec.yaml','flutter/windows/runner/Runner.rc','build.rs','libs/portable/build.rs','Cargo.toml','src/common.rs'):
+            for name in ('src/ui_interface.rs','src/lang/ru.rs','flutter/lib/models/model.dart','src/client.rs','src/client/io_loop.rs','src/ui_session_interface.rs','src/hbbs_http/sync.rs','src/platform/windows.rs','build.py','flutter/pubspec.yaml','flutter/windows/runner/Runner.rc','build.rs','libs/portable/build.rs','Cargo.toml','src/common.rs'):
                 path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(original(name))
             before=(root/'src/common.rs').read_text(encoding='utf-8')
             disable_notifications(root)
