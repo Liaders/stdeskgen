@@ -72,10 +72,11 @@ try {
     $content.BackColor = $form.BackColor
     $viewsByRoute = @{}
     $navigation = @{ Route = '/' }
+    $navigationLog = Join-Path $state 'navigation.log'
     function Show-ConstructorPage([string]$route) {
         if (-not $viewsByRoute.ContainsKey($route) -or $navigation.Route -eq $route) { return }
         $targetView = $viewsByRoute[$route]
-        $navigation.Route = $route
+        $previousRoute = $navigation.Route
         $content.SuspendLayout()
         try {
             $targetView.Visible = $true
@@ -83,12 +84,13 @@ try {
             foreach ($otherRoute in $viewsByRoute.Keys) {
                 if ($otherRoute -ne $route) { $viewsByRoute[$otherRoute].Visible = $false }
             }
+            $navigation.Route = $route
+        } catch {
+            $targetView.Visible = $false
+            $viewsByRoute[$previousRoute].Visible = $true
+            $viewsByRoute[$previousRoute].BringToFront()
+            throw
         } finally { $content.ResumeLayout() }
-    }
-    function Initialize-ConstructorPages {
-        foreach ($preloadView in $viewsByRoute.Values) {
-            $null = $preloadView.EnsureCoreWebView2Async($null)
-        }
     }
     foreach ($route in @('/', '/desktop/builds-page', '/desktop/publication')) {
         $view = New-Object Microsoft.Web.WebView2.WinForms.WebView2
@@ -111,12 +113,16 @@ try {
                 try {
                     $message = $messageEvent.WebMessageAsJson | ConvertFrom-Json
                     if ($message.route -is [string] -and $viewsByRoute.ContainsKey($message.route)) {
+                        Add-Content -LiteralPath $navigationLog -Value ((Get-Date -Format o) + ' ' + $navigation.Route + ' -> ' + $message.route) -Encoding UTF8
                         Show-ConstructorPage $message.route
                     }
                     if ($message.reload -eq $true) {
                         $viewsByRoute[$navigation.Route].Reload()
                     }
-                } catch { }
+                } catch {
+                    Add-Content -LiteralPath $navigationLog -Value ((Get-Date -Format o) + ' ERROR ' + $_.Exception.ToString()) -Encoding UTF8
+                    [System.Windows.Forms.MessageBox]::Show('Не удалось переключить страницу. Подробности сохранены в .desktop/navigation.log.', 'StatusDesk') | Out-Null
+                }
             })
             $sender.CoreWebView2.add_NewWindowRequested({
                 param($web,$eventArgs)
@@ -138,7 +144,6 @@ try {
         $content.Controls.Add($view)
     }
     $form.Controls.Add($content)
-    $form.add_Shown({ Initialize-ConstructorPages })
     [System.Windows.Forms.Application]::Run($form)
 } catch {
     [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'StatusDesk — ошибка',[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null

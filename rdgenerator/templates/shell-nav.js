@@ -1,4 +1,8 @@
 (() => {
+    const navigationStyle=document.documentElement.dataset;
+    navigationStyle.navigationInput='pointer';
+    document.addEventListener('keydown',event=>{if(event.key==='Tab')navigationStyle.navigationInput='keyboard';},true);
+    document.addEventListener('pointerdown',()=>{navigationStyle.navigationInput='pointer';},true);
     if(window.chrome?.webview){
         const reload=document.querySelector('[data-native-reload]');reload.hidden=false;reload.onclick=()=>window.chrome.webview.postMessage({reload:true});
         const routes=new Set(['/','/desktop/builds-page','/desktop/publication']);
