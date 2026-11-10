@@ -23,25 +23,32 @@
               runSpacing: 12,
               alignment: WrapAlignment.end,
               children: [
-                dialogButton('Retry',
+                dialogButton('Retry directly',
                     onPressed: () => reconnect(dialogManager, sessionId, false),
                     isOutline: true),
                 dialogButton('Connect via relay',
-                    onPressed: () => reconnect(dialogManager, sessionId, true),
-                    buttonStyle: style),
-                dialogButton('Always connect via relay',
                     onPressed: () async {
                       try {
-                        await bind.mainSetPeerOption(id: peerId,
-                            key: kOptionForceAlwaysRelay,
-                            value: bool2option(kOptionForceAlwaysRelay, true));
+                        if (rememberRelay) {
+                          await bind.mainSetPeerOption(id: peerId,
+                              key: kOptionForceAlwaysRelay,
+                              value: bool2option(kOptionForceAlwaysRelay, true));
+                        }
                         reconnect(dialogManager, sessionId, true);
                       } catch (error) {
                         showToast('${translate('Error')}: $error');
                       }
                     },
-                    isOutline: true),
+                    buttonStyle: style),
               ],
+            ),
+            const SizedBox(height: 8),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: Text(translate('Always use relay for this device')),
+              value: rememberRelay,
+              onChanged: (value) => setState(() => rememberRelay = value ?? false),
             ),
           ],
         ),

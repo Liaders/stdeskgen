@@ -38,13 +38,21 @@ class RelayRetryTests(unittest.TestCase):
             self.assertIn('Icon(Icons.close)', dialog)
             self.assertIn('onCancel: onClose', dialog)
             self.assertIn('spacing: 12,\n              runSpacing: 12,', dialog)
-            self.assertIn("dialogButton('Always connect via relay'", dialog)
+            self.assertNotIn("dialogButton('Always connect via relay'", dialog)
+            self.assertEqual(dialog.count('dialogButton('), 2)
+            self.assertIn("dialogButton('Retry directly'", dialog)
+            self.assertIn('var rememberRelay = false;', dialog)
+            self.assertIn('CheckboxListTile(', dialog)
+            self.assertIn('if (rememberRelay) {', dialog)
             self.assertIn('await bind.mainSetPeerOption(id: peerId,', dialog)
             self.assertIn('value: bool2option(kOptionForceAlwaysRelay, true)', dialog)
             original_model = originals['flutter/lib/models/model.dart']
             self.assertEqual(model[:start], original_model[:original_model.index('  Future<void> showRelayHintDialog(')])
             self.assertEqual(model[end:], original_model[original_model.index('  void showConnectedWaitingForImage('):])
             language = edits[root/'src/lang/ru.rs']
+            self.assertIn('Подключиться через ретранслятор', language)
+            self.assertNotIn('Подключится через ретранслятор', language)
+            self.assertIn('Всегда использовать ретранслятор для этого устройства', language)
             self.assertIn('Прямое подключение может оказаться невозможным.\\nВ этом случае рекомендуется подключиться через ретранслятор', language)
             if shutil.which('dart'):
                 syntax = root/'relay-model-syntax.dart'

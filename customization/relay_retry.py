@@ -49,6 +49,9 @@ def apply(root, edits):
     }'''
     if original.count(old_hint) != 1: raise ValueError('Incompatible relay dialog hint')
     updated = original.replace(old_hint, '''    final hint = "\\n\\n${translate('relay_hint_tip')}";''', 1)
+    show = "    dialogManager.show(tag: '$sessionId-$type', (setState, close, context) {"
+    if updated.count(show) != 1: raise ValueError('Incompatible relay dialog state')
+    updated = updated.replace(show, '    var rememberRelay = false;\n'+show, 1)
     dialog_start = updated.index('      return CustomAlertDialog(')
     dialog_end = updated.index('      );', dialog_start) + len('      );')
     dialog = Path(__file__).with_name('relay_dialog.dart').read_text(encoding='utf-8').rstrip()
@@ -60,4 +63,19 @@ def apply(root, edits):
     entry = '('+json.dumps('relay_hint_tip')+', '+json.dumps(text, ensure_ascii=False)+')'
     source, count = re.subn(r'\("relay_hint_tip", "(?:\\.|[^"\\])*"\)', lambda _: entry, source)
     if count != 1: raise ValueError('Incompatible Russian relay hint')
+    source, count = re.subn(r'\("Connect via relay", "(?:\\.|[^"\\])*"\)',
+                            lambda _: '("Connect via relay", "Подключиться через ретранслятор")', source)
+    if count != 1: raise ValueError('Incompatible Russian relay button')
     edits[language] = source
+    translations = {'Retry directly': 'Повторить напрямую',
+                    'Always use relay for this device': 'Всегда использовать ретранслятор для этого устройства'}
+    for path in (root/'src/lang').glob('*.rs'):
+        if path.name == 'en.rs': continue
+        source = edits.get(path, path.read_text(encoding='utf-8'))
+        missing = [key for key in translations if '"'+key+'"' not in source]
+        if not missing: continue
+        anchor = '    ].iter().cloned().collect();'
+        if source.count(anchor) != 1: raise ValueError('Incompatible relay dialog translations: '+path.name)
+        prefix, suffix = source.split(anchor)
+        entries = ''.join('\n        ('+json.dumps(key)+', '+json.dumps(translations[key] if path.name == 'ru.rs' else '', ensure_ascii=False)+'),' for key in missing)
+        edits[path] = prefix.rstrip().removesuffix(',')+','+entries+'\n'+anchor+suffix
