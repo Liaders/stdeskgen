@@ -186,6 +186,8 @@ jobs:
           sys.path.insert(0, str(Path(os.environ['RUNNER_TEMP']) / 'rdgen-ui'))
           from desktop_chrome import apply_flutter
           apply_flutter(Path.cwd())
+          from session_titles import apply as apply_session_titles
+          apply_session_titles(Path.cwd())
           from theme_logos import stage
           stage(Path(os.environ['RUNNER_TEMP']) / 'rdgen-input', Path('flutter/assets'))
 

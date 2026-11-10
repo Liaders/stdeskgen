@@ -43,6 +43,11 @@ jobs:
         run: python -m unittest discover -s generator/customization -p test_desktop_chrome.py
       - name: Test desktop text and icon navigation switch
         run: python -m unittest discover -s generator/customization -p test_navigation.py
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Test session title rules and desktop source compatibility
+        run: python -m unittest discover -s generator/customization -p test_session_titles.py
       - name: Test Sciter account response and Windows window icon
         run: python -m unittest discover -s generator/customization -p test_sciter_compat.py
       - name: Test branded Linux DRM library staging

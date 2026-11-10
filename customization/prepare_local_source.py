@@ -13,7 +13,10 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--version', required=True)
 parser.add_argument('--legacy', action='store_true')
 args=parser.parse_args()
-if not args.legacy: apply_flutter(Path.cwd())
+if not args.legacy:
+    apply_flutter(Path.cwd())
+    from session_titles import apply as apply_session_titles
+    apply_session_titles(Path.cwd())
 assets=Path(os.environ['RUNNER_TEMP'])/'rdgen-input'
 if assets.exists():
     if not args.legacy: stage(assets,Path('flutter/assets'))
