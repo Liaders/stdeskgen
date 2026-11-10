@@ -67,21 +67,27 @@ try {
     $form.BackColor = [Drawing.Color]::FromArgb(20,20,20)
     $content = New-Object System.Windows.Forms.Panel
     $content.Dock = 'Fill'
-    $views = @()
-    $navigation = @{ Index = 0 }
-    function Show-ConstructorPage([int]$index) {
-        if ($index -lt 0 -or $index -ge $views.Count) { return }
-        $navigation.Index = $index
-        for ($pageIndex = 0; $pageIndex -lt $views.Count; $pageIndex++) {
-            $views[$pageIndex].Visible = ($pageIndex -eq $index)
-        }
-        $views[$index].BringToFront()
-        $views[$index].Focus() | Out-Null
+    $viewsByRoute = @{}
+    $navigation = @{ Route = '/' }
+    function Show-ConstructorPage([string]$route) {
+        if (-not $viewsByRoute.ContainsKey($route) -or $navigation.Route -eq $route) { return }
+        $targetView = $viewsByRoute[$route]
+        $navigation.Route = $route
+        $content.SuspendLayout()
+        try {
+            $targetView.Visible = $true
+            $targetView.BringToFront()
+            foreach ($otherRoute in $viewsByRoute.Keys) {
+                if ($otherRoute -ne $route) { $viewsByRoute[$otherRoute].Visible = $false }
+            }
+        } finally { $content.ResumeLayout() }
+        $targetView.Focus() | Out-Null
     }
-    foreach ($entry in @(@('Конструктор',"$url/"),@('Сборки',"$url/desktop/builds-page"),@('Публикация',"$url/desktop/publication"))) {
+    foreach ($route in @('/', '/desktop/builds-page', '/desktop/publication')) {
         $view = New-Object Microsoft.Web.WebView2.WinForms.WebView2
         $view.Dock='Fill'
-        $view.Visible = ($views.Count -eq 0)
+        $view.Visible = ($route -eq '/')
+        $view.Tag = $route
         $properties = New-Object Microsoft.Web.WebView2.WinForms.CoreWebView2CreationProperties
         $properties.UserDataFolder = Join-Path $state 'webview-profile'
         $view.CreationProperties = $properties
@@ -96,11 +102,11 @@ try {
                 if (-not $messageEvent.Source.StartsWith($url + '/')) { return }
                 try {
                     $message = $messageEvent.WebMessageAsJson | ConvertFrom-Json
-                    if ($null -ne $message.tab -and ($message.tab -is [int] -or $message.tab -is [long]) -and $message.tab -ge 0 -and $message.tab -le 2) {
-                        Show-ConstructorPage ([int]$message.tab)
+                    if ($message.route -is [string] -and $viewsByRoute.ContainsKey($message.route)) {
+                        Show-ConstructorPage $message.route
                     }
                     if ($message.reload -eq $true) {
-                        $views[$navigation.Index].Reload()
+                        $viewsByRoute[$navigation.Route].Reload()
                     }
                 } catch { }
             })
@@ -119,8 +125,9 @@ try {
                 if ($target.Scheme -in @('http','https')) { Start-Process $target.AbsoluteUri }
             }
         })
-        $view.Source = [Uri]$entry[1]
-        $content.Controls.Add($view); $views += $view
+        $viewsByRoute[$route] = $view
+        $view.Source = [Uri]($url + $route)
+        $content.Controls.Add($view)
     }
     $form.Controls.Add($content)
     [System.Windows.Forms.Application]::Run($form)

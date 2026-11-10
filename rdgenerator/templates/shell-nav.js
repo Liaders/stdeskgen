@@ -1,8 +1,8 @@
 (() => {
     if(window.chrome?.webview){
         const reload=document.querySelector('[data-native-reload]');reload.hidden=false;reload.onclick=()=>window.chrome.webview.postMessage({reload:true});
-        const routes={'/':0,'/desktop/builds-page':1,'/desktop/publication':2};
-        document.addEventListener('click',event=>{const a=event.target.closest('a');if(!a)return;const url=new URL(a.href,location.href);if(url.origin===location.origin&&url.pathname in routes){event.preventDefault();window.chrome.webview.postMessage({tab:routes[url.pathname]});}});
+        const routes=new Set(['/','/desktop/builds-page','/desktop/publication']);
+        document.addEventListener('click',event=>{const a=event.target.closest('a');if(!a)return;const url=new URL(a.href,location.href);if(url.origin===location.origin&&routes.has(url.pathname)){event.preventDefault();window.chrome.webview.postMessage({route:url.pathname});}});
     }
     if(document.getElementById('builds-table-body'))return;
     async function update(){
