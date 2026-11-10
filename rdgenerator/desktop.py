@@ -53,6 +53,28 @@ def publication_page(request):
 
 @require_POST
 @csrf_protect
+def cleanup_builds(request):
+    if not local(request): return HttpResponseForbidden('Local only')
+    from .cleanup import local_cleanup, server_cleanup
+    try:
+        data = json.loads(request.body)
+        if data.get('scope') not in ('local', 'server'): raise ValueError('Unknown cleanup scope')
+        if data.get('action') not in ('preview', 'delete'): raise ValueError('Unknown cleanup action')
+        token = None
+        if data['action'] == 'delete':
+            token = data.get('token')
+            if not isinstance(token, str) or not token: raise ValueError('Сначала просмотрите список удаления.')
+        with _task_lock:
+            if _task['state'] == 'running':
+                return JsonResponse({'error': 'Дождитесь завершения публикации.'}, status=409)
+            operation = local_cleanup if data['scope'] == 'local' else server_cleanup
+            return JsonResponse(operation(token))
+    except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired) as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+
+
+@require_POST
+@csrf_protect
 def default_config(request):
     if not local(request): return HttpResponseForbidden('Local only')
     from .default_config import save

@@ -6,6 +6,9 @@
 {% csrf_token %}
 <div class="toolbar"><button id="publish-latest">Опубликовать последние версии всех клиентов</button><button class="secondary" id="refresh">Обновить список</button><button class="secondary" id="android-backup">Резервная копия ключа Android</button><button class="secondary" id="open-folder">Открыть папку сборок</button><a class="button secondary" href="https://desk.status16.ru/client/" target="_blank" rel="noopener">Страница скачивания ↗</a></div>
 <p class="small" id="folder"></p>
+<div class="toolbar"><button class="secondary" id="cleanup-local">Удалить старые локальные сборки</button><button class="secondary" id="cleanup-server">Удалить старые версии на сервере</button></div>
+<p id="cleanup-message" role="status"></p>
+<dialog id="cleanup-dialog" style="background:#202020;color:#eee;border:1px solid #555;border-radius:12px;max-width:760px;width:90%;padding:24px"><h2 id="cleanup-title"></h2><p id="cleanup-summary"></p><pre id="cleanup-files"></pre><p>Удаление необратимо. Актуальные дистрибутивы сохранятся.</p><div class="toolbar"><button id="cleanup-confirm">Удалить перечисленные файлы</button><button class="secondary" id="cleanup-cancel">Отмена</button></div></dialog>
 <div class="layout"><section class="panel"><select id="filter"><option value="">Все платформы</option value="windows-x64">Windows 64 бита</option><option value="windows-x86">Windows 32 бита</option><option value="linux">Linux</option><option value="macos">macOS</option><option value="android">Android APK</option></select><div id="files"><p>Загружаем список…</p></div></section>
 <section class="panel"><h2>Выбранный дистрибутив</h2><div id="selection">Выберите файл слева.</div><label>Версия на странице <input id="version" value="1.5.0"></label><label><input type="checkbox" id="auto" disabled>Этот же файл — для автообновления</label><p class="small" id="auto-info">Автообновление требует сборку с настроенным каналом. Для Windows платформа определяется из EXE и данных сборки.</p><p class="small">Linux и macOS сейчас публикуются для ручной установки.</p><button id="publish" disabled>Опубликовать</button><p id="message" role="status"></p><pre id="log" hidden></pre></section></div>
 <details><summary>Добавить установщик с компьютера</summary><p>Для файла без данных сборки доступна публикация для ручного скачивания.</p><form id="import-form"><input id="import-file" name="file" type="file" accept=".exe,.deb,.AppImage,.dmg" required><select name="platform"><option value="windows-x64">Windows 64 бита</option><option value="windows-x86">Windows 32 бита</option><option value="linux-x64">Linux x64</option><option value="linux-arm64">Linux ARM64</option><option value="macos-x64">macOS Intel</option><option value="macos-arm64">macOS Apple Silicon</option></select><input name="version" value="1.5.0" aria-label="Версия"><button type="submit">Добавить в локальный каталог</button></form></details>
@@ -15,6 +18,35 @@ const el=id=>document.getElementById(id);let items=[],selected=null,running=fals
 const names={'windows-x64':'Windows 64 бита','windows-x86':'Windows 32 бита','linux-x64':'Linux x64','linux-arm64':'Linux ARM64','macos-x64':'macOS Intel','macos-arm64':'macOS Apple Silicon','android-arm64':'Android ARM64','android-armv7':'Android ARMv7','android-x64':'Android x86_64'};
 async function post(url,data){const body=data instanceof FormData?data:JSON.stringify(data);const headers={'X-CSRFToken':token};if(!(data instanceof FormData))headers['Content-Type']='application/json';const r=await fetch(url,{method:'POST',headers,body});const result=await r.json();if(!r.ok)throw Error(result.error||'Ошибка запроса');return result;}
 function error(e){el('message').textContent=e.message;el('message').className='error';}
+let cleanupPlan=null,cleanupBusy=false;
+function cleanupButtons(){for(const scope of ['local','server'])el('cleanup-'+scope).disabled=cleanupBusy||running;el('publish-latest').disabled=cleanupBusy||running;el('publish').disabled=cleanupBusy||running||!selected;}
+async function previewCleanup(scope){
+    cleanupBusy=true;cleanupButtons();el('cleanup-message').className='';el('cleanup-message').textContent='Проверяем '+(scope==='local'?'локальный каталог…':'файлы на сервере…');
+    try{
+        const result=await post('/desktop/cleanup',{scope,action:'preview'});
+        if(!result.items.length){el('cleanup-message').textContent='Старых дистрибутивов для удаления нет.';return;}
+        cleanupPlan={scope,...result};
+        el('cleanup-title').textContent=scope==='local'?'Удаление старых локальных сборок':'Удаление старых версий на сервере';
+        el('cleanup-summary').textContent='Файлов: '+result.items.length+' · Освободится: '+(result.bytes/1048576).toFixed(1)+' МБ';
+        el('cleanup-files').textContent=result.items.map(x=>x.path+' · '+(x.size/1048576).toFixed(1)+' МБ').join('\n');
+        el('cleanup-dialog').showModal();el('cleanup-message').textContent='Просмотрите список и подтвердите удаление.';
+    }catch(e){el('cleanup-message').className='error';el('cleanup-message').textContent=e.message;}
+    finally{cleanupBusy=false;cleanupButtons();}
+}
+for(const scope of ['local','server'])el('cleanup-'+scope).onclick=()=>previewCleanup(scope);
+el('cleanup-cancel').onclick=()=>{cleanupPlan=null;el('cleanup-dialog').close();el('cleanup-message').textContent='Удаление отменено.';};
+el('cleanup-dialog').oncancel=()=>{cleanupPlan=null;el('cleanup-message').textContent='Удаление отменено.';};
+el('cleanup-confirm').onclick=async()=>{
+    if(!cleanupPlan||cleanupBusy)return;
+    const approved=cleanupPlan;cleanupPlan=null;el('cleanup-dialog').close();cleanupBusy=true;cleanupButtons();
+    el('cleanup-message').textContent='Удаляем подтверждённые файлы…';
+    try{
+        const result=await post('/desktop/cleanup',{scope:approved.scope,action:'delete',token:approved.token});
+        el('cleanup-message').className='';el('cleanup-message').textContent='Удалено файлов: '+result.deleted+' · Освобождено: '+(result.bytes/1048576).toFixed(1)+' МБ';
+        if(approved.scope==='local'){selected=null;el('selection').textContent='Выберите файл слева.';el('publish').disabled=true;await refresh();}
+    }catch(e){el('cleanup-message').className='error';el('cleanup-message').textContent=e.message;}
+    finally{cleanupBusy=false;cleanupButtons();}
+};
 function choose(item){selected=item;el('selection').textContent=item.filename+' · '+names[item.platform];el('version').value=item.version||'1.5.0';const capable=!!item.receipt&&item.receipt.schema===2&&item.filename.endsWith('.exe');el('auto').disabled=!capable;el('auto').checked=capable;el('version').readOnly=capable||!!item.android;el('auto-info').textContent=capable?'Канал '+item.receipt.channel+' · ревизия '+item.receipt.revision+'. Страница скачивания и автообновление получат один файл.':'Этот файл не содержит данных канала. Для автообновления создайте новую Windows-сборку с настройками канала в конструкторе.';el('publish').disabled=running;if(item.android){el('auto-info').textContent='APK подписан локально · пакет '+item.android.package+' · сертификат '+item.android.certificate_sha256+'. При публикации APK появится на странице скачивания. Обновление Android выполняется вручную.';}render();}
 function render(){el('files').replaceChildren();for(const item of items.filter(x=>x.platform.startsWith(el('filter').value))){const row=document.createElement('div');row.className='installer'+(selected&&selected.id===item.id?' selected':'');row.tabIndex=0;row.setAttribute('role','button');row.textContent=item.filename;const info=document.createElement('div');info.className='small';info.textContent=(names[item.platform]||item.platform)+' · '+item.version+' · '+(item.size/1048576).toFixed(1)+' МБ'+(item.run_id?' · сборка №'+item.run_id:' · добавлен вручную');row.append(info);row.onclick=()=>choose(item);row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();choose(item);}};el('files').append(row);}if(!el('files').children.length)el('files').textContent='Установщиков пока нет. После успешной сборки они появятся автоматически.';}
 async function refresh(){const r=await fetch('/desktop/installers');if(!r.ok)throw Error('Не удалось прочитать каталог');const data=await r.json();items=data.items.filter(x=>/\.(exe|deb|AppImage|dmg|apk)$/.test(x.filename));el('folder').textContent=data.directory;render();}
@@ -34,6 +66,6 @@ el('publish-latest').onclick=async()=>{
     }catch(e){error(e);}
 };
 el('import-form').onsubmit=async e=>{e.preventDefault();try{const result=await post('/desktop/import',new FormData(e.target));await refresh();const added=items.find(x=>x.id===result.id);if(added)choose(added);}catch(e){error(e);}};
-async function poll(){try{const r=await fetch('/desktop/status');const data=await r.json();const task=data.publication;running=task.state==='running';el('publish-latest').disabled=running;el('publish').disabled=running||!selected;if(task.state!=='idle'){el('message').textContent=task.state==='success'?'Опубликовано. Обновите страницу скачивания.':task.state==='error'?'При публикации возникли ошибки. Результат каждого файла — ниже.':'Передаём файл на сервер…';el('message').className=task.state==='error'?'error':'';el('log').hidden=false;el('log').textContent=task.message;}}catch(e){error(e);}setTimeout(poll,2000);}
+async function poll(){try{const r=await fetch('/desktop/status');const data=await r.json();const task=data.publication;running=task.state==='running';cleanupButtons();el('publish-latest').disabled=running||cleanupBusy;el('publish').disabled=running||cleanupBusy||!selected;if(task.state!=='idle'){el('message').textContent=task.state==='success'?'Опубликовано. Обновите страницу скачивания.':task.state==='error'?'При публикации возникли ошибки. Результат каждого файла — ниже.':'Передаём файл на сервер…';el('message').className=task.state==='error'?'error':'';el('log').hidden=false;el('log').textContent=task.message;}}catch(e){error(e);}setTimeout(poll,2000);}
 refresh().catch(error);setInterval(()=>refresh().catch(error),10000);poll();
 </script></body></html>

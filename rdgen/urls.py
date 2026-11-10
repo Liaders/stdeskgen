@@ -32,6 +32,7 @@ urlpatterns = [
     url(r'^desktop/builds$', desktop.builds),
     url(r'^desktop/installers$', desktop.installers),
     url(r'^desktop/publication$', desktop.publication_page),
+    url(r'^desktop/cleanup$', desktop.cleanup_builds),
     url(r'^desktop/open-folder$', desktop.open_folder),
     url(r'^desktop/retry$', desktop.retry),
     url(r'^desktop/import$', desktop.import_installer),
