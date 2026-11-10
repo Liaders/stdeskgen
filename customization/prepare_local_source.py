@@ -17,6 +17,8 @@ if not args.legacy:
     apply_flutter(Path.cwd())
     from session_titles import apply as apply_session_titles
     apply_session_titles(Path.cwd())
+    from slim_ui import apply as apply_slim_ui
+    apply_slim_ui(Path.cwd())
 assets=Path(os.environ['RUNNER_TEMP'])/'rdgen-input'
 if assets.exists():
     if not args.legacy: stage(assets,Path('flutter/assets'))

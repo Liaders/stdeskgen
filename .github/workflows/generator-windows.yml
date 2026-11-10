@@ -188,6 +188,8 @@ jobs:
           apply_flutter(Path.cwd())
           from session_titles import apply as apply_session_titles
           apply_session_titles(Path.cwd())
+          from slim_ui import apply as apply_slim_ui
+          apply_slim_ui(Path.cwd())
           from theme_logos import stage
           stage(Path(os.environ['RUNNER_TEMP']) / 'rdgen-input', Path('flutter/assets'))
 

@@ -47,3 +47,20 @@ Text tabs scroll horizontally. Mobile keeps its icon navigation and has no extra
 control; the Android adapter opts out explicitly. Windows x86/Sciter is unchanged.
 Source compatibility checks cover RustDesk 1.5.0 and 1.5.1. Installed clients need
 a new build; a binary/runtime UI check is still required after compilation.
+
+## Optional Slim UI
+New Windows x64, Linux and macOS clients include **Настройки → Отображение →
+Интерфейс → Компактный интерфейс (Slim UI)**, off by default. The local preference
+persists under `rdgen-slim-ui-v1` and updates the main screen immediately.
+The local-ID/password/logo sidebar and all font sizes are unchanged. Slim UI
+reduces connection-panel padding, places the existing remote-ID field and actions
+beside each other when the panel is at least 520 logical pixels wide, and reduces
+device-list/group-row gaps. Narrow panels keep the vertical arrangement; grid
+card sizes and action menus are preserved. The Connect button keeps its original
+label, type size and controls, without an extra arrow or explanatory text.
+
+`slim_ui.py` is independent of UI profiles and applies before the colleagues
+clone is generated. An exact upstream remote-ID layout fingerprint and unique
+anchors reject changed layouts before writing source. RustDesk 1.5.0/1.5.1 are
+checked in CI; new bases need explicit compatibility review. Turning Slim UI off
+uses the original layout values. Android and Windows x86/Sciter are unchanged.
