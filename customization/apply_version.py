@@ -11,6 +11,11 @@ from versioning import parts, revision
 def apply(root, base, display):
     values = parts(base, display)
     edits = {}
+    path = root / 'src/lang/ru.rs'
+    source = path.read_text(encoding='utf-8')
+    source, count = re.subn(r'\("install_tip", "[^"\n]*"\)', '("install_tip", "Чтобы избежать проблем с удалённым управлением из-за UAC, установите StatusDesk в систему, нажав кнопку ниже.")', source)
+    if count != 1: raise ValueError('Incompatible Russian installation hint')
+    edits[path] = source
     path = root / 'src/ui_interface.rs'
     source = path.read_text(encoding='utf-8')
     old = 'pub fn get_version() -> String {\n    crate::VERSION.to_owned()\n}'

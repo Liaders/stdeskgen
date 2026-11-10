@@ -29,7 +29,7 @@ class AndroidSourceTests(unittest.TestCase):
         import re
         inputs['VERSION']=re.search(rb'^version = "([^"]+)"',cargo,re.M)[1].decode()
         inputs['STDESK_DISPLAY_VERSION']=inputs['VERSION']+'.3'
-        names=['src/hbbs_http/sync.rs','src/ui_interface.rs','src/platform/windows.rs','build.py','flutter/pubspec.yaml','flutter/windows/runner/Runner.rc','build.rs','libs/portable/build.rs','Cargo.toml','libs/hbb_common/src/config.rs','src/common.rs','flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/MainService.kt','flutter/lib/models/native_model.dart','flutter/android/app/build.gradle','flutter/android/gradle.properties','flutter/android/app/src/main/AndroidManifest.xml','flutter/android/app/src/main/res/values/ic_launcher_background.xml']
+        names=['src/lang/ru.rs','src/hbbs_http/sync.rs','src/ui_interface.rs','src/platform/windows.rs','build.py','flutter/pubspec.yaml','flutter/windows/runner/Runner.rc','build.rs','libs/portable/build.rs','Cargo.toml','libs/hbb_common/src/config.rs','src/common.rs','flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/MainService.kt','flutter/lib/models/native_model.dart','flutter/android/app/build.gradle','flutter/android/gradle.properties','flutter/android/app/src/main/AndroidManifest.xml','flutter/android/app/src/main/res/values/ic_launcher_background.xml']
         names+=['flutter/lib/mobile/pages/connection_page.dart','flutter/lib/mobile/pages/home_page.dart','flutter/lib/common.dart','flutter/lib/mobile/pages/settings_page.dart','flutter/lib/common/widgets/my_group.dart',
                 'flutter/lib/models/peer_tab_model.dart','flutter/lib/common/widgets/peer_tab_page.dart','src/lang/ru.rs',
                 'flutter/android/app/src/main/res/values/strings.xml',
