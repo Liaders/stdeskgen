@@ -60,6 +60,8 @@ def apply(root, base, display):
             f'        res.set("ProductVersion", {json.dumps(display)});\n'
             '        ' + anchor, 1)
         edits[path] = source
+    from relay_retry import apply as apply_relay_retry
+    apply_relay_retry(root, edits)
     for path, value in edits.items(): path.write_text(value, encoding='utf-8')
     metadata = {'base_version': base, 'version': display, 'build_number': values[3]}
     (root / 'stdesk-version.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
