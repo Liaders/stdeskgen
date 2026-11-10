@@ -40,7 +40,6 @@
             tr.append(actions);body.append(tr);
         }
         const badge=document.getElementById('active-build-count');badge.textContent=active;badge.hidden=!active;
-        window.rdgenNativeCount?.(active);
         if(!body.children.length){const row=body.insertRow(),cell=row.insertCell();cell.colSpan=5;cell.textContent=builds.length?'Нет сборок с выбранным статусом.':'Сборок пока нет. Запустите создание клиента в конструкторе.';}
     }
     async function refresh(){const r=await fetch('/desktop/builds');if(!r.ok)throw Error('Не удалось получить статусы сборок.');builds=(await r.json()).builds;render();updated.textContent='Обновлено: '+new Date().toLocaleTimeString('ru-RU')+' · автоматически';}

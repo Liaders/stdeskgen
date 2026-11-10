@@ -65,21 +65,23 @@ try {
     $form.MinimumSize = New-Object Drawing.Size(960,680)
     $form.StartPosition = 'CenterScreen'
     $form.BackColor = [Drawing.Color]::FromArgb(20,20,20)
-    $top = New-Object System.Windows.Forms.FlowLayoutPanel
-    $top.Dock='Top'; $top.Height=46; $top.Padding=New-Object System.Windows.Forms.Padding(8)
-    $homeButton = New-Object System.Windows.Forms.Button
-    $homeButton.Text='Главная'; $homeButton.Width=110; $homeButton.BackColor=[Drawing.Color]::FromArgb(239,127,26); $homeButton.FlatStyle='Flat'
-    $reload = New-Object System.Windows.Forms.Button
-    $reload.Text='Обновить'; $reload.Width=110; $reload.BackColor=[Drawing.Color]::FromArgb(239,127,26); $reload.FlatStyle='Flat'
-    $top.Controls.Add($homeButton); $top.Controls.Add($reload)
-    $tabs = New-Object System.Windows.Forms.TabControl
-    $tabs.Dock='Fill'; $tabs.Font=New-Object Drawing.Font('Segoe UI',11)
+    $content = New-Object System.Windows.Forms.Panel
+    $content.Dock = 'Fill'
     $views = @()
+    $navigation = @{ Index = 0 }
+    function Show-ConstructorPage([int]$index) {
+        if ($index -lt 0 -or $index -ge $views.Count) { return }
+        $navigation.Index = $index
+        for ($pageIndex = 0; $pageIndex -lt $views.Count; $pageIndex++) {
+            $views[$pageIndex].Visible = ($pageIndex -eq $index)
+        }
+        $views[$index].BringToFront()
+        $views[$index].Focus() | Out-Null
+    }
     foreach ($entry in @(@('Конструктор',"$url/"),@('Сборки',"$url/desktop/builds-page"),@('Публикация',"$url/desktop/publication"))) {
-        $page = New-Object System.Windows.Forms.TabPage
-        $page.Text=$entry[0]
         $view = New-Object Microsoft.Web.WebView2.WinForms.WebView2
         $view.Dock='Fill'
+        $view.Visible = ($views.Count -eq 0)
         $properties = New-Object Microsoft.Web.WebView2.WinForms.CoreWebView2CreationProperties
         $properties.UserDataFolder = Join-Path $state 'webview-profile'
         $view.CreationProperties = $properties
@@ -95,10 +97,10 @@ try {
                 try {
                     $message = $messageEvent.WebMessageAsJson | ConvertFrom-Json
                     if ($null -ne $message.tab -and ($message.tab -is [int] -or $message.tab -is [long]) -and $message.tab -ge 0 -and $message.tab -le 2) {
-                        $tabs.SelectedIndex = $message.tab
+                        Show-ConstructorPage ([int]$message.tab)
                     }
-                    if ($null -ne $message.buildCount -and ($message.buildCount -is [int] -or $message.buildCount -is [long]) -and $message.buildCount -ge 0 -and $message.buildCount -le 999) {
-                        $tabs.TabPages[1].Text = if ($message.buildCount) { 'Сборки · ' + $message.buildCount } else { 'Сборки' }
+                    if ($message.reload -eq $true) {
+                        $views[$navigation.Index].Reload()
                     }
                 } catch { }
             })
@@ -118,11 +120,9 @@ try {
             }
         })
         $view.Source = [Uri]$entry[1]
-        $page.Controls.Add($view); $tabs.TabPages.Add($page); $views += $view
+        $content.Controls.Add($view); $views += $view
     }
-    $homeButton.add_Click({$tabs.SelectedIndex=0; $views[0].Source=[Uri]"$url/"})
-    $reload.add_Click({$views[$tabs.SelectedIndex].Reload()})
-    $form.Controls.Add($tabs); $form.Controls.Add($top)
+    $form.Controls.Add($content)
     [System.Windows.Forms.Application]::Run($form)
 } catch {
     [System.Windows.Forms.MessageBox]::Show($_.Exception.Message,'StatusDesk — ошибка',[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null

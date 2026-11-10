@@ -1,1 +1,10 @@
-<header class="app-header"><a class="app-brand" href="/">Status<span>Desk</span></a><nav aria-label="Основные разделы"><a href="/" {% if active == 'builder' %}aria-current="page"{% endif %}>Конструктор</a><a href="/desktop/builds-page" {% if active == 'builds' %}aria-current="page"{% endif %}>Сборки <span id="active-build-count" class="count-badge" hidden></span></a><a href="/desktop/publication" {% if active == 'publication' %}aria-current="page"{% endif %}>Публикация</a></nav><span class="local-badge">Локальный конструктор</span></header>
+<header class="app-header">
+<a class="app-brand" href="/">Status<span>Desk</span></a>
+<nav aria-label="Основные разделы">
+<a href="/" {% if active == 'builder' %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 6h5m5 0h8M3 12h10m5 0h3M3 18h2m5 0h11M8 3v6m5 0v6M5 15v6"/></svg>Конструктор</a>
+<a href="/desktop/builds-page" {% if active == 'builds' %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 6 2 2 4-4m4 2h8M3 13h6m4 0h8M3 20h6m4 0h8"/></svg>Сборки <span id="active-build-count" class="count-badge" hidden></span></a>
+<a href="/desktop/publication" {% if active == 'publication' %}aria-current="page"{% endif %}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 15v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"/></svg>Публикация</a>
+</nav>
+<span class="local-badge">Локальный конструктор</span>
+<button type="button" class="header-reload" data-native-reload hidden aria-label="Обновить текущую страницу" title="Обновить текущую страницу"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1"/></svg></button>
+</header>
