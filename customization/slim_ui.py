@@ -66,7 +66,12 @@ def apply(root):
     path = root/connection
     if edits[path].count('height: 28.0,') != 2:
         raise ValueError('Incompatible Slim UI connection actions')
-    edits[path] = edits[path].replace('height: 28.0,', 'height: rdgenSlimUi.value ? 44.0 : 28.0,')
+    edits[path] = edits[path].replace('height: 28.0,', 'height: rdgenSlimUi.value ? null : 28.0,')
+
+    replace(connection, 'child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [',
+        'child: Row(mainAxisAlignment: MainAxisAlignment.end, crossAxisAlignment: rdgenSlimUi.value ? CrossAxisAlignment.stretch : CrossAxisAlignment.center, children: [')
+    replace(connection, '                  child: ElevatedButton(\n                    onPressed:',
+        '                  child: ElevatedButton(\n                    style: rdgenSlimUi.value ? ElevatedButton.styleFrom(minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap) : null,\n                    onPressed:')
 
     peers = 'flutter/lib/common/widgets/peers_view.dart'
     replace(peers, '  final space = (isDesktop || isWebDesktop) ? 12.0 : 8.0;', '''  final space = (isDesktop || isWebDesktop) ? 12.0 : 8.0;

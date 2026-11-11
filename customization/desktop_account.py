@@ -6,20 +6,28 @@ from pathlib import Path
 def apply(root):
     path = root/'flutter/lib/desktop/pages/connection_page.dart'
     source = path.read_text(encoding='utf-8')
-    old = '''            Row(
-              children: [
-                Flexible(child: _buildRemoteIDTextField(context)),
-              ],
-            )'''
-    new = '''            Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-              Expanded(child: Align(alignment: Alignment.centerLeft,
-                child: _buildRemoteIDTextField(context))),
-              const SizedBox(width: 12),
-              const SizedBox(width: 180, child: RdgenDesktopAccount()),
-            ])'''
-    if source.count(old) != 1:
-        raise ValueError('Incompatible desktop account header')
-    edits = {path: "import '../../models/rdgen_desktop_account.dart';\n" + source.replace(old, new, 1)}
+    def replace(old, new):
+        nonlocal source
+        if source.count(old) != 1:
+            raise ValueError('Incompatible desktop account header')
+        source = source.replace(old, new, 1)
+
+    layout = 'RdgenConnectionLayout' if 'child: RdgenConnectionLayout(' in source else 'Column'
+    options = 'compact: rdgenSlimUi.value, ' if layout == 'RdgenConnectionLayout' else ''
+    replace('      child: Ink(\n        child: '+layout+'(',
+            '      child: Ink(\n        child: RdgenAccountGroup('+options+'child: '+layout+'(')
+    replace('          ],\n        ),\n      ),\n    );\n    return Container(', '          ],\n        )),\n      ),\n    );\n    return Container(')
+    # Expand the existing frame to include the account; its padding is shared.
+    for old in ('width: 320 + 20 * 2,',
+                'width: rdgenSlimUi.value ? double.infinity : 320 + 20 * 2,'):
+        if old in source: replace(old, 'width: double.infinity,')
+    for old in ('constraints: const BoxConstraints(maxWidth: 600), child: w',
+                'constraints: BoxConstraints(maxWidth: rdgenSlimUi.value ? double.infinity : 600), child: w'):
+        if old in source: replace(old, 'constraints: const BoxConstraints(maxWidth: double.infinity), child: w')
+    for old in (').paddingOnly(left: 12.0)),',
+                ').paddingOnly(left: 12.0, right: rdgenSlimUi.value ? 12.0 : 0)),'):
+        if old in source: replace(old, ').paddingOnly(left: 12.0, right: 12.0)),')
+    edits = {path: "import '../../models/rdgen_desktop_account.dart';\n" + source}
     labels = {'Open web panel': 'Войти в панель', 'Not signed in': 'Вход не выполнен'}
     for path in (root/'src/lang').glob('*.rs'):
         if path.name == 'en.rs': continue

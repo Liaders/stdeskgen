@@ -6,7 +6,7 @@ def apply(root, profile=None):
     profile = profile or {}
     if 'slim_ui' in profile and type(profile['slim_ui']) is not bool:
         raise ValueError('slim_ui must be boolean')
-    apply_account(root)
     if profile.get('slim_ui', False):
         from slim_ui import apply as apply_slim_ui
         apply_slim_ui(root)
+    apply_account(root)

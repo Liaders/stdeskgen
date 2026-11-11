@@ -21,19 +21,14 @@ class RdgenConnectionLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!rdgenSlimUi.value) return Column(children: children);
     return LayoutBuilder(builder: (context, constraints) {
-      final field = SizedBox(
-        width: min(280.0, constraints.maxWidth),
-        child: Column(mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [children[0], SizedBox(height: 44, child: children[1])]),
-      );
+      final input = SizedBox(width: min(280.0, constraints.maxWidth), child: children[1]);
       final actions = IntrinsicWidth(child: children[2]);
       return Column(mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(spacing: 12, runSpacing: 12,
-            crossAxisAlignment: WrapCrossAlignment.end,
-            children: [field, actions]),
+          children[0],
+          IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [Flexible(child: input), const SizedBox(width: 12), actions])),
         ]);
     });
   }

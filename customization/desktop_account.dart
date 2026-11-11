@@ -4,6 +4,26 @@ import 'package:url_launcher/url_launcher.dart';
 import '../common/widgets/login.dart' show loginDialog;
 import '../common.dart' show gFFI, translate;
 
+class RdgenAccountGroup extends StatelessWidget {
+  final Widget child;
+  final bool compact;
+  const RdgenAccountGroup({super.key, required this.child, this.compact = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      Expanded(child: Align(alignment: Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: compact ? double.infinity : 320),
+          child: child))),
+      const SizedBox(width: 20),
+      Container(width: 1, height: 64, color: Theme.of(context).dividerColor),
+      const SizedBox(width: 16),
+      const SizedBox(width: 174, child: RdgenDesktopAccount()),
+    ]);
+  }
+}
+
 class RdgenDesktopAccount extends StatelessWidget {
   const RdgenDesktopAccount({super.key});
 

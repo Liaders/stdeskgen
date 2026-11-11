@@ -50,8 +50,8 @@ a new build; a binary/runtime UI check is still required after compilation.
 
 ## Desktop account header and optional Slim UI
 Windows x64, Linux and macOS clients display the current client account name and
-an external **Войти в панель** link to https://desk.status16.ru/login in a shared
-row to the right of the connection panel. This module is independent of Slim UI
+an external **Войти в панель** link to https://desk.status16.ru/login inside the shared
+connection frame, to the right of the ID and connection controls. This module is independent of Slim UI
 and does not transfer the client token or perform browser login automatically.
 The name uses the existing reactive user model; signed-out clients show
 **Вход не выполнен** with a **Войти** button using the existing client
@@ -70,12 +70,13 @@ under `rdgen-slim-ui-v1` and updates the main screen immediately.
 
 Slim UI preserves the local-ID/password/logo sidebar and font sizes. It bounds
 the remote-ID field to 280 logical pixels, reduces panel padding and list gaps,
-and uses a 28-pixel Ready footer at normal text scale. Connection controls wrap
-inside their own area when needed; the account stays to the right in the shared
-row in both normal and compact modes. Grid sizes and action menus are preserved.
+and uses a 28-pixel Ready footer at normal text scale. The ID field keeps its natural height; an intrinsic-height row fits the Connect
+button to it without enlarging the field. The account stays to the right inside
+the original frame in both normal and compact modes, separated by a subtle rule.
+The frame and main content have right padding. Grid sizes and action menus are preserved.
 
-`desktop_ui.py` stages the independent account header, then conditionally calls
-`slim_ui.py` before the colleagues clone is generated. The account header has its
+`desktop_ui.py` conditionally calls `slim_ui.py`, then stages the independent
+account group before the colleagues clone is generated. The account header has its
 own small source anchor. The optional Slim UI fingerprint is checked only when
 that feature is requested; changed upstream compact layouts fail explicitly.
 RustDesk 1.5.0/1.5.1 are checked in CI. A binary/runtime UI check is still needed
