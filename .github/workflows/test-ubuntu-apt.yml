@@ -7,6 +7,9 @@ on:
       - '.github/scripts/*ubuntu_apt*'
       - '.github/workflows/test-ubuntu-apt.yml'
       - '.github/workflows/bridge.yml'
+      - 'customization/appimage_keys.py'
+      - 'customization/test_appimage_keys.py'
+      - 'customization/build_appimage.sh'
 permissions:
   contents: read
 jobs:
@@ -29,3 +32,29 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ca-certificates clang cmake curl gcc git g++ libclang-dev libgtk-3-dev llvm-dev nasm ninja-build pkg-config wget
+  appimage-keys:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['1.5.0', '1.5.1']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: generator
+      - uses: actions/checkout@v4
+        with:
+          repository: rustdesk/rustdesk
+          ref: refs/tags/${{ matrix.version }}
+          path: rustdesk
+      - name: Export and verify installed Ubuntu public keys
+        run: |
+          python3 generator/customization/appimage_keys.py --recipe rustdesk/appimage/AppImageBuilder-aarch64.yml --output "$RUNNER_TEMP/ubuntu-archive.asc"
+          gpg --batch --dearmor --output "$RUNNER_TEMP/ubuntu-archive.gpg" "$RUNNER_TEMP/ubuntu-archive.asc"
+      - name: Verify ARM64 repository metadata using the exported keys
+        run: |
+          for suite in focal focal-updates focal-backports focal-security; do
+            curl --fail --silent --show-error --connect-timeout 5 --max-time 20 --retry 2 "https://ports.ubuntu.com/ubuntu-ports/dists/$suite/InRelease" --output "$RUNNER_TEMP/$suite.InRelease"
+            gpgv --keyring "$RUNNER_TEMP/ubuntu-archive.gpg" "$RUNNER_TEMP/$suite.InRelease"
+          done

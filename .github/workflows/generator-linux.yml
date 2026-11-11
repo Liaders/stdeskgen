@@ -1462,6 +1462,7 @@ jobs:
           import os, shutil
           from pathlib import Path
           shutil.copytree('customization', Path(os.environ['RUNNER_TEMP']) / 'rdgen-tools', dirs_exist_ok=True)
+          shutil.copyfile('.github/scripts/ubuntu_apt.py', Path(os.environ['RUNNER_TEMP']) / 'rdgen-tools' / 'ubuntu_apt.py')
 
       - name: Checkout source code
         if: ${{ env.VERSION != 'master' }}

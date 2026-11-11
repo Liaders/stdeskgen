@@ -3,8 +3,8 @@ set -euo pipefail
 : "${RDGEN_APP_NAME:?}"
 : "${RDGEN_FILENAME:?}"
 : "${RDGEN_APPIMAGE_ARCH:?}"
-printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
-printf '%s\n' 'Acquire::Retries "2";' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80rdgen-network >/dev/null
+tools_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+sudo python3 "$tools_dir/ubuntu_apt.py"
 export RDGEN_PACKAGE_VERSION="$(dpkg-deb -f appimage/rustdesk.deb Version)"
 python3 - <<'PY'
 import json, os, re
@@ -26,9 +26,14 @@ if [ "${RDGEN_APP_NAME}" != "rustdesk" ] && [ "${RDGEN_APP_NAME}" != "RustDesk" 
   mv "${RUNNER_TEMP}/appimage-payload.deb" "appimage/${RDGEN_APP_NAME}.deb"
 fi
 sudo apt-get update -y
-sudo apt-get install -y libarchive-tools libfuse2
+sudo apt-get install -y libarchive-tools libfuse2 ubuntu-keyring gnupg
 sudo pip3 install "setuptools_scm<10"
 sudo pip3 install git+https://github.com/rustdesk-org/appimage-builder.git
+if [ "${RDGEN_APPIMAGE_ARCH}" = "aarch64" ]; then
+  python3 "$tools_dir/appimage_keys.py" \
+    --recipe appimage/AppImageBuilder-aarch64.yml \
+    --output "${RUNNER_TEMP}/rdgen-ubuntu-archive.asc"
+fi
 pushd appimage
 sudo appimage-builder --skip-tests --recipe ./AppImageBuilder-${RDGEN_APPIMAGE_ARCH}.yml
 # recipe output is <name>-<version>-<arch>.AppImage, where <version> is the

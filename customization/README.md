@@ -112,3 +112,6 @@ selected-tab identity, and saved visibility are unchanged. The migration writes
 the new order and then `rdgen-peer-tab-order-v1-7` (or `-6` without Colleagues).
 Later launches use the normal saved user order; the same migration is not applied
 again on future updates. A failed write leaves the marker unset for a later retry.
+
+## ARM64 AppImage archive keys
+The AppImage staging script exports the Ubuntu 2012/2018 archive public keys from the runner's installed ubuntu-keyring package, checks their full fingerprints, and replaces all four online keyserver URLs with an ASCII-armored local file URI. ARM64 package signatures are required; suites and payload packages are unchanged. The same packaging script now uses the shared reachable-mirror helper instead of forcing archive.ubuntu.com. CI verifies signed focal ARM64 metadata with the exported keys.
