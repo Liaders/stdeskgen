@@ -95,10 +95,20 @@ with device groups only, an independent search/selection state, and a separate
 server-authorized peer data and require membership in the returned accessible
 device-group list; no user-based fallback is used. No new server API is needed.
 Refresh and the group toolbar apply to this tab, and saved five/six-tab orders
-and visibility lists are extended to include it without changing existing items.
+and visibility lists are extended to include it, preserving existing visibility
+choices by their stable tab indices.
 Android and Windows x86/Sciter are unchanged.
 
 Desktop text tab labels are translated down by five logical pixels; icon tabs
 retain their original placement. The web-panel action uses a content-sized,
 centered text button with ten-pixel horizontal padding; native client login is
 preserved when signed out.
+
+## Initial tab order
+Clients with Organizations apply this order once on first launch after the update:
+Recent sessions, Favorites, Organizations, Colleagues, Discovered, Accessible
+devices, Address book. Builds without Colleagues omit that item. Tab indices,
+selected-tab identity, and saved visibility are unchanged. The migration writes
+the new order and then `rdgen-peer-tab-order-v1-7` (or `-6` without Colleagues).
+Later launches use the normal saved user order; the same migration is not applied
+again on future updates. A failed write leaves the marker unset for a later retry.

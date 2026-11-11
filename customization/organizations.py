@@ -85,6 +85,8 @@ class RdgenOrganizationsPeerView extends BasePeersView {
             f'if (decodeList.length == {old_count}) decodeList.add(true);\n        if (decodeList.length == _isVisible.length) {{')
     replace(model, 'if (decodeList.length == maxTabCount) {',
             f'if (decodeList.length == {old_count}) decodeList.add({old_count});\n        if (decodeList.length == maxTabCount) {{')
+    from tab_order import add_initial_order
+    add_initial_order(replace, with_colleagues=old_count == 6)
     page = 'flutter/lib/common/widgets/peer_tab_page.dart'
     replace(page, "import 'dart:ui' as ui;", "import 'dart:ui' as ui;\nimport 'rdgen_organizations.dart';")
     replace(page, '  ];\n  RelativeRect?', '''    _TabEntry(RdgenOrganizations(menuPadding: _menuPadding()),
