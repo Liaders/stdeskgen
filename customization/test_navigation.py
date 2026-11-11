@@ -31,6 +31,8 @@ class NavigationTests(unittest.TestCase):
                 self.assertIn("v: value ? 'text' : 'icons'", page)
                 self.assertIn('if (isDesktop) _rdgenNavigationSwitch(),\n      _createPeerViewTypeSwitch(context),', page)
                 self.assertIn('child: (isDesktop && _rdgenTextTabs', page)
+                self.assertIn('Transform.translate(offset: const Offset(0, 5)',page)
+                self.assertIn(': Icon(model.tabIcon(t), color: color))',page)
                 self.assertIn('Icons.apps_rounded : Icons.text_fields_rounded, size: 18', page)
                 self.assertEqual(page.count('Widget _rdgenNavigationSwitch()'), 1)
                 ru = (root/'src/lang/ru.rs').read_text(encoding='utf-8')

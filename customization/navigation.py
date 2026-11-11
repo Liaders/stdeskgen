@@ -16,7 +16,8 @@ def add_navigation(root, edits, replace, initial):
             'physics: isDesktop && _rdgenTextTabs\n            ? ClampingScrollPhysics() : NeverScrollableScrollPhysics(),')
     replace(page, 'child: Icon(model.tabIcon(t), color: color)',
             '''child: (isDesktop && _rdgenTextTabs
-                            ? Text(model.tabTooltip(t), style: TextStyle(color: color))
+                            ? Transform.translate(offset: const Offset(0, 5),
+                                child: Text(model.tabTooltip(t), style: TextStyle(color: color)))
                             : Icon(model.tabIcon(t), color: color))''')
     replace(page, '      _createPeerViewTypeSwitch(context),', '''      if (isDesktop) _rdgenNavigationSwitch(),
       _createPeerViewTypeSwitch(context),''')

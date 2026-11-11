@@ -24,7 +24,7 @@ def load():
         save({'version': '1.5.0', 'platform': 'windows', 'exename': 'StatusDesk', 'appname': 'StatusDesk',
               'direction': 'both', 'installation': 'installationY', 'settings': 'settingsY', 'build_number': '', 'auto_update_enabled': True,
               'ui_profile': {'schema_version': 1, 'accent': '#EF7F1A', 'button': '#EF7F1A', 'navigation': 'text',
-                             'colleagues': True, 'device_names': True, 'resizable_panels': True, 'slim_ui': False,
+                             'colleagues': True, 'organizations': True, 'device_names': True, 'resizable_panels': True, 'slim_ui': True,
                              'group_width': 260, 'address_book_width': 260}})
     config = json.loads(path().read_text(encoding='utf-8-sig'))
     if not isinstance(config, dict): raise ValueError('default-config.json must contain an object')

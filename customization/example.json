@@ -8,5 +8,6 @@
   "address_book_width": 260,
   "resizable_panels": true,
   "colleagues": true,
-  "slim_ui": true
+  "slim_ui": true,
+  "organizations": true
 }

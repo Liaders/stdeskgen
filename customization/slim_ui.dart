@@ -6,7 +6,7 @@ import 'platform_model.dart' show bind;
 
 const rdgenSlimUiKey = 'rdgen-slim-ui-v1';
 final rdgenSlimUi =
-    (isDesktop && bind.mainGetLocalOption(key: rdgenSlimUiKey) == 'Y').obs;
+    (isDesktop && bind.mainGetLocalOption(key: rdgenSlimUiKey) != 'N').obs;
 
 Future<void> setRdgenSlimUi(bool value) async {
   await bind.mainSetLocalOption(key: rdgenSlimUiKey, value: value ? 'Y' : 'N');

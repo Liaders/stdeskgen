@@ -1,5 +1,8 @@
 (() => {
     const ru = {
+        'Organizations tab (accessible device groups only)':'Вкладка «Организации» (только доступные группы устройств)',
+        'organizations must be true or false.':'Параметр organizations должен быть true или false.',
+
         'Include compact interface (Slim UI)':'Добавить компактный интерфейс (Slim UI)',
         'If enabled, users can switch between normal and compact layouts in the client settings. If disabled, Slim UI is not included in the build.':'При включении пользователь сможет переключать обычный и компактный вид в настройках клиента. При отключении Slim UI не включается в сборку.',
         'slim_ui must be true or false.':'Параметр slim_ui должен быть true или false.',

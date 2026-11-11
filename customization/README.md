@@ -65,8 +65,11 @@ the source staging step include Slim UI and its client checkbox at **Настр�
 Отображение → Интерфейс → Компактный интерфейс (Slim UI)**. Missing or false means
 no Slim UI module, hooks, preference reads, translations or checkbox in the client.
 Old configurations remain valid and omit this optional feature by default.
-The client checkbox initially stays off; its existing local preference persists
-under `rdgen-slim-ui-v1` and updates the main screen immediately.
+The client checkbox initially stays on, including upgrades from clients without
+Slim UI: an absent `rdgen-slim-ui-v1` option enables compact mode. An explicit
+local `N` keeps the user's manual opt-out across updates; `Y` enables it. The
+constructor defaults to including Slim UI, while an explicit build-time false
+still omits its code and checkbox. Changes apply immediately.
 
 Slim UI preserves the local-ID/password/logo sidebar and font sizes. It bounds
 the remote-ID field to 280 logical pixels, reduces panel padding and list gaps,
@@ -81,3 +84,21 @@ own small source anchor. The optional Slim UI fingerprint is checked only when
 that feature is requested; changed upstream compact layouts fail explicitly.
 RustDesk 1.5.0/1.5.1 are checked in CI. A binary/runtime UI check is still needed
 after compilation. New bases require compatibility review for enabled adapters.
+
+## Organizations
+The desktop UI profile accepts `organizations: true`. The constructor enables
+it by default (including old profiles missing this field); an explicit false
+keeps it out of the build. The client shows **Организации** with an apartment
+icon after the existing tabs. It clones the existing accessible-device view,
+with device groups only, an independent search/selection state, and a separate
+`rdgen-panel-organizations-width-v1` resize preference. Peer cards use the same
+server-authorized peer data and require membership in the returned accessible
+device-group list; no user-based fallback is used. No new server API is needed.
+Refresh and the group toolbar apply to this tab, and saved five/six-tab orders
+and visibility lists are extended to include it without changing existing items.
+Android and Windows x86/Sciter are unchanged.
+
+Desktop text tab labels are translated down by five logical pixels; icon tabs
+retain their original placement. The web-panel action uses a content-sized,
+centered text button with ten-pixel horizontal padding; native client login is
+preserved when signed out.

@@ -46,7 +46,12 @@ class RdgenDesktopAccount extends StatelessWidget {
             icon: const Icon(Icons.login, size: 16),
             label: Text(translate('Login')),
           )
-        else OutlinedButton.icon(
+        else OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 32),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            alignment: Alignment.center,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap),
           onPressed: () async {
             var opened = false;
             try {
@@ -60,8 +65,7 @@ class RdgenDesktopAccount extends StatelessWidget {
                 const SnackBar(content: Text('https://desk.status16.ru/login')));
             }
           },
-          icon: const Icon(Icons.open_in_new, size: 16),
-          label: Text(translate('Open web panel')),
+          child: Text(translate('Open web panel'), textAlign: TextAlign.center),
         ),
       ],
     ));
