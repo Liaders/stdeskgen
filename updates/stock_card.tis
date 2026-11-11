@@ -1,0 +1,38 @@
+var rdgen_update_state = { status: "idle", version: "", message: "" };
+var rdgen_manual_install = false;
+
+function rdgenUpdateCardUrl() {
+    try {
+        var data = JSON.parse(handler.get_option("rdgen-update-status"));
+        if (rdgen_manual_install && data.status == "error") {
+            msgbox("custom-error", "Error", translate(data.message || "Update service is unavailable"));
+        }
+        if (data.status == "error" || data.status == "current" || data.status == "installing") rdgen_manual_install = false;
+        rdgen_update_state = data;
+        var progress = $(#download-percent);
+        if (progress) {
+            var busy = data.status == "downloading" || data.status == "installing";
+            progress.style.set { display: busy ? "block" : "none" };
+            if (busy) progress.content(translate(data.status == "installing" ? "Starting update installation" : "Downloading update"));
+        }
+        if (data.status == "current") return "";
+        if (data.version) return "statusdesk-update://available/" + data.version;
+    } catch (_) {}
+    return software_update_url;
+}
+
+function rdgenInstallUpdate() {
+    if (rdgen_update_state.status != "available" && rdgen_update_state.status != "error") return;
+    try {
+        var data = JSON.parse(handler.get_option("rdgen-update-install"));
+        if (data.status == "error") {
+            msgbox("custom-error", "Error", translate(data.message || "Update service is unavailable"));
+        } else {
+            rdgen_manual_install = data.status == "downloading";
+            rdgen_update_state.status = data.status;
+            app.update();
+        }
+    } catch (_) {
+        msgbox("custom-error", "Error", translate("Update service is unavailable"));
+    }
+}

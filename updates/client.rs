@@ -47,6 +47,11 @@ fn status() -> String {
 }
 fn set_status(state: &str, version: &str, message: &str) {
     if let Ok(mut value) = STATUS.lock() {
+        let previous = serde_json::from_str::<serde_json::Value>(&value).ok()
+            .and_then(|v| v.get("version").and_then(|v| v.as_str()).map(str::to_owned))
+            .unwrap_or_default();
+        let version = if state == "current" { "" }
+            else if version.is_empty() { previous.as_str() } else { version };
         *value = serde_json::json!({"status":state,"version":version,"message":message}).to_string();
     } else {
         hbb_common::log::warn!("Cannot store update status");
@@ -55,11 +60,10 @@ fn set_status(state: &str, version: &str, message: &str) {
 pub(crate) fn manual_command(command: &str) -> String {
     if command == "rdgen-update-status" { return status(); }
     let guard = match begin() { Ok(value) => value, Err(_) => return status() };
-    let install = command == "rdgen-update-install";
-    set_status(if install { "downloading" } else { "checking" }, "", "");
+    set_status("downloading", "", "");
     std::thread::spawn(move || {
         let _guard = guard;
-        let result = if install { check_inner(true) } else { probe() };
+        let result = check_inner(true);
         if let Err(error) = result {
             hbb_common::log::warn!("Manual StatusDesk update: {}", error);
             set_status("error", "", &error.to_string());
@@ -70,9 +74,6 @@ pub(crate) fn manual_command(command: &str) -> String {
 fn ensure_installation() -> ResultType<()> {
     if !crate::platform::is_installed() || !crate::is_server() {
         bail!("Installed StatusDesk service is required");
-    }
-    if config::is_disable_installation() {
-        bail!("Installation is disabled by policy");
     }
     if crate::platform::is_msi_installed()? {
         bail!("StatusDesk EXE updates do not support MSI installations yet");
@@ -86,7 +87,7 @@ fn fetch_release() -> ResultType<(reqwest::blocking::Client, Release)> {
         .redirect(reqwest::redirect::Policy::none())
         .build()?;
     let url = format!("{}/channels/{}/{}/{}.json", BASE, PRODUCT, CHANNEL, PLATFORM);
-    let response = client.get(url).send()?.error_for_status()?;
+    let response = client.get(url).timeout(Duration::from_secs(30)).send()?.error_for_status()?;
     let release: Release = serde_json::from_slice(&read_bounded(response, 64 * 1024)?)?;
     if release.schema != 2 || release.product != PRODUCT || release.channel != CHANNEL
         || release.platform != PLATFORM || release.app_name != crate::get_app_name()
@@ -95,12 +96,6 @@ fn fetch_release() -> ResultType<(reqwest::blocking::Client, Release)> {
         || release.filename != format!("client-{}.exe", PLATFORM)
     { bail!("Update metadata does not match this client"); }
     Ok((client, release))
-}
-fn probe() -> ResultType<()> {
-    ensure_installation()?;
-    let (_, release) = fetch_release()?;
-    set_status(if release.revision > REVISION { "available" } else { "current" }, &release.version, "");
-    Ok(())
 }
 pub(super) fn check() -> ResultType<()> {
     let _guard = begin()?;
@@ -111,10 +106,22 @@ pub(super) fn check() -> ResultType<()> {
 }
 fn check_inner(manually: bool) -> ResultType<()> {
     ensure_installation()?;
-    if !super::has_no_active_conns() { bail!("Close active sessions before updating"); }
     let (client, release) = fetch_release()?;
     if release.revision <= REVISION {
+        hbb_common::log::info!("StatusDesk update check: client revision {} is current (channel revision {})", REVISION, release.revision);
         set_status("current", &release.version, "");
+        return Ok(());
+    }
+    set_status("available", &release.version, "");
+    hbb_common::log::info!("StatusDesk update available: {} (revision {})", release.version, release.revision);
+    if !manually && !config::Config::get_bool_option(base::config::keys::OPTION_ALLOW_AUTO_UPDATE) {
+        hbb_common::log::info!("StatusDesk auto installation disabled; update remains available");
+        return Ok(());
+    }
+    if config::is_disable_installation() { bail!("Installation is disabled by policy"); }
+    if !super::has_no_active_conns() {
+        hbb_common::log::info!("StatusDesk installation deferred: active sessions");
+        if manually { bail!("Close active sessions before updating"); }
         return Ok(());
     }
     set_status("downloading", &release.version, "");

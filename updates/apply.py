@@ -21,8 +21,7 @@ def apply(root, config, platform='windows'):
         return
     updater = root / 'src/updater.rs'
     source = updater.read_text(encoding='utf-8')
-    anchor = ('    if do_check_software_update().is_err() {' if version == '1.5.0'
-              else '    do_check_software_update()?;')
+    anchor = 'fn check_update(manually: bool) -> ResultType<()> {'
     if source.count(anchor) != 1 or 'mod rdgen_update' in source:
         raise ValueError('Incompatible or already customized updater source')
     common = root / 'src/common.rs'
@@ -39,26 +38,23 @@ def apply(root, config, platform='windows'):
     for name, field in [('BASE', 'base_url'), ('PRODUCT', 'product'), ('CHANNEL', 'channel'), ('REVISION', 'revision')]:
         module = module.replace('@' + name + '@', json.dumps(config[field]))
     hook = '#[cfg(target_os = "windows")]\n#[path = "rdgen_update.rs"]\npub(crate) mod rdgen_update;\n'
-    source = hook + source.replace(anchor, '    #[cfg(target_os = "windows")]\n    return rdgen_update::check();\n\n' + anchor, 1)
-    initial = """    if let Err(e) = check_update(false) {
-        log::error!("Error checking for updates: {}", e);
-    }
-
-    let mut last_check_time = Instant::now();
-    let mut check_interval = DUR_ONE_DAY;"""
-    if source.count(initial) != 1:
-        raise ValueError('Incompatible initial update schedule')
-    source = source.replace(initial, """    let initial_check_succeeded = if !has_no_active_conns() {
-        false
-    } else if let Err(e) = check_update(false) {
-        log::error!("Error checking for updates: {}", e);
-        false
-    } else {
-        true
-    };
-
-    let mut last_check_time = Instant::now();
-    let mut check_interval = if initial_check_succeeded { DUR_ONE_DAY } else { RETRY_INTERVAL };""", 1)
+    source = hook + source.replace(anchor, anchor + '\n    #[cfg(target_os = "windows")]\n    return rdgen_update::check();\n', 1)
+    start = source.index('fn start_auto_update_check_(rx_msg: Receiver<UpdateMsg>) {')
+    end = source.index(anchor, start)
+    schedule = source[start:end]
+    if schedule.count('DUR_ONE_DAY') != 2:
+        raise ValueError('Incompatible update check interval')
+    schedule = schedule.replace('DUR_ONE_DAY', 'RETRY_INTERVAL')
+    active_gate = """                // Don't check update if there are alive connections.
+                if !has_no_active_conns() {
+                    check_interval = RETRY_INTERVAL;
+                    continue;
+                }
+"""
+    if schedule.count(active_gate) != 1:
+        raise ValueError('Incompatible update session gate')
+    schedule = schedule.replace(active_gate, '', 1)
+    source = source[:start]+schedule+source[end:]
     # Quote the installer path: the Windows user profile/temp path may contain spaces.
     source = source.replace('&format!("{} --update", p)', '&format!("\\\"{}\\\" --update", p)')
     edits = {root/'src/rdgen_update.rs': module, updater: source,

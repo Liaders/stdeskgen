@@ -2,6 +2,7 @@ import importlib.util
 import io
 import tarfile
 import shutil
+import re
 import json
 import os
 from pathlib import Path
@@ -112,7 +113,7 @@ class UpdateTests(unittest.TestCase):
                 adapter.apply(root, self.config)
             self.assertEqual(after, (root / 'src/updater.rs').read_bytes())
 
-    def test_manual_controls_use_service_channel_and_shared_verified_installer(self):
+    def test_original_update_cards_use_service_channel_without_custom_panel(self):
         for platform in ('windows', 'windows-x86'):
             with self.subTest(platform=platform), tempfile.TemporaryDirectory() as temporary:
                 root=Path(temporary); checkout(root)
@@ -122,7 +123,11 @@ class UpdateTests(unittest.TestCase):
                 self.assertEqual(generated.count('Close active sessions before updating'),2)
                 self.assertIn('RUNNING.compare_exchange',generated)
                 self.assertIn('Update SHA-256 mismatch',generated)
-                self.assertIn('if install { check_inner(true) } else { probe() }',generated)
+                self.assertIn('let result = check_inner(true);',generated)
+                inner=generated[generated.index('fn check_inner(manually: bool)'):]
+                self.assertLess(inner.index('fetch_release()?'),inner.index('OPTION_ALLOW_AUTO_UPDATE'))
+                self.assertLess(inner.index('fetch_release()?'),inner.index('has_no_active_conns()'))
+                self.assertIn('timeout(Duration::from_secs(30))',generated)
                 self.assertIn('manual_command(&name)',(root/'src/ipc.rs').read_text(encoding='utf-8'))
                 self.assertIn('crate::ipc::get_config(key.as_ref())',(root/'src/ui_interface.rs').read_text(encoding='utf-8'))
                 if sys.platform != 'win32' and shutil.which('rustfmt'):
@@ -130,24 +135,75 @@ class UpdateTests(unittest.TestCase):
                         subprocess.run(['rustfmt','--edition','2021','--emit','stdout','--config','skip_children=true',str(root/name)],check=True,capture_output=True,timeout=60)
                 if platform=='windows-x86':
                     script=(root/'src/ui/index.tis').read_text(encoding='utf-8')
-                    self.assertIn('class RdgenUpdateCard: Reactor.Component',script)
-                    self.assertIn('handler.get_option(command)',script)
+                    self.assertNotIn('class RdgenUpdateCard',script)
+                    self.assertIn('class UpdateMe: Reactor.Component',script)
+                    self.assertIn('event click $(#install-me) { rdgenInstallUpdate(); }',script)
+                    self.assertIn('tmp = rdgenUpdateCardUrl();',script)
+                    self.assertNotIn('rdgen-update-check',script)
                     self.assertIn('<InstallMe />',script)
                 else:
-                    card=root/'flutter/lib/models/rdgen_update_card.dart'
-                    self.assertIn('bind.mainGetCommon(key: command)',card.read_text(encoding='utf-8'))
+                    card=root/'flutter/lib/models/rdgen_stock_update.dart'
+                    home=root/'flutter/lib/desktop/pages/desktop_home_page.dart'
+                    self.assertFalse((root/'flutter/lib/models/rdgen_update_card.dart').exists())
+                    self.assertNotIn('RdgenUpdateCard',home.read_text(encoding='utf-8'))
+                    self.assertIn("'Update', () { rdgenInstallUpdate(); }",home.read_text(encoding='utf-8'))
+                    self.assertIn('await rdgenPollUpdateCard();',home.read_text(encoding='utf-8'))
+                    self.assertNotIn('rdgen-update-check',card.read_text(encoding='utf-8'))
+                    spec=importlib.util.spec_from_file_location('disable_stock_updates',Path(__file__).resolve().parents[1]/'customization/disable_update_notifications.py')
+                    disable=importlib.util.module_from_spec(spec);spec.loader.exec_module(disable);disable.apply(root)
+                    self.assertIn('updateUrl.startsWith(rdgenUpdatePrefix)',home.read_text(encoding='utf-8'))
                     if shutil.which('dart'):
                         for path in [card,root/'flutter/lib/desktop/pages/desktop_home_page.dart']:
                             subprocess.run(['dart','format','--output=none',str(path)],check=True,capture_output=True,timeout=60)
+                        transport=re.sub(r'^import .*\n','',card.read_text(encoding='utf-8'),flags=re.M)
+                        harness="""import 'dart:convert';
+const isWindows=true;
+final notices=<String>[];
+String translate(String message)=>message;
+void showToast(String message){ notices.add(message); }
+class Value { String value=''; }
+class Global { final updateUrl=Value(); }
+final stateGlobal=Global();
+class Bind {
+ Map<String,dynamic> response={};
+ bool mainIsInstalled()=>true;
+ Future<String> mainGetCommon({required String key}) async => jsonEncode(response);
+}
+final bind=Bind();
+"""+transport+"""
+Future<void> main() async {
+ bind.response={'status':'available','version':'1.5.1.99'};
+ await rdgenPollUpdateCard();
+ if(stateGlobal.updateUrl.value!=rdgenUpdatePrefix+'1.5.1.99') throw StateError('no original card');
+ bind.response={'status':'error','version':'1.5.1.99'};
+ await rdgenPollUpdateCard();
+ if(stateGlobal.updateUrl.value.isEmpty) throw StateError('retry card lost');
+ bind.response={'status':'current','version':''};
+ await rdgenPollUpdateCard();
+ if(stateGlobal.updateUrl.value.isNotEmpty) throw StateError('obsolete card');
+ bind.response={'status':'available','version':'1.5.1.99'}; await rdgenPollUpdateCard();
+ bind.response={'status':'downloading','version':'1.5.1.99'}; await rdgenInstallUpdate();
+ bind.response={'status':'error','version':'1.5.1.99','message':'Close active sessions before updating'};
+ await rdgenPollUpdateCard();
+ if(notices.last!='Close active sessions before updating') throw StateError('failure hidden');
+}
+"""
+                        test=root/'stock_card_test.dart';test.write_text(harness,encoding='utf-8')
+                        subprocess.run(['dart','run',str(test)],check=True,capture_output=True,timeout=60)
 
-    def test_initial_schedule_retries_busy_or_failed_check_in_thirty_minutes(self):
+
+    def test_schedule_checks_every_half_hour_including_busy_sessions_and_failures(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary); checkout(root); adapter.apply(root,self.config)
             source=(root/'src/updater.rs').read_text(encoding='utf-8')
-            start=source.index('    let initial_check_succeeded =')
+            start=source.index('    if let Err(e) = check_update(false)')
             body=source[start:source.index('    loop {',start)]
-            self.assertIn('if !has_no_active_conns()',body)
-            self.assertIn('else { RETRY_INTERVAL }',body)
+            self.assertIn('let mut check_interval = RETRY_INTERVAL;',body)
+            schedule=source[source.index('fn start_auto_update_check_'):source.index('fn check_update(manually:')]
+            self.assertNotIn('DUR_ONE_DAY',schedule)
+            self.assertNotIn('has_no_active_conns()',schedule)
+            check=source[source.index('fn check_update(manually:'):]
+            self.assertLess(check.index('return rdgen_update::check();'),check.index('OPTION_ALLOW_AUTO_UPDATE'))
             if sys.platform=='win32' or not shutil.which('rustc'): return
             harness=r"""extern crate self as log;
 #[macro_export] macro_rules! error { ($($t:tt)*) => { () }; }
@@ -166,11 +222,11 @@ fn check_update(_:bool)->Result<(),&'static str> {
 fn tested()->Duration {
 """+body+r"""check_interval }
 fn main(){
- assert_eq!(tested(),DUR_ONE_DAY);
+ assert_eq!(tested(),RETRY_INTERVAL);
  ERROR.store(true,Ordering::SeqCst); assert_eq!(tested(),RETRY_INTERVAL);
  let before=CALLS.load(Ordering::SeqCst);
  ACTIVE.store(true,Ordering::SeqCst); assert_eq!(tested(),RETRY_INTERVAL);
- assert_eq!(CALLS.load(Ordering::SeqCst),before);
+ assert_eq!(CALLS.load(Ordering::SeqCst),before+1);
 }
 """
             path=root/'retry_test.rs'; path.write_text(harness,encoding='utf-8')

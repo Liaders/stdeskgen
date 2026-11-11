@@ -1,8 +1,8 @@
-"""Thin local IPC and UI hooks for the configured StatusDesk update channel."""
+"""Connect the original RustDesk update cards to the StatusDesk service channel."""
 import json
 from pathlib import Path
 
-COMMANDS = '"rdgen-update-check" | "rdgen-update-install" | "rdgen-update-status"'
+COMMANDS = '"rdgen-update-install" | "rdgen-update-status"'
 
 
 def stage(root, edits, platform):
@@ -34,10 +34,22 @@ def stage(root, edits, platform):
     if platform == 'windows-x86':
         path = root/'src/ui/index.tis'
         source = path.read_text(encoding='utf-8')
-        anchor = '                    {software_update_url && !disable_installation ? <UpdateMe /> : ""}'
-        if source.count(anchor) != 1: raise ValueError('Incompatible Sciter update card')
-        edits[path] = Path(__file__).with_name('client_card.tis').read_text(encoding='utf-8')+'\n'+source.replace(anchor,
-            '                    {is_win && handler.is_installed() && !disable_installation ? <RdgenUpdateCard /> : ""}\n'+anchor, 1)
+        start = source.index('class UpdateMe: Reactor.Component {')
+        end = source.index('class SystemError:', start)
+        card = source[start:end]
+        title = '<div>There is a newer version of {handler.get_app_name()} ({handler.get_new_version()}) available.</div>'
+        if card.count(title) != 1: raise ValueError('Incompatible original Sciter update card')
+        card = card.replace(title, "<div>{translate('New version available')} {rdgen_update_state.version}</div>")
+        custom = card.index('            {is_custom_client')
+        progress = card.index('            <div #download-percent',custom)
+        card = card[:custom]+"            <div #install-me.link>{translate('Update')}</div>\n"+card[progress:]
+        click = card.index('    event click $(#install-me) {')
+        card = card[:click]+"    event click $(#install-me) { rdgenInstallUpdate(); }\n}\n\n"
+        source = source[:start]+card+source[end:]
+        if source.count('tmp = handler.get_software_update_url();') != 1:
+            raise ValueError('Incompatible original Sciter update polling')
+        source = source.replace('tmp = handler.get_software_update_url();','tmp = rdgenUpdateCardUrl();',1)
+        edits[path] = Path(__file__).with_name('stock_card.tis').read_text(encoding='utf-8')+'\n'+source
     else:
         replace('src/flutter_ffi.rs', 'pub fn main_get_common(key: String) -> String {',
                 '''pub fn main_get_common(key: String) -> String {
@@ -47,18 +59,23 @@ def stage(root, edits, platform):
     }''')
         home = 'flutter/lib/desktop/pages/desktop_home_page.dart'
         path = root/home
-        edits[path] = "import '../../models/rdgen_update_card.dart';\n"+path.read_text(encoding='utf-8')
-        replace(home, '      if (!isOutgoingOnly) buildPasswordBoard(context),',
-                '      if (!isOutgoingOnly) buildPasswordBoard(context),\n      const RdgenUpdateCard(),')
-        edits[root/'flutter/lib/models/rdgen_update_card.dart'] = Path(__file__).with_name('client_card.dart').read_text(encoding='utf-8')
+        edits[path] = "import '../../models/rdgen_stock_update.dart';\n"+path.read_text(encoding='utf-8')
+        replace(home, '  Widget buildHelpCards(String updateUrl) {', '''  Widget buildHelpCards(String updateUrl) {
+    if (isWindows && bind.mainIsInstalled() && !bind.isDisableInstallation() &&
+        updateUrl.startsWith(rdgenUpdatePrefix) && !isCardClosed) {
+      final version = Uri.decodeComponent(updateUrl.substring(rdgenUpdatePrefix.length));
+      return buildInstallCard("Status",
+        "${translate("new-version-of-{${bind.mainGetAppNameSync()}}-tip")} ($version).",
+        'Update', () { rdgenInstallUpdate(); }, closeButton: true);
+    }''')
+        replace(home, '      await gFFI.serverModel.fetchID();',
+                '      await rdgenPollUpdateCard();\n      await gFFI.serverModel.fetchID();')
+        edits[root/'flutter/lib/models/rdgen_stock_update.dart'] = Path(__file__).with_name('stock_card.dart').read_text(encoding='utf-8')
     labels = {
-        'Check for updates': 'Проверить обновления',
         'Checking for updates': 'Проверка обновлений',
         'Downloading update': 'Скачивание обновления',
         'Starting update installation': 'Запускается установка обновления',
-        'Latest version installed': 'Установлена последняя версия',
         'New version available': 'Доступна новая версия',
-        'Update check failed': 'Не удалось проверить обновления',
         'Update service is unavailable': 'Служба обновления недоступна. Перезапустите службу StatusDesk.',
         'Close active sessions before updating': 'Завершите активные подключения перед обновлением',
         'Installed StatusDesk service is required': 'Для обновления нужна установленная служба StatusDesk',
