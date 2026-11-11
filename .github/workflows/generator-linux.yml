@@ -828,14 +828,12 @@ jobs:
     name: build rustdesk linux drm x86_64
     runs-on: ubuntu-22.04
     steps:
-      - name: Configure bounded Ubuntu package downloads
-        timeout-minutes: 2
-        shell: bash
-        run: |
-          printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
-          printf '%s\n' 'Acquire::Retries "2";' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80rdgen-network >/dev/null
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Configure bounded Ubuntu package downloads
+        timeout-minutes: 3
+        run: sudo python3 .github/scripts/ubuntu_apt.py
         
       - uses: actions/download-artifact@v4
         with:

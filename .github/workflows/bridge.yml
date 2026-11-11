@@ -45,14 +45,18 @@ jobs:
           repository: rustdesk/rustdesk
           submodules: recursive
 
+      - name: Checkout package mirror helper
+        uses: actions/checkout@v4
+        with:
+          path: .rdgen-ci
+
       - name: Install prerequisites
         timeout-minutes: 10
         run: |
-          printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
-          printf '%s\n' 'Acquire::Retries "2";' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80rdgen-network >/dev/null
-          sudo apt-get install ca-certificates -y
+          sudo python3 .rdgen-ci/.github/scripts/ubuntu_apt.py
           sudo apt-get update -y
           sudo apt-get install -y \
+            ca-certificates \
             clang \
             cmake \
             curl \

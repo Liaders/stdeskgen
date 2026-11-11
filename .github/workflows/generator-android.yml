@@ -75,7 +75,9 @@ jobs:
 
         from pathlib import Path
 
-        shutil.copytree(''customization'',Path(os.environ[''RUNNER_TEMP''])/''rdgen-tools'',dirs_exist_ok=True)'
+        shutil.copytree(''customization'',Path(os.environ[''RUNNER_TEMP''])/''rdgen-tools'',dirs_exist_ok=True)
+
+        shutil.copyfile(''.github/scripts/ubuntu_apt.py'',Path(os.environ[''RUNNER_TEMP''])/''rdgen-tools''/''ubuntu_apt.py'')'
     - name: Checkout RustDesk
       uses: actions/checkout@v4
       with:
@@ -93,7 +95,8 @@ jobs:
         docker-images: true
         swap-storage: false
     - name: Configure Ubuntu package mirror
-      run: printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+      timeout-minutes: 3
+      run: sudo python3 "$RUNNER_TEMP/rdgen-tools/ubuntu_apt.py"
     - name: Install dependencies
       run: "sudo apt-get -o Acquire::Retries=2 -o Acquire::https::Timeout=30 -o Acquire::http::Timeout=30 update\nsudo env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=2\
         \ -o Acquire::https::Timeout=30 -o Acquire::http::Timeout=30 install -y --no-install-recommends \\\n     clang \\\n     cmake \\\n     curl \\\n     gcc-multilib \\\n     git\
