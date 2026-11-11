@@ -9,6 +9,7 @@ import unittest
 
 from slim_ui import apply
 from session_titles import apply as apply_titles
+from desktop_ui import apply as apply_desktop_ui
 from apply_profile import apply as apply_profile
 
 
@@ -26,7 +27,7 @@ class SlimUiTests(unittest.TestCase):
             root=Path(directory);self.fixture(root)
             home=root/'flutter/lib/desktop/pages/desktop_home_page.dart'
             original_sidebar=home.read_bytes()
-            apply(root)
+            apply_desktop_ui(root, {'slim_ui': True})
             self.assertEqual(home.read_bytes(),original_sidebar)
             connection=(root/'flutter/lib/desktop/pages/connection_page.dart').read_text(encoding='utf-8')
             self.assertIn('child: Text(translate("Connect"))',connection)
@@ -36,8 +37,11 @@ class SlimUiTests(unittest.TestCase):
             self.assertIn("bind.mainGetLocalOption(key: rdgenSlimUiKey) == 'Y'",helper)
             self.assertIn('if (!rdgenSlimUi.value) return Column(children: children);',helper)
             self.assertIn('min(280.0, constraints.maxWidth)',helper)
-            self.assertIn('https://desk.status16.ru/login',helper)
-            self.assertIn('displayNameOrUserName',helper)
+            account=(root/'flutter/lib/models/rdgen_desktop_account.dart').read_text(encoding='utf-8')
+            self.assertIn('https://desk.status16.ru/login',account)
+            self.assertIn('displayNameOrUserName',account)
+            self.assertIn('const SizedBox(width: 180, child: RdgenDesktopAccount())',connection)
+            self.assertNotIn('RdgenDesktopAccount',helper)
             self.assertIn('max(28.0, MediaQuery.textScalerOf(context)',connection)
             self.assertIn("value: value ? 'Y' : 'N'",helper)
             settings=(root/'flutter/lib/desktop/pages/desktop_setting_page.dart').read_text(encoding='utf-8')
@@ -48,8 +52,33 @@ class SlimUiTests(unittest.TestCase):
             if shutil.which('dart'):
                 for name in ['desktop/pages/connection_page.dart','desktop/pages/desktop_setting_page.dart',
                              'common/widgets/peer_tab_page.dart','common/widgets/peers_view.dart',
-                             'common/widgets/my_group.dart','common/widgets/rdgen_colleagues.dart','models/rdgen_slim_ui.dart']:
+                             'common/widgets/my_group.dart','common/widgets/rdgen_colleagues.dart','models/rdgen_slim_ui.dart','models/rdgen_desktop_account.dart']:
                     subprocess.run(['dart','format','--output=none',str(root/'flutter/lib'/name)],check=True,capture_output=True,timeout=60)
+
+    def test_disabled_or_old_profile_omits_slim_ui_but_keeps_account(self):
+        for profile in (None, {'schema_version': 1}, {'slim_ui': False}):
+            with self.subTest(profile=profile), tempfile.TemporaryDirectory() as directory:
+                root=Path(directory);self.fixture(root)
+                connection_path=root/'flutter/lib/desktop/pages/connection_page.dart'
+                source=connection_path.read_text(encoding='utf-8')
+                connection_path.write_text(source.replace('width: 320 + 20 * 2,','width: 400,'),encoding='utf-8')
+                paths=['flutter/lib/common/widgets/peers_view.dart',
+                       'flutter/lib/common/widgets/peer_tab_page.dart',
+                       'flutter/lib/common/widgets/my_group.dart',
+                       'flutter/lib/desktop/pages/desktop_setting_page.dart']
+                before={name:(root/name).read_bytes() for name in paths}
+                apply_desktop_ui(root, profile)
+                self.assertEqual(before,{name:(root/name).read_bytes() for name in paths})
+                for path in (root/'flutter/lib').rglob('*.dart'):
+                    self.assertNotIn('rdgenSlimUi',path.read_text(encoding='utf-8'))
+                self.assertFalse((root/'flutter/lib/models/rdgen_slim_ui.dart').exists())
+                self.assertTrue((root/'flutter/lib/models/rdgen_desktop_account.dart').exists())
+                connection=(root/'flutter/lib/desktop/pages/connection_page.dart').read_text(encoding='utf-8')
+                self.assertIn('RdgenDesktopAccount()',connection)
+                self.assertIn('width: 400,',connection)
+                self.assertIn('crossAxisAlignment: CrossAxisAlignment.center',connection)
+                if shutil.which('dart'):
+                    subprocess.run(['dart','format','--output=none',str(root/'flutter/lib/desktop/pages/connection_page.dart')],check=True,capture_output=True,timeout=60)
 
     def test_changed_upstream_layout_is_rejected_before_any_writes(self):
         with tempfile.TemporaryDirectory() as directory:

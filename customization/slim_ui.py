@@ -101,7 +101,7 @@ def apply(root):
         _Checkbox(label: 'Compact interface (Slim UI)',
           getValue: () => rdgenSlimUi.value,
           setValue: setRdgenSlimUi),""")
-    translations = {'Compact interface (Slim UI)': 'Компактный интерфейс (Slim UI)', 'Open web panel': 'Войти в панель', 'Not signed in': 'Вход не выполнен'}
+    translations = {'Compact interface (Slim UI)': 'Компактный интерфейс (Slim UI)'}
     for path in (root/'src/lang').glob('*.rs'):
         if path.name == 'en.rs': continue
         source = edits.get(path, path.read_text(encoding='utf-8'))

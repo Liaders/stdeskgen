@@ -10,7 +10,7 @@ SUPPORTED_VERSIONS = ("1.5.0", "1.5.1")
 def apply(root, version, profile, check=False, desktop_navigation=True):
     if version not in SUPPORTED_VERSIONS:
         raise ValueError(f"UI customization is not supported for RustDesk {version}")
-    allowed = {"schema_version", "accent", "button", "navigation", "group_width", "address_book_width", "device_names", "resizable_panels", "colleagues"}
+    allowed = {"schema_version", "accent", "button", "navigation", "group_width", "address_book_width", "device_names", "resizable_panels", "colleagues", "slim_ui"}
     if set(profile) - allowed:
         raise ValueError("Unknown profile fields: " + ", ".join(sorted(set(profile) - allowed)))
     if type(profile.get("schema_version")) is not int or profile["schema_version"] != 1:
@@ -42,6 +42,8 @@ def apply(root, version, profile, check=False, desktop_navigation=True):
             if type(value) is not int or not 150 <= value <= 480:
                 raise ValueError(f"{key} must be an integer between 150 and 480")
             replace("flutter/lib/common/widgets/" + file, f"width: {initial},", f"width: {value},")
+    if "slim_ui" in profile and type(profile["slim_ui"]) is not bool:
+        raise ValueError("slim_ui must be boolean")
     if "resizable_panels" in profile and type(profile["resizable_panels"]) is not bool:
         raise ValueError("resizable_panels must be boolean")
     if profile.get("resizable_panels", False):

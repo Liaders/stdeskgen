@@ -13,12 +13,14 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--version', required=True)
 parser.add_argument('--legacy', action='store_true')
 args=parser.parse_args()
+profile_raw=os.environ.get('ui_profile_b64')
+profile=json.loads(base64.b64decode(profile_raw,validate=True)) if profile_raw else None
 if not args.legacy:
     apply_flutter(Path.cwd())
     from session_titles import apply as apply_session_titles
     apply_session_titles(Path.cwd())
-    from slim_ui import apply as apply_slim_ui
-    apply_slim_ui(Path.cwd())
+    from desktop_ui import apply as apply_desktop_ui
+    apply_desktop_ui(Path.cwd(), profile)
 assets=Path(os.environ['RUNNER_TEMP'])/'rdgen-input'
 if assets.exists():
     if not args.legacy: stage(assets,Path('flutter/assets'))
@@ -26,6 +28,5 @@ if assets.exists():
     target.mkdir(exist_ok=True)
     for name in ('icon.png','logo.png','logo_light.png','logo_dark.png','privacy.png'):
         if (assets/name).exists(): shutil.copyfile(assets/name,target/name)
-profile=os.environ.get('ui_profile_b64')
 if profile:
-    apply(Path.cwd(),args.version,json.loads(base64.b64decode(profile,validate=True)))
+    apply(Path.cwd(),args.version,profile)

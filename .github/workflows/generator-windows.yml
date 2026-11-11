@@ -188,8 +188,10 @@ jobs:
           apply_flutter(Path.cwd())
           from session_titles import apply as apply_session_titles
           apply_session_titles(Path.cwd())
-          from slim_ui import apply as apply_slim_ui
-          apply_slim_ui(Path.cwd())
+          import base64, json
+          from desktop_ui import apply as apply_desktop_ui
+          raw = os.environ.get('ui_profile_b64')
+          apply_desktop_ui(Path.cwd(), json.loads(base64.b64decode(raw, validate=True)) if raw else None)
           from theme_logos import stage
           stage(Path(os.environ['RUNNER_TEMP']) / 'rdgen-input', Path('flutter/assets'))
 

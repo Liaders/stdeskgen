@@ -1,5 +1,9 @@
 (() => {
     const ru = {
+        'Include compact interface (Slim UI)':'Добавить компактный интерфейс (Slim UI)',
+        'If enabled, users can switch between normal and compact layouts in the client settings. If disabled, Slim UI is not included in the build.':'При включении пользователь сможет переключать обычный и компактный вид в настройках клиента. При отключении Slim UI не включается в сборку.',
+        'slim_ui must be true or false.':'Параметр slim_ui должен быть true или false.',
+
         'Application logo: light theme (PNG)':'Логотип: светлая тема (PNG)',
         'Application logo: dark theme (PNG)':'Логотип: тёмная тема (PNG)',
         'Logo above Your Desktop. Select images for the light and dark themes. Windows x86 uses the light logo.':'Логотип над текстом «Ваш рабочий стол». Выберите изображения для светлой и тёмной темы. Windows x86 использует светлый логотип.',

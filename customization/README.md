@@ -48,21 +48,32 @@ control; the Android adapter opts out explicitly. Windows x86/Sciter is unchange
 Source compatibility checks cover RustDesk 1.5.0 and 1.5.1. Installed clients need
 a new build; a binary/runtime UI check is still required after compilation.
 
-## Optional Slim UI
-New Windows x64, Linux and macOS clients include **Настройки → Отображение →
-Интерфейс → Компактный интерфейс (Slim UI)**, off by default. The local preference
-persists under `rdgen-slim-ui-v1` and updates the main screen immediately.
-The local-ID/password/logo sidebar and all font sizes are unchanged. Slim UI
-reduces connection-panel padding, places the existing remote-ID field and actions
-beside each other when space permits. The field is bounded to 280 logical pixels;
-the account name and external web-panel login sit on the right (wrap below on narrow
-panels). The Ready footer is 28 pixels at normal text scale; device-list/group-row
-gaps and outer insets are aligned. Narrow panels wrap controls; grid
-card sizes and action menus are preserved. The Connect button keeps its original
-label, type size and controls, without an extra arrow or explanatory text.
+## Desktop account header and optional Slim UI
+Windows x64, Linux and macOS clients display the current client account name and
+an external **Войти в панель** link to https://desk.status16.ru/login in a shared
+row to the right of the connection panel. This module is independent of Slim UI
+and does not transfer the client token or perform browser login automatically.
+The name uses the existing reactive user model; signed-out clients show
+**Вход не выполнен**. Android and Windows x86/Sciter are unchanged.
 
-`slim_ui.py` is independent of UI profiles and applies before the colleagues
-clone is generated. An exact upstream remote-ID layout fingerprint and unique
-anchors reject changed layouts before writing source. RustDesk 1.5.0/1.5.1 are
-checked in CI; new bases need explicit compatibility review. Turning Slim UI off
-uses the original layout values. Android and Windows x86/Sciter are unchanged.
+In the constructor, enable **Добавить компактный интерфейс (Slim UI)** under
+appearance customization, or set `slim_ui: true` in the UI profile. Only then does
+the source staging step include Slim UI and its client checkbox at **Настройки →
+Отображение → Интерфейс → Компактный интерфейс (Slim UI)**. Missing or false means
+no Slim UI module, hooks, preference reads, translations or checkbox in the client.
+Old configurations remain valid and omit this optional feature by default.
+The client checkbox initially stays off; its existing local preference persists
+under `rdgen-slim-ui-v1` and updates the main screen immediately.
+
+Slim UI preserves the local-ID/password/logo sidebar and font sizes. It bounds
+the remote-ID field to 280 logical pixels, reduces panel padding and list gaps,
+and uses a 28-pixel Ready footer at normal text scale. Connection controls wrap
+inside their own area when needed; the account stays to the right in the shared
+row in both normal and compact modes. Grid sizes and action menus are preserved.
+
+`desktop_ui.py` stages the independent account header, then conditionally calls
+`slim_ui.py` before the colleagues clone is generated. The account header has its
+own small source anchor. The optional Slim UI fingerprint is checked only when
+that feature is requested; changed upstream compact layouts fail explicitly.
+RustDesk 1.5.0/1.5.1 are checked in CI. A binary/runtime UI check is still needed
+after compilation. New bases require compatibility review for enabled adapters.

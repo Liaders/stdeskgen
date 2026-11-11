@@ -7,5 +7,6 @@
   "group_width": 260,
   "address_book_width": 260,
   "resizable_panels": true,
-  "colleagues": true
+  "colleagues": true,
+  "slim_ui": true
 }
