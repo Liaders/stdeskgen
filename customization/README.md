@@ -54,8 +54,10 @@ New Windows x64, Linux and macOS clients include **Настройки → Ото
 persists under `rdgen-slim-ui-v1` and updates the main screen immediately.
 The local-ID/password/logo sidebar and all font sizes are unchanged. Slim UI
 reduces connection-panel padding, places the existing remote-ID field and actions
-beside each other when the panel is at least 520 logical pixels wide, and reduces
-device-list/group-row gaps. Narrow panels keep the vertical arrangement; grid
+beside each other when space permits. The field is bounded to 280 logical pixels;
+the account name and external web-panel login sit on the right (wrap below on narrow
+panels). The Ready footer is 28 pixels at normal text scale; device-list/group-row
+gaps and outer insets are aligned. Narrow panels wrap controls; grid
 card sizes and action menus are preserved. The Connect button keeps its original
 label, type size and controls, without an extra arrow or explanatory text.
 

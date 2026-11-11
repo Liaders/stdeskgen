@@ -45,10 +45,10 @@ def apply(root):
     );''', '''        if (!isOutgoingOnly) OnlineStatusWidget()
       ],
     ));''')
-    replace(connection, ').marginOnly(top: 22),', ').marginOnly(top: rdgenSlimUi.value ? 4 : 22),')
-    replace(connection, '            SizedBox(height: 12),', '            SizedBox(height: rdgenSlimUi.value ? 4 : 12),')
+    replace(connection, ').marginOnly(top: 22),', ').marginOnly(top: rdgenSlimUi.value ? 8 : 22),')
+    replace(connection, '            SizedBox(height: 12),', '            SizedBox(height: rdgenSlimUi.value ? 8 : 12),')
     replace(connection, '      width: 320 + 20 * 2,', '      width: rdgenSlimUi.value ? double.infinity : 320 + 20 * 2,')
-    replace(connection, '      padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),', '      padding: rdgenSlimUi.value ? const EdgeInsets.fromLTRB(12, 10, 12, 10) : const EdgeInsets.fromLTRB(20, 24, 20, 22),')
+    replace(connection, '      padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),', '      padding: rdgenSlimUi.value ? const EdgeInsets.all(12) : const EdgeInsets.fromLTRB(20, 24, 20, 22),')
     replace(connection, '''      child: Ink(
         child: Column(''', '''      child: Ink(
         child: RdgenConnectionLayout(''')
@@ -57,6 +57,16 @@ def apply(root):
                                   horizontal: 15, vertical: 13)''', '''contentPadding: EdgeInsets.symmetric(
                                   horizontal: 15, vertical: rdgenSlimUi.value ? 6 : 13)''')
     replace(connection, 'constraints: const BoxConstraints(maxWidth: 600), child: w', 'constraints: BoxConstraints(maxWidth: rdgenSlimUi.value ? double.infinity : 600), child: w')
+
+    replace(connection, 'double? get height => bind.isIncomingOnly() ? null : em * 3;',
+        'double? get height => bind.isIncomingOnly() ? null : rdgenSlimUi.value ? max(28.0, MediaQuery.textScalerOf(context).scale(em) + 8) : em * 3;')
+    replace(connection, 'Divider().paddingOnly(right: 12),', 'Divider(height: rdgenSlimUi.value ? 1 : null).paddingOnly(right: rdgenSlimUi.value ? 0 : 12),')
+    replace(connection, ').paddingOnly(left: 12.0)),', ').paddingOnly(left: 12.0, right: rdgenSlimUi.value ? 12.0 : 0)),')
+    replace(connection, 'padding: const EdgeInsets.only(top: 13.0),', 'padding: EdgeInsets.only(top: rdgenSlimUi.value ? 0 : 13.0),')
+    path = root/connection
+    if edits[path].count('height: 28.0,') != 2:
+        raise ValueError('Incompatible Slim UI connection actions')
+    edits[path] = edits[path].replace('height: 28.0,', 'height: rdgenSlimUi.value ? 44.0 : 28.0,')
 
     peers = 'flutter/lib/common/widgets/peers_view.dart'
     replace(peers, '  final space = (isDesktop || isWebDesktop) ? 12.0 : 8.0;', '''  final space = (isDesktop || isWebDesktop) ? 12.0 : 8.0;
@@ -68,7 +78,7 @@ def apply(root):
                               right: space,
                               top: index == 0 ? 0 : space / 2,
                               bottom: space / 2);''', '''                          return Obx(() => buildOnePeer(peers[index], false).marginOnly(
-                              right: _rdgenListSpace,
+                              right: rdgenSlimUi.value ? 0 : space,
                               top: index == 0 ? 0 : _rdgenListSpace / 2,
                               bottom: _rdgenListSpace / 2));''')
     tabs = 'flutter/lib/common/widgets/peer_tab_page.dart'
@@ -77,6 +87,7 @@ def apply(root):
             vertical: (isDesktop || isWebDesktop) ? 12.0 : 6.0));''', '''    return Expanded(
         child: Obx(() => child.marginSymmetric(
             vertical: rdgenSlimUi.value && isDesktop ? 4.0 : (isDesktop || isWebDesktop) ? 12.0 : 6.0)));''')
+    replace(tabs, ').paddingOnly(right: stateGlobal.isPortrait.isTrue ? 0 : 12)),', ').paddingOnly(right: rdgenSlimUi.value || stateGlobal.isPortrait.isTrue ? 0 : 12)),')
     group = root/'flutter/lib/common/widgets/my_group.dart'
     source = edits[group]
     first = '    return InkWell(onTap: () {'
@@ -90,7 +101,7 @@ def apply(root):
         _Checkbox(label: 'Compact interface (Slim UI)',
           getValue: () => rdgenSlimUi.value,
           setValue: setRdgenSlimUi),""")
-    translations = {'Compact interface (Slim UI)': 'Компактный интерфейс (Slim UI)'}
+    translations = {'Compact interface (Slim UI)': 'Компактный интерфейс (Slim UI)', 'Open web panel': 'Войти в панель', 'Not signed in': 'Вход не выполнен'}
     for path in (root/'src/lang').glob('*.rs'):
         if path.name == 'en.rs': continue
         source = edits.get(path, path.read_text(encoding='utf-8'))
