@@ -1,4 +1,7 @@
 import importlib.util
+import io
+import tarfile
+import shutil
 import json
 import os
 from pathlib import Path
@@ -15,6 +18,17 @@ from release import prepare, load_manifest
 spec = importlib.util.spec_from_file_location('update_adapter', Path(__file__).with_name('apply.py'))
 adapter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(adapter)
+
+
+def checkout(root):
+    source = Path(__file__).resolve().parents[2] / 'rustdesk'
+    names = ['Cargo.toml', 'src/updater.rs', 'src/common.rs', 'src/ipc.rs',
+             'src/ui_interface.rs', 'src/flutter_ffi.rs', 'src/ui/index.tis',
+             'flutter/lib/desktop/pages/desktop_home_page.dart', 'src/lang']
+    data = subprocess.check_output(['git','-c',f'safe.directory={source.as_posix()}',
+        '-C',str(source),'archive',os.environ.get('RUSTDESK_TEST_REF','HEAD'),*names])
+    with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+        archive.extractall(root,filter='data')
 
 
 class UpdateTests(unittest.TestCase):
@@ -83,11 +97,7 @@ class UpdateTests(unittest.TestCase):
     def test_adapter_is_opt_in_and_rejects_reapplying_without_partial_writes(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            source = Path(__file__).resolve().parents[2] / 'rustdesk'
-            for file in ('src/updater.rs', 'src/common.rs', 'Cargo.toml'):
-                target = root / file
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(subprocess.check_output(['git', '-c', f'safe.directory={source.as_posix()}', '-C', str(source), 'show', os.environ.get('RUSTDESK_TEST_REF', 'HEAD') + ':' + file]))
+            checkout(root)
             before = (root / 'src/updater.rs').read_bytes()
             adapter.apply(root, None)
             self.assertEqual(before, (root / 'src/updater.rs').read_bytes())
@@ -101,6 +111,72 @@ class UpdateTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 adapter.apply(root, self.config)
             self.assertEqual(after, (root / 'src/updater.rs').read_bytes())
+
+    def test_manual_controls_use_service_channel_and_shared_verified_installer(self):
+        for platform in ('windows', 'windows-x86'):
+            with self.subTest(platform=platform), tempfile.TemporaryDirectory() as temporary:
+                root=Path(temporary); checkout(root)
+                adapter.apply(root,self.config,platform)
+                generated=(root/'src/rdgen_update.rs').read_text(encoding='utf-8')
+                self.assertIn('if !manually && !config::Config::get_bool_option',generated)
+                self.assertEqual(generated.count('Close active sessions before updating'),2)
+                self.assertIn('RUNNING.compare_exchange',generated)
+                self.assertIn('Update SHA-256 mismatch',generated)
+                self.assertIn('if install { check_inner(true) } else { probe() }',generated)
+                self.assertIn('manual_command(&name)',(root/'src/ipc.rs').read_text(encoding='utf-8'))
+                self.assertIn('crate::ipc::get_config(key.as_ref())',(root/'src/ui_interface.rs').read_text(encoding='utf-8'))
+                if sys.platform != 'win32' and shutil.which('rustfmt'):
+                    for name in ['src/rdgen_update.rs','src/updater.rs','src/ipc.rs','src/ui_interface.rs','src/flutter_ffi.rs']:
+                        subprocess.run(['rustfmt','--edition','2021','--emit','stdout','--config','skip_children=true',str(root/name)],check=True,capture_output=True,timeout=60)
+                if platform=='windows-x86':
+                    script=(root/'src/ui/index.tis').read_text(encoding='utf-8')
+                    self.assertIn('class RdgenUpdateCard: Reactor.Component',script)
+                    self.assertIn('handler.get_option(command)',script)
+                    self.assertIn('<InstallMe />',script)
+                else:
+                    card=root/'flutter/lib/models/rdgen_update_card.dart'
+                    self.assertIn('bind.mainGetCommon(key: command)',card.read_text(encoding='utf-8'))
+                    if shutil.which('dart'):
+                        for path in [card,root/'flutter/lib/desktop/pages/desktop_home_page.dart']:
+                            subprocess.run(['dart','format','--output=none',str(path)],check=True,capture_output=True,timeout=60)
+
+    def test_initial_schedule_retries_busy_or_failed_check_in_thirty_minutes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary); checkout(root); adapter.apply(root,self.config)
+            source=(root/'src/updater.rs').read_text(encoding='utf-8')
+            start=source.index('    let initial_check_succeeded =')
+            body=source[start:source.index('    loop {',start)]
+            self.assertIn('if !has_no_active_conns()',body)
+            self.assertIn('else { RETRY_INTERVAL }',body)
+            if sys.platform=='win32' or not shutil.which('rustc'): return
+            harness=r"""extern crate self as log;
+#[macro_export] macro_rules! error { ($($t:tt)*) => { () }; }
+use std::time::{Duration,Instant};
+use std::sync::atomic::{AtomicBool,AtomicUsize,Ordering};
+static ACTIVE: AtomicBool=AtomicBool::new(false);
+static ERROR: AtomicBool=AtomicBool::new(false);
+static CALLS: AtomicUsize=AtomicUsize::new(0);
+const DUR_ONE_DAY:Duration=Duration::from_secs(86400);
+const RETRY_INTERVAL:Duration=Duration::from_secs(1800);
+fn has_no_active_conns()->bool { !ACTIVE.load(Ordering::SeqCst) }
+fn check_update(_:bool)->Result<(),&'static str> {
+ CALLS.fetch_add(1,Ordering::SeqCst);
+ if ERROR.load(Ordering::SeqCst) {Err("offline")}else{Ok(())}
+}
+fn tested()->Duration {
+"""+body+r"""check_interval }
+fn main(){
+ assert_eq!(tested(),DUR_ONE_DAY);
+ ERROR.store(true,Ordering::SeqCst); assert_eq!(tested(),RETRY_INTERVAL);
+ let before=CALLS.load(Ordering::SeqCst);
+ ACTIVE.store(true,Ordering::SeqCst); assert_eq!(tested(),RETRY_INTERVAL);
+ assert_eq!(CALLS.load(Ordering::SeqCst),before);
+}
+"""
+            path=root/'retry_test.rs'; path.write_text(harness,encoding='utf-8')
+            binary=root/'retry-test'
+            subprocess.run(['rustc','--edition=2021',str(path),'-o',str(binary)],check=True,capture_output=True,timeout=60)
+            subprocess.run([str(binary)],check=True,capture_output=True,timeout=30)
 
     @unittest.skipIf(sys.platform == 'win32', 'Apache publication uses Linux file locking')
     def test_publication_is_monotonic_and_rejects_corrupt_files(self):

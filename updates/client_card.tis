@@ -1,0 +1,40 @@
+class RdgenUpdateCard: Reactor.Component {
+    this var status = "idle";
+    this var version = "";
+    this var message = "";
+
+    function render() {
+        var busy = status == "checking" || status == "downloading";
+        var labels = { checking: "Checking for updates", downloading: "Downloading update",
+            installing: "Starting update installation", current: "Latest version installed",
+            available: "New version available", error: "Update check failed" };
+        return <div style="padding:8px 20px 12px 20px">
+            {status != "idle" ? <div>{translate(labels[status] || "Update check failed")}{status == "available" ? " " + version : ""}</div> : ""}
+            {message ? <div>{translate(message)}</div> : ""}
+            <button #rdgen-update-action disabled={busy || status == "installing" ? "true" : "false"}>{translate(status == "available" ? "Update" : "Check for updates")}</button>
+        </div>;
+    }
+
+    function request(command) {
+        try {
+            var data = JSON.parse(handler.get_option(command));
+            status = data.status || "error";
+            version = data.version || "";
+            message = data.message || "";
+        } catch (_) {
+            status = "error";
+            message = "Update service is unavailable";
+        }
+        this.update();
+        if (status == "checking" || status == "downloading") {
+            var me = this;
+            self.timer(1s, function() {
+                if ($(#rdgen-update-action)) me.request("rdgen-update-status");
+            });
+        }
+    }
+
+    event click $(#rdgen-update-action) {
+        this.request(status == "available" ? "rdgen-update-install" : "rdgen-update-check");
+    }
+}

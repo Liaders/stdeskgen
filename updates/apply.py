@@ -38,13 +38,36 @@ def apply(root, config, platform='windows'):
     module = module.replace('@INSTALL_VERIFIED_UPDATE@', install_call)
     for name, field in [('BASE', 'base_url'), ('PRODUCT', 'product'), ('CHANNEL', 'channel'), ('REVISION', 'revision')]:
         module = module.replace('@' + name + '@', json.dumps(config[field]))
-    hook = '#[cfg(target_os = "windows")]\n#[path = "rdgen_update.rs"]\nmod rdgen_update;\n'
+    hook = '#[cfg(target_os = "windows")]\n#[path = "rdgen_update.rs"]\npub(crate) mod rdgen_update;\n'
     source = hook + source.replace(anchor, '    #[cfg(target_os = "windows")]\n    return rdgen_update::check();\n\n' + anchor, 1)
+    initial = """    if let Err(e) = check_update(false) {
+        log::error!("Error checking for updates: {}", e);
+    }
+
+    let mut last_check_time = Instant::now();
+    let mut check_interval = DUR_ONE_DAY;"""
+    if source.count(initial) != 1:
+        raise ValueError('Incompatible initial update schedule')
+    source = source.replace(initial, """    let initial_check_succeeded = if !has_no_active_conns() {
+        false
+    } else if let Err(e) = check_update(false) {
+        log::error!("Error checking for updates: {}", e);
+        false
+    } else {
+        true
+    };
+
+    let mut last_check_time = Instant::now();
+    let mut check_interval = if initial_check_succeeded { DUR_ONE_DAY } else { RETRY_INTERVAL };""", 1)
     # Quote the installer path: the Windows user profile/temp path may contain spaces.
     source = source.replace('&format!("{} --update", p)', '&format!("\\\"{}\\\" --update", p)')
-    (root / 'src/rdgen_update.rs').write_text(module, encoding='utf-8')
-    updater.write_text(source, encoding='utf-8')
-    common.write_text(common_source.replace(stock_check, stock_check + '\n    return Ok(()); // The StatusDesk updater owns this build.', 1), encoding='utf-8')
+    edits = {root/'src/rdgen_update.rs': module, updater: source,
+             common: common_source.replace(stock_check, stock_check + '\n    return Ok(()); // The StatusDesk updater owns this build.', 1)}
+    from manual import stage
+    stage(root, edits, platform)
+    for path, text in edits.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding='utf-8')
     receipt = {**config, 'schema': 2, 'platform': target_platform}
     (root / 'stdesk-update-build.json').write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
 

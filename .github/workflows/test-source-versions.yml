@@ -5,6 +5,7 @@ on:
     branches: [master]
     paths:
       - 'customization/**'
+      - 'updates/**'
       - '.github/workflows/test-source-versions.yml'
 permissions:
   contents: read

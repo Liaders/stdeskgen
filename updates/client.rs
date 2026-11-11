@@ -1,7 +1,7 @@
 use hbb_common::{bail, config, ResultType};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
-use std::{fs::OpenOptions, io::{Read, Write}, os::windows::fs::OpenOptionsExt, time::Duration};
+use std::{fs::OpenOptions, io::{Read, Write}, os::windows::fs::OpenOptionsExt, time::Duration, sync::{Mutex, atomic::{AtomicBool, Ordering}}};
 
 const BASE: &str = @BASE@;
 const PRODUCT: &str = @PRODUCT@;
@@ -25,13 +25,61 @@ fn read_bounded(mut reader: impl Read, limit: u64) -> ResultType<Vec<u8>> {
     Ok(bytes)
 }
 
-pub(super) fn check() -> ResultType<()> {
-    if !crate::platform::is_installed() || !crate::is_server() || !super::has_no_active_conns() {
-        return Ok(());
+lazy_static::lazy_static! {
+    static ref STATUS: Mutex<String> = Mutex::new(serde_json::json!({"status":"idle"}).to_string());
+}
+static RUNNING: AtomicBool = AtomicBool::new(false);
+struct Running;
+impl Drop for Running {
+    fn drop(&mut self) { RUNNING.store(false, Ordering::Release); }
+}
+fn begin() -> ResultType<Running> {
+    if RUNNING.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire).is_err() {
+        bail!("An update check is already running");
+    }
+    Ok(Running)
+}
+fn status() -> String {
+    match STATUS.lock() {
+        Ok(value) => value.clone(),
+        Err(_) => serde_json::json!({"status":"error","message":"Update status unavailable"}).to_string(),
+    }
+}
+fn set_status(state: &str, version: &str, message: &str) {
+    if let Ok(mut value) = STATUS.lock() {
+        *value = serde_json::json!({"status":state,"version":version,"message":message}).to_string();
+    } else {
+        hbb_common::log::warn!("Cannot store update status");
+    }
+}
+pub(crate) fn manual_command(command: &str) -> String {
+    if command == "rdgen-update-status" { return status(); }
+    let guard = match begin() { Ok(value) => value, Err(_) => return status() };
+    let install = command == "rdgen-update-install";
+    set_status(if install { "downloading" } else { "checking" }, "", "");
+    std::thread::spawn(move || {
+        let _guard = guard;
+        let result = if install { check_inner(true) } else { probe() };
+        if let Err(error) = result {
+            hbb_common::log::warn!("Manual StatusDesk update: {}", error);
+            set_status("error", "", &error.to_string());
+        }
+    });
+    status()
+}
+fn ensure_installation() -> ResultType<()> {
+    if !crate::platform::is_installed() || !crate::is_server() {
+        bail!("Installed StatusDesk service is required");
+    }
+    if config::is_disable_installation() {
+        bail!("Installation is disabled by policy");
     }
     if crate::platform::is_msi_installed()? {
         bail!("StatusDesk EXE updates do not support MSI installations yet");
     }
+    Ok(())
+}
+fn fetch_release() -> ResultType<(reqwest::blocking::Client, Release)> {
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(600))
         .connect_timeout(Duration::from_secs(20))
@@ -46,7 +94,30 @@ pub(super) fn check() -> ResultType<()> {
         || release.sha256.len() != 64
         || release.filename != format!("client-{}.exe", PLATFORM)
     { bail!("Update metadata does not match this client"); }
-    if release.revision <= REVISION { return Ok(()); }
+    Ok((client, release))
+}
+fn probe() -> ResultType<()> {
+    ensure_installation()?;
+    let (_, release) = fetch_release()?;
+    set_status(if release.revision > REVISION { "available" } else { "current" }, &release.version, "");
+    Ok(())
+}
+pub(super) fn check() -> ResultType<()> {
+    let _guard = begin()?;
+    set_status("checking", "", "");
+    let result = check_inner(false);
+    if let Err(error) = &result { set_status("error", "", &error.to_string()); }
+    result
+}
+fn check_inner(manually: bool) -> ResultType<()> {
+    ensure_installation()?;
+    if !super::has_no_active_conns() { bail!("Close active sessions before updating"); }
+    let (client, release) = fetch_release()?;
+    if release.revision <= REVISION {
+        set_status("current", &release.version, "");
+        return Ok(());
+    }
+    set_status("downloading", &release.version, "");
     let download = format!("{}/releases/{}/{}/{}/{}/{}", BASE, PRODUCT, CHANNEL, PLATFORM, release.revision, release.filename);
     let response = client.get(download).send()?.error_for_status()?;
     if response.content_length().map(|n| n != release.size).unwrap_or(false) {
@@ -74,10 +145,11 @@ pub(super) fn check() -> ResultType<()> {
         if hex::encode(hash.finalize()) != release.sha256 {
             bail!("Update SHA-256 mismatch");
         }
-        if !super::has_no_active_conns()
-            || !config::Config::get_bool_option(base::config::keys::OPTION_ALLOW_AUTO_UPDATE) {
-            return Ok(());
+        if !super::has_no_active_conns() { bail!("Close active sessions before updating"); }
+        if !manually && !config::Config::get_bool_option(base::config::keys::OPTION_ALLOW_AUTO_UPDATE) {
+            bail!("Auto update was disabled before installation");
         }
+        set_status("installing", &release.version, "");
         @INSTALL_VERIFIED_UPDATE@
         Ok(())
     })();
