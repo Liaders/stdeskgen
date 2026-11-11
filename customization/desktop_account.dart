@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../common/widgets/login.dart' show loginDialog;
 import '../common.dart' show gFFI, translate;
 
 class RdgenDesktopAccount extends StatelessWidget {
@@ -19,7 +20,13 @@ class RdgenDesktopAccount extends StatelessWidget {
             maxLines: 1, overflow: TextOverflow.ellipsis)),
         ]),
         const SizedBox(height: 8),
-        OutlinedButton.icon(
+        if (!gFFI.userModel.isLogin)
+          OutlinedButton.icon(
+            onPressed: loginDialog,
+            icon: const Icon(Icons.login, size: 16),
+            label: Text(translate('Login')),
+          )
+        else OutlinedButton.icon(
           onPressed: () async {
             var opened = false;
             try {

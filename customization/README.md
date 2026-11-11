@@ -54,7 +54,10 @@ an external **Войти в панель** link to https://desk.status16.ru/logi
 row to the right of the connection panel. This module is independent of Slim UI
 and does not transfer the client token or perform browser login automatically.
 The name uses the existing reactive user model; signed-out clients show
-**Вход не выполнен**. Android and Windows x86/Sciter are unchanged.
+**Вход не выполнен** with a **Войти** button using the existing client
+`loginDialog`, just like Accessible devices. The web-panel link is shown only
+after client login; the reactive header updates after login/logout.
+Android and Windows x86/Sciter are unchanged.
 
 In the constructor, enable **Добавить компактный интерфейс (Slim UI)** under
 appearance customization, or set `slim_ui: true` in the UI profile. Only then does
