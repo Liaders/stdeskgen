@@ -61,7 +61,7 @@ class RdgenConnectionLayout extends StatelessWidget {
           ],
         )),
       );
-      if (constraints.maxWidth >= 800) {
+      if (constraints.maxWidth >= 760) {
         return Row(crossAxisAlignment: CrossAxisAlignment.end,
           children: [field, const SizedBox(width: 12), actions,
             const Spacer(), account]);
