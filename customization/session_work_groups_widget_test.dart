@@ -85,6 +85,7 @@ void main() {
     expect(disconnects, 2);
 
     // The native CustomAlertDialog Escape handler invokes onCancel.
+    stale = false;
     flow = rdgenChooseWorkGroup(session(), manager, () => true, onDisconnect: disconnect);
     await tester.pumpAndSettle();
     tester.widget<CustomAlertDialog>(find.byType(CustomAlertDialog)).onCancel!();

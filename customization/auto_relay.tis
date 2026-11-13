@@ -1,7 +1,7 @@
 var rdgenAutoRelayTried = false;
 function rdgenRelayNetworkError(message) {
     var text = (message || "").toLowerCase();
-    for (var word in ["password", "permission", "denied", "authentication", "rejected", "offline", "not exist", "blocked"]) {
+    for (var word in ["password", "permission", "denied", "authentication", "rejected", "offline", "not exist", "blocked", "not allowed"]) {
         if (text.indexOf(word) >= 0) return false;
     }
     for (var word in ["reset by the peer", "connection reset", "timed out", "timeout", "deadline"]) {
