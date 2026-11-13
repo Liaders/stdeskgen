@@ -1,7 +1,7 @@
 pub(crate) fn is_transport_error(error: &str) -> bool {
     let error = error.to_ascii_lowercase();
     if ["password", "permission", "denied", "authentication", "rejected", "offline", "not exist", "blocked", "not allowed"]
-        .iter().any(|word| error.contains(word)) {
+        .iter().any(|word| error.contains(*word)) {
         return false;
     }
     error.contains("reset by the peer")
