@@ -5,6 +5,8 @@ on:
     branches: [master]
     paths:
       - 'customization/session_work_groups*'
+      - 'customization/work_group_origin*'
+      - 'customization/organization*'
       - 'customization/test_session_work_groups.py'
       - '.github/workflows/test-session-work-groups.yml'
 permissions:

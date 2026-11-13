@@ -1,6 +1,7 @@
 """Groups-only desktop view over the existing server-authorized device groups."""
 import json
 import re
+from pathlib import Path
 
 
 def add_organizations(root, edits, replace):
@@ -21,8 +22,18 @@ def add_organizations(root, edits, replace):
     change('  RxString get searchAccessibleItemNameText =>\n      gFFI.groupModel.searchAccessibleItemNameText;',
            "  final searchAccessibleItemNameText = ''.obs;")
     change('static TextEditingController searchUserController', 'final TextEditingController searchUserController')
+    change('  Widget _buildLandscape() {', '''  late final RdgenOrganizationData _organizationData;
+
+  @override
+  void initState() {
+    super.initState();
+    _organizationData = RdgenOrganizationData();
+  }
+
+  Widget _buildLandscape() {''')
     change('  Widget _buildLandscape() {', '''  @override
   void dispose() {
+    _organizationData.dispose();
     searchUserController.dispose();
     super.dispose();
   }
@@ -50,25 +61,45 @@ def add_organizations(root, edits, replace):
                 final search = searchAccessibleItemNameText.value.toLowerCase();
                 return RdgenOrganizationsPeerView(
                   key: ValueKey('$selected/$search'),
-                  selected: selected, search: search,
+                  selected: selected, search: search, organizations: _organizationData.groups,
                   menuPadding: widget.menuPadding);
               })''', 2)
-    change("import '../../common.dart';", "import '../../common.dart';\nimport '../../models/peer_model.dart';\nimport '../../models/peer_tab_model.dart';\nimport 'peer_card.dart';")
+    change("import '../../common.dart';", "import '../../common.dart';\nimport '../../models/peer_model.dart';\nimport '../../models/peer_tab_model.dart';\nimport '../../models/rdgen_organization_catalog.dart';\nimport '../../models/rdgen_organization_data.dart';\nimport '../../models/rdgen_work_group_origin.dart';\nimport 'peer_card.dart';")
+    change('final deviceGroupItems = gFFI.groupModel.deviceGroups.where', 'final deviceGroupItems = _organizationData.groups.where')
+    change('Widget _buildDeviceGroupItem(DeviceGroupPayload deviceGroup)', 'Widget _buildDeviceGroupItem(WorkOrganization deviceGroup)')
+    change('    final name = deviceGroup.name;', '    final name = deviceGroup.name;\n    final selectionKey = deviceGroup.selectionKey;')
+    change('selectedAccessibleItemName.value != name', 'selectedAccessibleItemName.value != selectionKey')
+    change('selectedAccessibleItemName.value = name;', 'selectedAccessibleItemName.value = selectionKey;')
+    change('selectedAccessibleItemName.value == name', 'selectedAccessibleItemName.value == selectionKey')
+    change('          Expanded(\n              child: Obx', '''          buildErrorBanner(context, loading: _organizationData.loading,
+              err: _organizationData.error, retry: _organizationData.reload,
+              close: () => _organizationData.error.value = ''),
+          Expanded(
+              child: Obx''')
     source += '''
 class RdgenOrganizationsPeerView extends BasePeersView {
   RdgenOrganizationsPeerView({Key? key, required String selected,
-      required String search, EdgeInsets? menuPadding}) : super(
+      required String search, required List<WorkOrganization> organizations,
+      EdgeInsets? menuPadding}) : super(
     key: key,
     peerTabIndex: PeerTabIndex.group,
-    peerFilter: (Peer peer) => gFFI.groupModel.deviceGroups.any((group) =>
-      group.name == peer.device_group_name &&
-      (selected.isEmpty || group.name == selected) &&
+    peerFilter: (Peer peer) => organizations.any((group) =>
+      group.peerIds.contains(peer.id) &&
+      (selected.isEmpty || group.selectionKey == selected) &&
       (search.isEmpty || group.name.toLowerCase().contains(search))),
-    peerCardBuilder: (Peer peer) => MyGroupPeerCard(
-      peer: peer, menuPadding: menuPadding));
+    peerCardBuilder: (Peer peer) {
+      final card = MyGroupPeerCard(peer: peer, menuPadding: menuPadding);
+      final origins = organizations.where((group) => group.selectionKey == selected &&
+          group.peerIds.contains(peer.id) && group.id != null);
+      return origins.isEmpty ? card : RdgenWorkGroupOrigin(
+          groupId: origins.first.id!, child: card);
+    });
 }
 '''
     edits[root/'flutter/lib/common/widgets/rdgen_organizations.dart'] = source
+    for name in ['organization_catalog', 'organization_data', 'work_group_origin']:
+        edits[root/f'flutter/lib/models/rdgen_{name}.dart'] = Path(__file__).with_name(name+'.dart').read_text(encoding='utf-8')
+    edits[root/'flutter/lib/models/rdgen_session_work_groups.dart'] = Path(__file__).with_name('session_work_groups.dart').read_text(encoding='utf-8')
 
     model = 'flutter/lib/models/peer_tab_model.dart'
     original = edits.get(root/model, (root/model).read_text(encoding='utf-8'))
@@ -101,9 +132,9 @@ class RdgenOrganizationsPeerView extends BasePeersView {
     for path in (root/'src/lang').glob('*.rs'):
         if path.name == 'en.rs': continue
         text = edits.get(path, path.read_text(encoding='utf-8'))
-        if '"Organizations"' in text: continue
         anchor = '    ].iter().cloned().collect();'
         if text.count(anchor) != 1: raise ValueError('Incompatible organizations translation')
         prefix, suffix = text.split(anchor)
-        value = 'Организации' if path.name == 'ru.rs' else ''
-        edits[path] = prefix.rstrip().removesuffix(',')+',\n        ("Organizations", '+json.dumps(value,ensure_ascii=False)+'),\n'+anchor+suffix
+        translations = {'Organizations': 'Организации', 'Failed to load organizations': 'Не удалось загрузить организации'}
+        entries = ''.join('\n        ('+json.dumps(k)+', '+json.dumps(v if path.name == 'ru.rs' else '', ensure_ascii=False)+'),' for k, v in translations.items() if '"'+k+'"' not in text)
+        edits[path] = prefix.rstrip().removesuffix(',')+','+entries+'\n'+anchor+suffix

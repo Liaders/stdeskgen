@@ -20,8 +20,11 @@ class OrganizationsTests(unittest.TestCase):
                 self.assertNotIn('_buildUserItem', view)
                 self.assertNotIn('groupModel.users', view)
                 self.assertIn('itemCount: deviceGroupItems.length', view)
-                self.assertIn('gFFI.groupModel.deviceGroups.any((group)', view)
-                self.assertIn('group.name == peer.device_group_name', view)
+                self.assertIn('organizations.any((group)', view)
+                self.assertIn('group.peerIds.contains(peer.id)', view)
+                self.assertIn('group.selectionKey == selected', view)
+                self.assertIn('groupId: origins.first.id!', view)
+                self.assertIn('_organizationData.groups', view)
                 self.assertIn("final selectedAccessibleItemName = ''.obs;", view)
                 self.assertIn('rdgen-panel-organizations-width-v1', view)
                 self.assertEqual(view.count("key: ValueKey('$selected/$search')"), 2)
@@ -33,7 +36,7 @@ class OrganizationsTests(unittest.TestCase):
                 self.assertIn('Icons.apartment_outlined', model)
                 self.assertIn('Организации', (root/'src/lang/ru.rs').read_text(encoding='utf-8'))
                 if shutil.which('dart'):
-                    for name in ['common/widgets/rdgen_organizations.dart', 'common/widgets/peer_tab_page.dart', 'models/peer_tab_model.dart']:
+                    for name in ['common/widgets/rdgen_organizations.dart', 'common/widgets/peer_tab_page.dart', 'models/peer_tab_model.dart', 'models/rdgen_organization_catalog.dart', 'models/rdgen_organization_data.dart', 'models/rdgen_work_group_origin.dart']:
                         subprocess.run(['dart','format','--output=none',str(root/'flutter/lib'/name)],check=True,capture_output=True,timeout=60)
 
     def test_initial_order_migrates_once_without_touching_visibility(self):

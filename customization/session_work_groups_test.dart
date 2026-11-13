@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'rdgen_session_work_groups.dart';
+import 'rdgen_organization_catalog.dart';
 
 void check(bool condition) {
   if (!condition) throw StateError('Session accounting contract violated');
@@ -65,6 +66,19 @@ Future<void> main() async {
       WorkGroupReply(uri.path.endsWith('/active') ? 200 : 404, '"guid"'));
   check(await old.resolve());
   check(await old.read() == null);
+  final catalog = await loadWorkOrganizations(Uri.parse('https://console.test/prefix'), 'operator',
+      (_, uri, token, body) async {
+    check(uri.path == '/prefix/api/statusdesk/organizations');
+    check(token == 'operator');
+    final first = uri.queryParameters['current'] == '1';
+    return WorkGroupReply(200, first
+        ? '{"total":2,"data":[{"id":7,"name":"A","peer_ids":["123","123"]}]}'
+        : '{"total":2,"data":[{"id":8,"name":"B","peer_ids":["123"]}]}');
+  }, () => true);
+  check(catalog!.length == 2 && catalog.every((g) => g.peerIds.contains('123')));
+  check(catalog.first.peerIds.length == 1);
+  check(await loadWorkOrganizations(Uri.parse('https://console.test'), 'operator',
+      (_, uri, token, body) async => WorkGroupReply(404, '{}'), () => true) == null);
   for (final code in [401, 403, 500, 200]) {
     final failed = make('44', transport: (method, uri, token, body) async =>
         WorkGroupReply(method == 'PUT' ? code : 200,

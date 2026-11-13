@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 
-def apply(root):
+def apply(root, desktop=True):
     edits = {}
     path = root/'flutter/lib/models/model.dart'
     source = path.read_text(encoding='utf-8')
@@ -16,6 +16,7 @@ def apply(root):
 
     replace("import 'dart:async';", "import 'dart:async';\nimport 'rdgen_session_work_groups.dart';\nimport 'rdgen_session_work_groups_ui.dart';")
     replace('  void _queryAuditGuid(String peerId) async {', '''  String? _rdgenWorkGroupConnectionId;
+  int? rdgenPreferredWorkGroupId;
 
   WorkGroupSession? _rdgenCaptureWorkGroup(String peerId) {
     if (bind.isDisableAccount()) return null;
@@ -42,7 +43,8 @@ def apply(root):
             : await http.get(uri, headers: headers);
         return WorkGroupReply(response.statusCode, response.body);
       }, () => !bind.isDisableAccount() &&
-          bind.mainGetLocalOption(key: 'access_token') == token);
+          bind.mainGetLocalOption(key: 'access_token') == token,
+      preferredGroupId: rdgenPreferredWorkGroupId);
   }
 
   void _queryAuditGuid(String peerId) async {''')
@@ -65,6 +67,8 @@ def apply(root):
         'Organization not selected': 'Организация не выбрана',
         'Available organizations changed. Please choose again.': 'Список организаций изменился. Выберите заново.',
         'Could not save the organization. Please try again.': 'Не удалось сохранить организацию. Повторите попытку.',
+        'Selected from the current tab': 'Выбрана по текущей вкладке',
+        'Do not select': 'Не выбирать',
     }
     for path in (root/'src/lang').glob('*.rs'):
         if path.name == 'en.rs':
@@ -78,3 +82,6 @@ def apply(root):
         edits[path] = prefix.rstrip().removesuffix(',')+','+entries+'\n'+anchor+suffix
     for path, text in edits.items():
         path.write_text(text, encoding='utf-8')
+    if desktop:
+        from work_group_origin import apply as apply_origin
+        apply_origin(root)

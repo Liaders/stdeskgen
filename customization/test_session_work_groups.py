@@ -35,8 +35,18 @@ class SessionWorkGroupTests(unittest.TestCase):
             apply_titles(root)
             apply_desktop(root, {'slim_ui': True})
             apply_profile(root, '1.5.1', {'schema_version': 1, 'device_names': True, 'colleagues': True, 'organizations': True})
+            self.assertIn('preferredGroupId: rdgenPreferredWorkGroupId', text)
+            # Every desktop session type carries the hint through initial and reused windows.
+            for kind in ['remote', 'file_manager', 'view_camera', 'port_forward', 'terminal']:
+                tab = (root/f'flutter/lib/desktop/pages/{kind}_tab_page.dart').read_text(encoding='utf-8')
+                self.assertIn("rdgenWorkGroupId: params['rdgen_work_group_id']", tab)
+                self.assertIn("rdgenWorkGroupId: args['rdgen_work_group_id']", tab)
             if shutil.which('dart'):
-                for file in [path, *path.parent.glob('rdgen_session_work_groups*.dart')]:
+                files = [path, root/'flutter/lib/common.dart', root/'flutter/lib/utils/multi_window_manager.dart',
+                         *path.parent.glob('rdgen_*.dart')]
+                files += [p for p in (root/'flutter/lib/desktop/pages').glob('*.dart')
+                          if 'rdgenWorkGroupId' in p.read_text(encoding='utf-8')]
+                for file in files:
                     subprocess.run(['dart', 'format', '--output=none', str(file)], check=True, capture_output=True, timeout=60)
 
     @unittest.skipUnless(shutil.which('dart'), 'Dart SDK is available on CI')
@@ -44,6 +54,7 @@ class SessionWorkGroupTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for src, dst in [('session_work_groups.dart', 'rdgen_session_work_groups.dart'),
+                             ('organization_catalog.dart', 'rdgen_organization_catalog.dart'),
                              ('session_work_groups_test.dart', 'test.dart')]:
                 shutil.copyfile(Path(__file__).with_name(src), root/dst)
             subprocess.run(['dart', str(root/'test.dart')], check=True, timeout=60)
@@ -54,7 +65,7 @@ class SessionWorkGroupTests(unittest.TestCase):
             root = Path(directory)
             (root/'lib/models').mkdir(parents=True)
             (root/'test').mkdir()
-            for name in ['session_work_groups', 'session_work_groups_ui']:
+            for name in ['session_work_groups', 'session_work_groups_ui', 'work_group_origin']:
                 shutil.copyfile(Path(__file__).with_name(name+'.dart'), root/f'lib/models/rdgen_{name}.dart')
             shutil.copyfile(Path(__file__).with_name('session_work_groups_widget_test.dart'), root/'test/picker_test.dart')
             (root/'pubspec.yaml').write_text('name: session_work_groups_test\nenvironment:\n  sdk: ">=3.5.0 <4.0.0"\ndependencies:\n  flutter:\n    sdk: flutter\ndev_dependencies:\n  flutter_test:\n    sdk: flutter\n', encoding='utf-8')

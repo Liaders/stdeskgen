@@ -17,7 +17,12 @@ Future<void> rdgenChooseWorkGroup(WorkGroupSession session,
       groups = WorkGroupSession.choices(state);
     }
     if (!canPrompt() || !session.authorized()) return;
-    int? selected;
+    int? selected = session.preferredChoice(groups);
+    final origin = selected;
+    if (origin != null) {
+      groups = [...groups.where((g) => g['id'] == origin),
+                ...groups.where((g) => g['id'] != origin)];
+    }
     var busy = false;
     var closed = false;
     String? error;
@@ -67,6 +72,7 @@ Future<void> rdgenChooseWorkGroup(WorkGroupSession session,
                   children: groups.map((g) => RadioListTile<int>(
                     value: g['id'] as int, groupValue: selected,
                     title: Text(g['name'] as String), dense: true,
+                    subtitle: g['id'] == origin ? Text(translate('Selected from the current tab')) : null,
                     onChanged: busy ? null : (value) => setState(() { selected = value; }),
                   )).toList()))),
               if (busy) const LinearProgressIndicator(),
@@ -74,9 +80,9 @@ Future<void> rdgenChooseWorkGroup(WorkGroupSession session,
                 child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
             ])),
           actions: [
-            TextButton(onPressed: cancel, child: Text(translate('Cancel'))),
+            TextButton(onPressed: cancel, child: Text(translate('Do not select'))),
             ElevatedButton(onPressed: busy || selected == null || !session.authorized() ? null : submit,
-              child: Text(translate('Save'))),
+              child: Text(translate('Confirm'))),
           ],
         );
       }, tag: 'statusdesk-work-group-${session.connectionId}', backDismiss: true);

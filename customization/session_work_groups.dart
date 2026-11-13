@@ -16,10 +16,15 @@ class WorkGroupSession {
   final int connectionType;
   final WorkGroupRequest request;
   final bool Function() authorized;
+  final int? preferredGroupId;
   String? _guid;
 
   WorkGroupSession(this.audit, this.peerId, this.connectionId,
-      this.connectionType, this.token, this.request, this.authorized);
+      this.connectionType, this.token, this.request, this.authorized,
+      {this.preferredGroupId});
+
+  int? preferredChoice(List<Map<String, dynamic>> groups) =>
+      groups.any((g) => g['id'] == preferredGroupId) ? preferredGroupId : null;
 
   void _check() {
     if (!authorized()) throw StateError('Account changed');
