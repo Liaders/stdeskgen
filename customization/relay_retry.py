@@ -91,7 +91,7 @@ def apply(root, edits):
     if source.count(hook) != 1: raise ValueError('Incompatible automatic relay hook')
     source = source.replace(hook, '''      String peerId) async {
     // Native relay hints are emitted only after a failed direct transport.
-    if (_rdgenAutoRelay.begin(text)) {
+    if (parent.target?.closed == false && _rdgenAutoRelay.begin(text)) {
       reconnect(dialogManager, sessionId, true);
       return;
     }
