@@ -95,8 +95,8 @@ void main() {
     expect(RdgenWorkGroupOrigin.read(organizationContext), 7);
     expect(RdgenWorkGroupOrigin.read(otherContext), isNull);
     final launches = await Future.wait([
-      runZoned(() async { await Future<void>.delayed(Duration.zero); return rdgenLaunchingWorkGroup; }, zoneValues: {rdgenWorkGroupZoneKey: 7}),
-      runZoned(() async { await Future<void>.delayed(Duration.zero); return rdgenLaunchingWorkGroup; }, zoneValues: {rdgenWorkGroupZoneKey: 8}),
+      runZoned(() async { await Future<void>.value(); return rdgenLaunchingWorkGroup; }, zoneValues: {rdgenWorkGroupZoneKey: 7}),
+      runZoned(() async { await Future<void>.value(); return rdgenLaunchingWorkGroup; }, zoneValues: {rdgenWorkGroupZoneKey: 8}),
     ]);
     expect(launches, [7, 8]);
     expect(rdgenLaunchingWorkGroup, isNull);
