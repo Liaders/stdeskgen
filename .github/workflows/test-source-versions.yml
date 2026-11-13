@@ -54,6 +54,8 @@ jobs:
         run: python -m unittest discover -s generator/customization -p test_navigation.py
       - name: Test session title rules and desktop source compatibility
         run: python -m unittest discover -s generator/customization -p test_session_titles.py
+      - name: Test session organization protocol and source compatibility
+        run: python -m unittest discover -s generator/customization -p test_session_work_groups.py
       - name: Test opt-in Slim UI and unchanged local-ID sidebar
         run: python -m unittest discover -s generator/customization -p test_slim_ui.py
       - name: Test organizations groups-only view and tab preference migration

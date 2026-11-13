@@ -83,6 +83,8 @@ def apply(root,inputs,assets):
     # Avoid advertising upstream desktop releases from our Android package.
     change('src/common.rs','pub async fn do_check_software_update() -> hbb_common::ResultType<()> {','pub async fn do_check_software_update() -> hbb_common::ResultType<()> {\n    return Ok(());')
     apply_ui(root,base,name)
+    from session_work_groups import apply as apply_work_groups
+    apply_work_groups(root)
     record={'schema':1,'platform':'android','package':package,'version':display,'version_code':code,'base_version':base,
             'configuration_sha256':hashlib.sha256(inputs['custom'].encode()).hexdigest(),
             'icon_sha256':hashlib.sha256((assets/'icon.png').read_bytes()).hexdigest() if (assets/'icon.png').exists() else None,

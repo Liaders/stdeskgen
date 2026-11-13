@@ -188,6 +188,8 @@ jobs:
           apply_flutter(Path.cwd())
           from session_titles import apply as apply_session_titles
           apply_session_titles(Path.cwd())
+          from session_work_groups import apply as apply_work_groups
+          apply_work_groups(Path.cwd())
           import base64, json
           from desktop_ui import apply as apply_desktop_ui
           raw = os.environ.get('ui_profile_b64')

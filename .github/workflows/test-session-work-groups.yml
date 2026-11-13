@@ -1,0 +1,23 @@
+name: Test session organization picker
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [master]
+    paths:
+      - 'customization/session_work_groups*'
+      - 'customization/test_session_work_groups.py'
+      - '.github/workflows/test-session-work-groups.yml'
+permissions:
+  contents: read
+jobs:
+  picker:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: stable
+          cache: true
+      - name: Test session protocol and picker widgets
+        run: python -m unittest discover -s customization -p test_session_work_groups.py -k 'test_picker_widgets'

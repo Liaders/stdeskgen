@@ -16,6 +16,8 @@ args=parser.parse_args()
 profile_raw=os.environ.get('ui_profile_b64')
 profile=json.loads(base64.b64decode(profile_raw,validate=True)) if profile_raw else None
 if not args.legacy:
+    from session_work_groups import apply as apply_work_groups
+    apply_work_groups(Path.cwd())
     apply_flutter(Path.cwd())
     from session_titles import apply as apply_session_titles
     apply_session_titles(Path.cwd())
