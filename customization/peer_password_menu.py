@@ -4,6 +4,10 @@
 def apply(root):
     path = root/'flutter/lib/common/widgets/peer_card.dart'
     source = path.read_text(encoding='utf-8')
+    anchor = '          if (tab.index == PeerTabIndex.ab.index) {\n            BotToast.showText('
+    if source.count(anchor) != 1: raise ValueError('Incompatible password error feedback')
+    source = source.replace(anchor,
+        '          if (tab.index == PeerTabIndex.ab.index && gFFI.abModel.current.isPersonal()) {\n            BotToast.showText(', 1)
     for name in ['DiscoveredPeerCard', 'AddressBookPeerCard', 'MyGroupPeerCard']:
         start = source.index('class '+name+' extends BasePeerCard {')
         end = source.find('\nclass ', start+1)

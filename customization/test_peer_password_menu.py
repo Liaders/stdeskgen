@@ -33,6 +33,8 @@ class PasswordMenuTests(unittest.TestCase):
             self.assertIn('!(gFFI.abModel.current.canWrite() && gFFI.abModel.current.isPersonal() && peer.hash.isNotEmpty)', text)
             start = original.index('  MenuEntryBase<String> _unrememberPasswordAction')
             end = original.index('\n  @protected', start)
-            self.assertIn(original[start:end], text)
+            expected = original[start:end].replace('if (tab.index == PeerTabIndex.ab.index) {',
+                'if (tab.index == PeerTabIndex.ab.index && gFFI.abModel.current.isPersonal()) {')
+            self.assertIn(expected, text)
             if shutil.which('dart'):
                 subprocess.run(['dart', 'format', '--output=none', str(path)], check=True, capture_output=True, timeout=60)
