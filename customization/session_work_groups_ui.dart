@@ -61,7 +61,7 @@ Future<void> rdgenChooseWorkGroup(WorkGroupSession session,
 
         return CustomAlertDialog(
           title: Text(translate('Session organization')),
-          onCancel: cancel,
+          onCancel: busy ? null : cancel,
           content: SizedBox(width: 360, child: Column(
             mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -80,12 +80,12 @@ Future<void> rdgenChooseWorkGroup(WorkGroupSession session,
                 child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
             ])),
           actions: [
-            TextButton(onPressed: cancel, child: Text(translate('Do not select'))),
+            TextButton(onPressed: busy ? null : cancel, child: Text(translate('Do not select'))),
             ElevatedButton(onPressed: busy || selected == null || !session.authorized() ? null : submit,
               child: Text(translate('Confirm'))),
           ],
         );
-      }, tag: 'statusdesk-work-group-${session.connectionId}', backDismiss: true);
+      }, tag: 'statusdesk-work-group-${session.connectionId}');
     } finally {
       closed = true;
     }
