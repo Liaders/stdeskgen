@@ -17,8 +17,10 @@ legacy/null need no prompt. For `required`, a single offered group is submitted
 automatically; multiple groups open a picker. Launching from a specific organization
 preselects its numeric ID only if the authoritative session choices include it;
 other tabs have no preselection. The origin is listed first with a small caption.
-The buttons are "Do not select" and "Confirm". "Do not select"
-sends no assignment. Save waits for `200 {saved:true}`; 409/422 trigger a fresh
+The buttons are "Disconnect" and "Confirm" (Russian: «Отключиться» and
+«Подтвердить»). Disconnect, the title-bar X and Escape close this exact connection
+and send no assignment. All dismissal actions are disabled while a PUT is pending.
+The first-frame cleanup explicitly preserves an open organization picker. Save waits for `200 {saved:true}`; 409/422 trigger a fresh
 read of the immutable server snapshot. Errors leave the session unassigned;
 neither the device's primary group nor a previous connection is used as fallback.
 

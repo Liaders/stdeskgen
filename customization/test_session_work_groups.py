@@ -36,6 +36,8 @@ class SessionWorkGroupTests(unittest.TestCase):
             apply_desktop(root, {'slim_ui': True})
             apply_profile(root, '1.5.1', {'schema_version': 1, 'device_names': True, 'colleagues': True, 'organizations': True})
             self.assertIn('preferredGroupId: rdgenPreferredWorkGroupId', text)
+            self.assertIn('("Confirm", "Подтвердить")', (root/'src/lang/ru.rs').read_text(encoding='utf-8'))
+            self.assertIn('dismissAllExceptTag', text)
             # Every desktop session type carries the hint through initial and reused windows.
             for kind in ['remote', 'file_manager', 'view_camera', 'port_forward', 'terminal']:
                 tab = (root/f'flutter/lib/desktop/pages/{kind}_tab_page.dart').read_text(encoding='utf-8')
@@ -83,7 +85,8 @@ class OverlayDialogManager {
           builder(setState, ([result]) => Navigator.of(context).pop(result), context)));
 }
 '''.replace('typedef CustomAlertDialog = AlertDialog;', '''class CustomAlertDialog extends AlertDialog {
-  CustomAlertDialog({super.title, required super.content, super.actions, VoidCallback? onCancel});
+  final VoidCallback? onCancel;
+  CustomAlertDialog({super.title, required super.content, super.actions, this.onCancel});
 }'''), encoding='utf-8')
             subprocess.run(['flutter', 'pub', 'get'], cwd=root, check=True, timeout=180)
             subprocess.run(['flutter', 'test'], cwd=root, check=True, timeout=180)

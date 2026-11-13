@@ -35,17 +35,20 @@ void main() {
           : '{"status":"required","groups":[{"id":1,"name":"One"},{"id":2,"name":"Two"}]}');
       }, () => true, preferredGroupId: preferred);
     final manager = OverlayDialogManager(context);
-    var flow = rdgenChooseWorkGroup(session(), manager, () => true);
+    var disconnects = 0;
+    void disconnect() { disconnects++; }
+    var flow = rdgenChooseWorkGroup(session(), manager, () => true, onDisconnect: disconnect);
     await tester.pumpAndSettle();
     expect(find.text('Session organization'), findsOneWidget);
     expect(tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed, isNull);
-    await tester.tap(find.text('Do not select'));
+    await tester.tap(find.text('Disconnect session'));
     await tester.pumpAndSettle();
     await flow;
     expect(puts, 0);
+    expect(disconnects, 1);
 
     preferred = 2;
-    flow = rdgenChooseWorkGroup(session(), manager, () => true);
+    flow = rdgenChooseWorkGroup(session(), manager, () => true, onDisconnect: disconnect);
     await tester.pumpAndSettle();
     expect(find.text('Selected from the current tab'), findsOneWidget);
     expect(tester.widget<RadioListTile<int>>(find.byType(RadioListTile<int>).first).value, 2);
@@ -63,10 +66,11 @@ void main() {
     await flow;
     expect(find.text('Session organization'), findsNothing);
     expect(puts, 1);
+    expect(disconnects, 1);
 
     conflict = true;
     preferred = 99; // An origin removed from the authoritative choices is not selected.
-    flow = rdgenChooseWorkGroup(session(), manager, () => true);
+    flow = rdgenChooseWorkGroup(session(), manager, () => true, onDisconnect: disconnect);
     await tester.pumpAndSettle();
     expect(tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed, isNull);
     await tester.tap(find.text('Two'));
@@ -75,13 +79,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Organization not selected'), findsOneWidget);
     expect(tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed, isNull);
-    await tester.tap(find.text('Do not select'));
+    await tester.tap(find.byIcon(Icons.close));
     await tester.pumpAndSettle();
     await flow;
+    expect(disconnects, 2);
+
+    // The native CustomAlertDialog Escape handler invokes onCancel.
+    flow = rdgenChooseWorkGroup(session(), manager, () => true, onDisconnect: disconnect);
+    await tester.pumpAndSettle();
+    tester.widget<CustomAlertDialog>(find.byType(CustomAlertDialog)).onCancel!();
+    await tester.pumpAndSettle();
+    await flow;
+    expect(disconnects, 3);
 
     conflict = false;
     single = true;
-    await rdgenChooseWorkGroup(session(), manager, () => false); // Quick disconnect is not a save veto.
+    await rdgenChooseWorkGroup(session(), manager, () => false, onDisconnect: disconnect); // Quick disconnect is not a save veto.
     expect(puts, 3);
     expect(find.text('Session organization'), findsNothing);
   });

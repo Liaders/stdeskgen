@@ -45,7 +45,7 @@ def apply(root):
     );''', '''        if (!isOutgoingOnly) OnlineStatusWidget()
       ],
     ));''')
-    replace(connection, ').marginOnly(top: 22),', ').marginOnly(top: rdgenSlimUi.value ? 8 : 22),')
+    replace(connection, ').marginOnly(top: 22),', ').marginOnly(top: rdgenSlimUi.value ? 8 : 22, right: rdgenSlimList ? 12 : 0),')
     replace(connection, '            SizedBox(height: 12),', '            SizedBox(height: rdgenSlimUi.value ? 8 : 12),')
     replace(connection, '      width: 320 + 20 * 2,', '      width: rdgenSlimUi.value ? double.infinity : 320 + 20 * 2,')
     replace(connection, '      padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),', '      padding: rdgenSlimUi.value ? const EdgeInsets.all(12) : const EdgeInsets.fromLTRB(20, 24, 20, 22),')
@@ -60,8 +60,8 @@ def apply(root):
 
     replace(connection, 'double? get height => bind.isIncomingOnly() ? null : em * 3;',
         'double? get height => bind.isIncomingOnly() ? null : rdgenSlimUi.value ? max(28.0, MediaQuery.textScalerOf(context).scale(em) + 8) : em * 3;')
-    replace(connection, 'Divider().paddingOnly(right: 12),', 'Divider(height: rdgenSlimUi.value ? 1 : null).paddingOnly(right: rdgenSlimUi.value ? 0 : 12),')
-    replace(connection, ').paddingOnly(left: 12.0)),', ').paddingOnly(left: 12.0, right: rdgenSlimUi.value ? 12.0 : 0)),')
+    replace(connection, 'Divider().paddingOnly(right: 12),', 'Divider(height: rdgenSlimUi.value ? 1 : null).paddingOnly(right: rdgenSlimList ? 12 : rdgenSlimUi.value ? 0 : 12),')
+    replace(connection, ').paddingOnly(left: 12.0)),', ').paddingOnly(left: 12.0, right: rdgenSlimList ? 0 : rdgenSlimUi.value ? 12.0 : 0)),')
     replace(connection, 'padding: const EdgeInsets.only(top: 13.0),', 'padding: EdgeInsets.only(top: rdgenSlimUi.value ? 0 : 13.0),')
     path = root/connection
     if edits[path].count('height: 28.0,') != 2:
@@ -83,16 +83,27 @@ def apply(root):
                               right: space,
                               top: index == 0 ? 0 : space / 2,
                               bottom: space / 2);''', '''                          return Obx(() => buildOnePeer(peers[index], false).marginOnly(
-                              right: rdgenSlimUi.value ? 0 : space,
+                              right: rdgenSlimList ? 12 : space,
                               top: index == 0 ? 0 : _rdgenListSpace / 2,
                               bottom: _rdgenListSpace / 2));''')
+    # Give the list the outer 12px gutter, retaining card/header widths. The
+    # scrollbar's own margin moves it one more pixel: 13px total, with hit testing.
+    replace(peers, '''                    ? ListView.builder(
+                        controller: _scrollController,''', '''                    ? ScrollbarTheme(
+                        data: ScrollbarTheme.of(context).copyWith(
+                          crossAxisMargin: rdgenSlimList ? 3 : null),
+                        child: ListView.builder(
+                        controller: _scrollController,''')
+    replace(peers, '''                      )
+                    : DynamicGridView.builder(''', '''                      ))
+                    : DynamicGridView.builder(''')
     tabs = 'flutter/lib/common/widgets/peer_tab_page.dart'
     replace(tabs, '''    return Expanded(
         child: child.marginSymmetric(
             vertical: (isDesktop || isWebDesktop) ? 12.0 : 6.0));''', '''    return Expanded(
         child: Obx(() => child.marginSymmetric(
             vertical: rdgenSlimUi.value && isDesktop ? 4.0 : (isDesktop || isWebDesktop) ? 12.0 : 6.0)));''')
-    replace(tabs, ').paddingOnly(right: stateGlobal.isPortrait.isTrue ? 0 : 12)),', ').paddingOnly(right: rdgenSlimUi.value || stateGlobal.isPortrait.isTrue ? 0 : 12)),')
+    replace(tabs, ').paddingOnly(right: stateGlobal.isPortrait.isTrue ? 0 : 12)),', ').paddingOnly(right: rdgenSlimList ? 12 : rdgenSlimUi.value || stateGlobal.isPortrait.isTrue ? 0 : 12)),')
     group = root/'flutter/lib/common/widgets/my_group.dart'
     source = edits[group]
     first = '    return InkWell(onTap: () {'

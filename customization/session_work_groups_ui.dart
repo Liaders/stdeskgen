@@ -5,7 +5,8 @@ import 'rdgen_session_work_groups.dart';
 // This future owns the captured connection even if the transport disconnects.
 // A submitted choice may finish saving after disconnect, never on a new session.
 Future<void> rdgenChooseWorkGroup(WorkGroupSession session,
-    OverlayDialogManager manager, bool Function() canPrompt) async {
+    OverlayDialogManager manager, bool Function() canPrompt,
+    {required void Function() onDisconnect}) async {
   try {
     if (!await session.resolve()) return;
     var state = await session.read();
@@ -31,6 +32,7 @@ Future<void> rdgenChooseWorkGroup(WorkGroupSession session,
         void cancel() {
           closed = true;
           close();
+          onDisconnect();
         }
 
         Future<void> submit() async {
@@ -40,7 +42,8 @@ Future<void> rdgenChooseWorkGroup(WorkGroupSession session,
             final fresh = await session.select(selected!);
             if (closed || !context.mounted) return;
             if (fresh != null && ['selected', 'automatic'].contains(fresh['status'])) {
-              cancel();
+              closed = true;
+              close();
               return;
             }
             setState(() {
@@ -60,7 +63,11 @@ Future<void> rdgenChooseWorkGroup(WorkGroupSession session,
         }
 
         return CustomAlertDialog(
-          title: Text(translate('Session organization')),
+          title: Row(children: [
+            Expanded(child: Text(translate('Session organization'))),
+            IconButton(onPressed: busy ? null : cancel,
+              tooltip: translate('Disconnect session'), icon: const Icon(Icons.close)),
+          ]),
           onCancel: busy ? null : cancel,
           content: SizedBox(width: 360, child: Column(
             mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,7 +87,7 @@ Future<void> rdgenChooseWorkGroup(WorkGroupSession session,
                 child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
             ])),
           actions: [
-            TextButton(onPressed: busy ? null : cancel, child: Text(translate('Do not select'))),
+            TextButton(onPressed: busy ? null : cancel, child: Text(translate('Disconnect session'))),
             ElevatedButton(onPressed: busy || selected == null || !session.authorized() ? null : submit,
               child: Text(translate('Confirm'))),
           ],

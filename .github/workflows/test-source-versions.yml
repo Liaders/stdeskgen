@@ -50,6 +50,8 @@ jobs:
         run: python -m unittest discover -s generator/customization -p test_theme_logos.py
       - name: Test desktop branding and local ID actions
         run: python -m unittest discover -s generator/customization -p test_desktop_chrome.py
+      - name: Test saved-password removal in all peer menus
+        run: python -m unittest discover -s generator/customization -p test_peer_password_menu.py
       - name: Test desktop text and icon navigation switch
         run: python -m unittest discover -s generator/customization -p test_navigation.py
       - name: Test session title rules and desktop source compatibility

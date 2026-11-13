@@ -29,8 +29,8 @@ class AndroidSourceTests(unittest.TestCase):
         import re
         inputs['VERSION']=re.search(rb'^version = "([^"]+)"',cargo,re.M)[1].decode()
         inputs['STDESK_DISPLAY_VERSION']=inputs['VERSION']+'.3'
-        names=['src/lang/ru.rs','flutter/lib/models/model.dart','src/client.rs','src/client/io_loop.rs','src/ui_session_interface.rs','src/hbbs_http/sync.rs','src/ui_interface.rs','src/platform/windows.rs','build.py','flutter/pubspec.yaml','flutter/windows/runner/Runner.rc','build.rs','libs/portable/build.rs','Cargo.toml','libs/hbb_common/src/config.rs','src/common.rs','flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/MainService.kt','flutter/lib/models/native_model.dart','flutter/android/app/build.gradle','flutter/android/gradle.properties','flutter/android/app/src/main/AndroidManifest.xml','flutter/android/app/src/main/res/values/ic_launcher_background.xml']
-        names+=['flutter/lib/mobile/pages/connection_page.dart','flutter/lib/mobile/pages/home_page.dart','flutter/lib/common.dart','flutter/lib/mobile/pages/settings_page.dart','flutter/lib/common/widgets/my_group.dart',
+        names=['src/lang/ru.rs','flutter/lib/models/model.dart','src/client.rs','src/client/io_loop.rs','src/ui/common.tis','src/ui_session_interface.rs','src/hbbs_http/sync.rs','src/ui_interface.rs','src/platform/windows.rs','build.py','flutter/pubspec.yaml','flutter/windows/runner/Runner.rc','build.rs','libs/portable/build.rs','Cargo.toml','libs/hbb_common/src/config.rs','src/common.rs','flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/MainService.kt','flutter/lib/models/native_model.dart','flutter/android/app/build.gradle','flutter/android/gradle.properties','flutter/android/app/src/main/AndroidManifest.xml','flutter/android/app/src/main/res/values/ic_launcher_background.xml']
+        names+=['flutter/lib/common/widgets/peer_card.dart','flutter/lib/mobile/pages/connection_page.dart','flutter/lib/mobile/pages/home_page.dart','flutter/lib/common.dart','flutter/lib/mobile/pages/settings_page.dart','flutter/lib/common/widgets/my_group.dart',
                 'flutter/lib/models/peer_tab_model.dart','flutter/lib/common/widgets/peer_tab_page.dart','src/lang/ru.rs',
                 'flutter/android/app/src/main/res/values/strings.xml',
                 'flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/BootReceiver.kt',
@@ -73,8 +73,8 @@ class AndroidSourceTests(unittest.TestCase):
             self.assertIn('foregroundColor: isAndroid ? Colors.white : null',common)
             connection=(root/'flutter/lib/mobile/pages/connection_page.dart').read_text(encoding='utf-8')
             self.assertIn('color: isAndroid ? MyTheme.accent : MyTheme.idColor',connection)
-            self.assertEqual(common.split('  static ThemeData darkTheme =',1)[1].split('Widget loadPowered',1)[0],
-                self.original('flutter/lib/common.dart').decode('utf-8').split('  static ThemeData darkTheme =',1)[1].split('Widget loadPowered',1)[0])
+            self.assertEqual(common.split('  static ThemeData darkTheme =',1)[1].split('\n  );',1)[0],
+                self.original('flutter/lib/common.dart').decode('utf-8').split('  static ThemeData darkTheme =',1)[1].split('\n  );',1)[0])
             self.assertTrue((root/'flutter/lib/common/widgets/rdgen_colleagues.dart').exists())
             service=(root/'flutter/android/app/src/main/kotlin/com/carriez/flutter_hbb/MainService.kt').read_text(encoding='utf-8')
             self.assertIn('DEFAULT_NOTIFY_TITLE = "StatusDesk"',service)

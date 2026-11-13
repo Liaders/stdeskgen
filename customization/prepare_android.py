@@ -83,6 +83,8 @@ def apply(root,inputs,assets):
     # Avoid advertising upstream desktop releases from our Android package.
     change('src/common.rs','pub async fn do_check_software_update() -> hbb_common::ResultType<()> {','pub async fn do_check_software_update() -> hbb_common::ResultType<()> {\n    return Ok(());')
     apply_ui(root,base,name)
+    from peer_password_menu import apply as apply_password_menu
+    apply_password_menu(root)
     from session_work_groups import apply as apply_work_groups
     apply_work_groups(root, desktop=False)
     record={'schema':1,'platform':'android','package':package,'version':display,'version_code':code,'base_version':base,

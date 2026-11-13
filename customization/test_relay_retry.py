@@ -14,7 +14,7 @@ class RelayRetryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             originals = {}
-            for name in ('flutter/lib/models/model.dart', 'src/lang/ru.rs', 'src/client.rs', 'src/client/io_loop.rs', 'src/ui_session_interface.rs'):
+            for name in ('flutter/lib/models/model.dart', 'src/lang/ru.rs', 'src/client.rs', 'src/client/io_loop.rs', 'src/ui/common.tis','src/ui_session_interface.rs'):
                 originals[name] = subprocess.check_output(['git', '-c', f'safe.directory={source.as_posix()}',
                     '-C', str(source), 'show', os.environ.get('RUSTDESK_TEST_REF', 'HEAD')+':'+name]).decode('utf-8')
                 path = root/name
@@ -24,7 +24,9 @@ class RelayRetryTests(unittest.TestCase):
             apply(root, edits)
             client = edits[root/'src/client.rs']
             self.assertIn('if direct == Some(true)\n            && (', client)
-            self.assertIn('cfg!(feature = "flutter") && rdgen_relay_retry::is_transport_error(&err)', client)
+            self.assertIn('rdgen_relay_retry::is_transport_error(&err)', client)
+            self.assertIn('handler.reconnect(true);', edits[root/'src/ui/common.tis'])
+            self.assertIn('if (!rdgenAutoRelayTried', edits[root/'src/ui/common.tis'])
             self.assertIn('if !received {\n                relay_hint_type = "relay-hint2"', client)
             ui = edits[root/'src/ui_session_interface.rs']
             self.assertIn('lc.force_relay = true;', ui)
@@ -47,8 +49,9 @@ class RelayRetryTests(unittest.TestCase):
             self.assertIn('await bind.mainSetPeerOption(id: peerId,', dialog)
             self.assertIn('value: bool2option(kOptionForceAlwaysRelay, true)', dialog)
             original_model = originals['flutter/lib/models/model.dart']
-            self.assertEqual(model[:start], original_model[:original_model.index('  Future<void> showRelayHintDialog(')])
-            self.assertEqual(model[end:], original_model[original_model.index('  void showConnectedWaitingForImage('):])
+            self.assertIn('_rdgenAutoRelay.begin(text)', dialog)
+            self.assertIn('unawaited(_rdgenRememberAutoRelay(peerId))', model)
+            self.assertIn('if (!forceRelay) _rdgenAutoRelay.reset();', model)
             language = edits[root/'src/lang/ru.rs']
             self.assertIn('Подключиться через ретранслятор', language)
             self.assertNotIn('Подключится через ретранслятор', language)
@@ -63,3 +66,29 @@ class RelayRetryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 apply(root, {})
             self.assertEqual((root/'src/client.rs').read_text(encoding='utf-8'), originals['src/client.rs'])
+
+    @unittest.skipUnless(shutil.which('dart'), 'Dart SDK is available on CI')
+    def test_automatic_retry_is_bounded_and_remembers_only_authenticated_relay(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'auto.dart'
+            path.write_text(Path(__file__).with_name('auto_relay.dart').read_text(encoding='utf-8') + r'''
+void check(bool value) { if (!value) throw StateError('Automatic relay policy'); }
+void main() {
+  final retry = RdgenAutoRelayRetry();
+  for (final message in ['Wrong Password', 'Permission denied', 'Authentication timed out', 'Rejected', 'Offline']) {
+    check(!retry.begin(message));
+  }
+  check(retry.begin('Reset by the peer'));
+  check(!retry.begin('Connection timed out'));
+  check(retry.authenticated(relayed: true));
+  check(!retry.authenticated(relayed: true));
+  retry.reset();
+  check(retry.begin('Connection reset by peer (os error 104)'));
+  check(!retry.authenticated(relayed: false));
+  retry.reset();
+  check(retry.begin('Connection timed out'));
+  retry.pending = false; // A failed relay retry does not change device preferences.
+  check(!retry.authenticated(relayed: true));
+}
+''', encoding='utf-8')
+            subprocess.run(['dart', str(path)], check=True, timeout=60)

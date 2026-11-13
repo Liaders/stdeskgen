@@ -20,14 +20,11 @@ def apply(root, edits):
     replace('src/client.rs',
             '                || (!err.contains("Failed") && err.contains("deadline")))',
             '''                || (!err.contains("Failed") && err.contains("deadline"))
-                || (cfg!(feature = "flutter") && rdgen_relay_retry::is_transport_error(&err)))''')
+                || rdgen_relay_retry::is_transport_error(&err))''')
+    replace('src/client.rs', 'if cfg!(feature = "flutter") && relay_hint {', 'if relay_hint {')
     replace('src/client/io_loop.rs',
             '                                    self.handler.msgbox("error", "Connection Error", "Reset by the peer", "");',
-            '''                                    if cfg!(feature = "flutter") {
-                                        self.handler.on_establish_connection_error("Reset by the peer".to_owned());
-                                    } else {
-                                        self.handler.msgbox("error", "Connection Error", "Reset by the peer", "");
-                                    }''')
+            '''                                    self.handler.on_establish_connection_error("Reset by the peer".to_owned());''')
     # Keep relay policy for this session, but don't mark the peer for persistence.
     replace('src/ui_session_interface.rs', '''            // An explicit retry-via-relay is a decision about this peer, not transport
             // necessity: Relay-only ICE for this round like any force-always-relay session,
@@ -38,6 +35,22 @@ def apply(root, edits):
                 lc.peer_relay = true;
             }''')
     edits[root/'src/client/rdgen_relay_retry.rs'] = Path(__file__).with_name('relay_retry.rs').read_text(encoding='utf-8')
+    sciter_hook = 'handler.msgbox_retry = function(type, title, text, link, hasRetry) {'
+    sciter = root/'src/ui/common.tis'
+    text = edits.get(sciter, sciter.read_text(encoding='utf-8'))
+    if text.count(sciter_hook) != 1: raise ValueError('Incompatible Sciter relay retry hook')
+    text = text.replace(sciter_hook, Path(__file__).with_name('auto_relay.tis').read_text(encoding='utf-8')+'\n'+sciter_hook+'''
+    if (type == "relay-hint" || type == "relay-hint2") {
+        if (!rdgenAutoRelayTried && rdgenRelayNetworkError(text)) {
+            rdgenAutoRelayTried = true;
+            self.timer(0, retryConnect);
+            connecting();
+            handler.reconnect(true);
+            return;
+        }
+        type = "error";
+    }''', 1)
+    edits[sciter] = text
     model = root/'flutter/lib/models/model.dart'
     source = edits.get(model, model.read_text(encoding='utf-8'))
     start = source.index('  Future<void> showRelayHintDialog(')
@@ -57,6 +70,44 @@ def apply(root, edits):
     dialog = Path(__file__).with_name('relay_dialog.dart').read_text(encoding='utf-8').rstrip()
     updated = updated[:dialog_start] + dialog + updated[dialog_end:]
     edits[model] = source[:start] + updated + source[end:]
+    source = edits[model]
+    source = "import 'rdgen_auto_relay.dart';\n" + source
+    marker = '  Future<void> showRelayHintDialog('
+    source = source.replace(marker, '''  final _rdgenAutoRelay = RdgenAutoRelayRetry();
+
+  Future<void> _rdgenRememberAutoRelay(String peerId) async {
+    if (!_rdgenAutoRelay.authenticated(relayed: direct == false)) return;
+    try {
+      await bind.mainSetPeerOption(id: peerId, key: kOptionForceAlwaysRelay,
+          value: bool2option(kOptionForceAlwaysRelay, true));
+    } catch (_) {
+      debugPrint('Could not remember successful automatic relay retry');
+    }
+  }
+
+  Future<void> showRelayHintDialog(''', 1)
+    hook = '''      String peerId) async {
+    final hint ='''
+    if source.count(hook) != 1: raise ValueError('Incompatible automatic relay hook')
+    source = source.replace(hook, '''      String peerId) async {
+    // Native relay hints are emitted only after a failed direct transport.
+    if (_rdgenAutoRelay.begin(text)) {
+      reconnect(dialogManager, sessionId, true);
+      return;
+    }
+    _rdgenAutoRelay.pending = false;
+    final hint =''', 1)
+    hook = '      bool forceRelay) {\n'
+    if source.count(hook) != 1: raise ValueError('Incompatible reconnect hook')
+    source = source.replace(hook, hook+'    if (!forceRelay) _rdgenAutoRelay.reset();\n', 1)
+    hook = '  handlePeerInfo(Map<String, dynamic> evt, String peerId, bool isCache) async {\n'
+    if source.count(hook) != 1: raise ValueError('Incompatible relay authentication hook')
+    source = source.replace(hook, hook+'    if (!isCache) unawaited(_rdgenRememberAutoRelay(peerId));\n', 1)
+    hook = "    final link = evt['link'];"
+    if source.count(hook) != 1: raise ValueError('Incompatible relay failure event')
+    source = source.replace(hook, hook+"\n    if (type == 'error') _rdgenAutoRelay.pending = false;", 1)
+    edits[model] = source
+    edits[root/'flutter/lib/models/rdgen_auto_relay.dart'] = Path(__file__).with_name('auto_relay.dart').read_text(encoding='utf-8')
     language = root/'src/lang/ru.rs'
     source = edits.get(language, language.read_text(encoding='utf-8'))
     text = 'Прямое подключение может оказаться невозможным.\nВ этом случае рекомендуется подключиться через ретранслятор'

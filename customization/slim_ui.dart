@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../common.dart' show isDesktop;
 import 'platform_model.dart' show bind;
+import '../common/widgets/peer_card.dart' show peerCardUiType, PeerUiType;
 
 const rdgenSlimUiKey = 'rdgen-slim-ui-v1';
 final rdgenSlimUi =
     (isDesktop && bind.mainGetLocalOption(key: rdgenSlimUiKey) != 'N').obs;
+
+bool get rdgenSlimList => rdgenSlimUi.value && peerCardUiType.value == PeerUiType.list;
 
 Future<void> setRdgenSlimUi(bool value) async {
   await bind.mainSetLocalOption(key: rdgenSlimUiKey, value: value ? 'Y' : 'N');

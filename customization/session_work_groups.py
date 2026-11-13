@@ -56,9 +56,31 @@ def apply(root, desktop=True):
       if (workGroup != null && manager != null) {
         unawaited(rdgenChooseWorkGroup(workGroup, manager, () =>
             parent.target != null &&
-            bind.sessionGetConnSessionId(sessionId: sessionId) == workGroup.connectionId));
+            bind.sessionGetConnSessionId(sessionId: sessionId) == workGroup.connectionId,
+            onDisconnect: () {
+              if (bind.sessionGetConnSessionId(sessionId: sessionId) == workGroup.connectionId) {
+                closeConnection(id: peerId);
+              }
+            }));
       }''')
     edits[path] = source
+    common = root/'flutter/lib/common.dart'
+    common_source = common.read_text(encoding='utf-8')
+    anchor = '  void dismissAll() {'
+    if common_source.count(anchor) != 1: raise ValueError('Incompatible dialog manager')
+    edits[common] = common_source.replace(anchor, '''  void dismissAllExceptTag(String tag) {
+    for (final key in _dialogs.keys.toList()) {
+      if (key != tag) dismissByTag(key);
+    }
+  }
+
+  void dismissAll() {''', 1)
+    anchor = '      dialogManager.dismissAll();\n      try {\n        await canvasModel.updateViewStyle();'
+    if source.count(anchor) != 1: raise ValueError('Incompatible first-image overlay cleanup')
+    edits[path] = source.replace(anchor, '''      dialogManager.dismissAllExceptTag(
+          'statusdesk-work-group-${bind.sessionGetConnSessionId(sessionId: sessionId)}');
+      try {
+        await canvasModel.updateViewStyle();''', 1)
     for name in ['session_work_groups', 'session_work_groups_ui']:
         edits[root/f'flutter/lib/models/rdgen_{name}.dart'] = Path(__file__).with_name(name+'.dart').read_text(encoding='utf-8')
     translations = {
@@ -69,11 +91,15 @@ def apply(root, desktop=True):
         'Could not save the organization. Please try again.': 'Не удалось сохранить организацию. Повторите попытку.',
         'Selected from the current tab': 'Выбрана по текущей вкладке',
         'Do not select': 'Не выбирать',
+        'Disconnect session': 'Отключиться',
+        'Confirm': 'Подтвердить',
     }
     for path in (root/'src/lang').glob('*.rs'):
         if path.name == 'en.rs':
             continue
         text = path.read_text(encoding='utf-8')
+        if path.name == 'ru.rs':
+            text = text.replace('(\"Confirm\", \"\")', '(\"Confirm\", \"Подтвердить\")')
         anchor = '    ].iter().cloned().collect();'
         if text.count(anchor) != 1:
             raise ValueError('Incompatible work-group translations: '+path.name)
