@@ -4,7 +4,8 @@ import 'dart:convert';
 class WorkGroupReply {
   final int code;
   final String body;
-  WorkGroupReply(this.code, this.body);
+  final String? retryAfter;
+  WorkGroupReply(this.code, this.body, {this.retryAfter});
 }
 
 typedef WorkGroupRequest = Future<WorkGroupReply> Function(
@@ -36,6 +37,9 @@ class WorkGroupSession {
     _check();
     return reply;
   }
+
+  Future<WorkGroupReply> requestAuthorized(String method, Uri uri, [String? body]) =>
+      _request(method, uri, body);
 
   // The u64 remains a decimal STRING, including values above 2^53.
   Future<bool> resolve({Future<void> Function(Duration)? delay}) async {
@@ -81,8 +85,9 @@ class WorkGroupSession {
     return state;
   }
 
-  Future<Map<String, dynamic>?> select(int groupId) async {
-    final reply = await _request('PUT', _uri, jsonEncode({'group_id': groupId}));
+  Future<Map<String, dynamic>?> select(int groupId, {bool attachDevice = false}) async {
+    final reply = await _request('PUT', _uri, jsonEncode({'group_id': groupId,
+      if (attachDevice) 'attach_device_if_needed': true}));
     if (reply.code == 200 && jsonDecode(reply.body) is Map &&
         jsonDecode(reply.body)['saved'] == true) {
       return {'status': 'selected', 'group': {'id': groupId}};

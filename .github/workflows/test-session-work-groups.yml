@@ -7,6 +7,8 @@ on:
       - 'customization/session_work_groups*'
       - 'customization/work_group_origin*'
       - 'customization/organization*'
+      - 'customization/compact_session_toolbar*'
+      - 'customization/remote_toolbar.py'
       - 'customization/test_session_work_groups.py'
       - '.github/workflows/test-session-work-groups.yml'
 permissions:
@@ -22,4 +24,11 @@ jobs:
           channel: stable
           cache: true
       - name: Test session protocol and picker widgets
+        env:
+          RDGEN_PREVIEW_DIR: ${{ runner.temp }}/stdesk-previews
         run: python -m unittest discover -s customization -p test_session_work_groups.py -k 'test_picker_widgets'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: session-toolbar-previews
+          path: ${{ runner.temp }}/stdesk-previews
+          if-no-files-found: error

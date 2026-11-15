@@ -60,7 +60,7 @@ void main() {
     await tester.pump(); // A pending PUT is not shown as saved.
     expect(find.text('Session organization'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
-    expect(tester.widget<TextButton>(find.byType(TextButton)).onPressed, isNull);
+    expect(tester.widget<TextButton>(find.widgetWithText(TextButton, 'Disconnect session')).onPressed, isNull);
     saved.complete(WorkGroupReply(200, '{"saved":true}'));
     await tester.pumpAndSettle();
     await flow;
