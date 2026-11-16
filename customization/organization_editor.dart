@@ -156,7 +156,7 @@ Future<RdgenOrganizationDecision> rdgenEditOrganization({
         if (created && !disposed && context.mounted) await submit();
       }
       final groups = byId.values.toList()..sort((a,b) => (a['name'] as String).compareTo(b['name'] as String));
-      return CustomAlertDialog(title: Text(translate(additional ? 'Add organization' : 'Session organization')),
+      return CustomAlertDialog(title: Text(translate(closing ? 'Session organization' : 'Assign organization')),
         content: _RdgenDialogLifetime(controllers: [alias], child: SizedBox(width: 420, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           if (closing) Text(translate('You are ending a session with a device without an organization. Select or create one to attribute this entire session to it.')),
           if (offerAlias) TextField(controller: alias, enabled: !busy, maxLength: api.aliasMaxLength,

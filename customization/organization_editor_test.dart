@@ -142,7 +142,7 @@ void main() {
     expect(assignments, 0);
     await tester.tap(find.text('Confirm'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Assign organization'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Assign organization'));
     await tester.pumpAndSettle();
     expect(await editing, RdgenOrganizationDecision.saved);
     expect(assignments, 1);

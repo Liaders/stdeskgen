@@ -73,11 +73,11 @@ def apply(root):
         if (result.result is! int || result.result < 0) throw StateError('New session window unavailable');
         closeConnection(id: widget.id);
       }
-      toolbarItems.add(Container(width: 1, height: 22, color: const Color(0xff4a4e53)));
-      toolbarItems.add(RdgenOrganizationSessionMenu(
+      toolbarItems.add(Container(width: 1, height: 22, margin: const EdgeInsets.symmetric(horizontal: 2.5), color: const Color(0xff4a4e53)));
+      toolbarItems.add(Padding(padding: const EdgeInsets.symmetric(horizontal: 2.5), child: RdgenOrganizationSessionMenu(
         organization: widget.ffi.ffiModel.rdgenOrganization, manager: widget.ffi.dialogManager,
         current: () => !widget.ffi.closed,
-        restart: bind.willSessionCloseCloseSession(sessionId: widget.ffi.sessionId) ? reopen : null));
+        restart: bind.willSessionCloseCloseSession(sessionId: widget.ffi.sessionId) ? reopen : null)));
       toolbarItems.add(_IconSubmenuButton(tooltip: 'More',
         icon: const Icon(Icons.more_horiz, color: Colors.white, size: 20),
         color: _ToolbarTheme.inactiveColor, hoverColor: _ToolbarTheme.hoverInactiveColor,
@@ -104,8 +104,7 @@ def apply(root):
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
         child: SingleChildScrollView(scrollDirection: Axis.horizontal,
           child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-            child: Row(mainAxisSize: MainAxisSize.min, children: toolbarItems.map((item) =>
-              Padding(padding: const EdgeInsets.symmetric(horizontal: 2.5), child: item)).toList()))));
+            child: Row(mainAxisSize: MainAxisSize.min, children: toolbarItems))));
     }
     final toolbarBorderRadius = BorderRadius.all(Radius.circular(4.0));''')
     change('        icon: monitorsIcon,', '''        icon: ffi.ffiModel.rdgenOrganization.supported
@@ -118,7 +117,7 @@ def apply(root):
     start = source.index('class _IconMenuButtonState ')
     end = source.index('class _SubmenuButton ', start)
     prefix, body, suffix = source[:start], source[start:end], source[end:]
-    for name, value in [('buttonSize', '30.0'), ('buttonHMargin', '0.0'), ('buttonVMargin', '0.0')]:
+    for name, value in [('buttonSize', '30.0'), ('buttonHMargin', '2.5'), ('buttonVMargin', '0.0')]:
         body = body.replace('_ToolbarTheme.'+name,
             '(RdgenCompactToolbarScope.active(context) ? '+value+' : _ToolbarTheme.'+name+')')
     body = body.replace('color: hover ? widget.hoverColor : widget.color,', """color: RdgenCompactToolbarScope.active(context)
