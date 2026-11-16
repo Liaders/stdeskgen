@@ -1,0 +1,32 @@
+name: Check desktop organization types
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  actions: read
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: generator
+      - uses: actions/checkout@v4
+        with:
+          repository: rustdesk/rustdesk
+          ref: '23e5bb471a040d62f0a6ad52591fb30784265b73'
+          path: rustdesk
+      - uses: actions/download-artifact@v4
+        with:
+          name: bridge-artifact
+          run-id: 43413427004
+          github-token: ${{ github.token }}
+          path: rustdesk
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: stable
+          cache: true
+      - name: Compare complete desktop analyzer diagnostics
+        run: python generator/customization/check_desktop_types.py --source rustdesk
