@@ -1,90 +1,79 @@
-# Session organization selection
+# Desktop session organizations
 
-Client adapter for the Console contract in `cortendesk/docs/session-work-groups.md`
-(Console `1.23.0-status.3`). No server deployment, database change, or access-rule
-change is required here.
+Implemented on the supported RustDesk 1.5.0/1.5.1 desktop preparation paths:
+Windows x64, macOS and Linux. Windows x32 is excluded. Android uses the preserved
+v1 adapter and assets in `session_work_groups_legacy.py` / `legacy_*.dart`.
 
-The initiating Flutter client captures the target ID, connection type, exact
-decimal-string u64 connection ID, API URL and current client token at successful
-peer authentication. It resolves the audit GUID independently of the optional
-end-of-session note feature. Delayed audit delivery is retried for up to fourteen
-seconds plus HTTP request time. The extra `statusdesk_work_group=1` query parameter
-isolates this request from the note lookup in the native URL-keyed HTTP bridge;
-the server ignores this parameter.
+## Contract and launch
 
-The session endpoint is authoritative. `automatic`, `selected`, `ungrouped` and
-legacy/null need no prompt. For `required`, a single offered group is submitted
-automatically; multiple groups open a picker. Launching from a specific organization
-preselects its numeric ID only if the authoritative session choices include it;
-other tabs have no preselection. The origin is listed first with a small caption.
-The buttons are "Disconnect" and "Confirm" (Russian: «Отключиться» and
-«Подтвердить»). Disconnect, the title-bar X and Escape close this exact connection
-and send no assignment. All dismissal actions are disabled while a PUT is pending.
-The first-frame cleanup explicitly preserves an open organization picker. Save waits for `200 {saved:true}`; 409/422 trigger a fresh
-read of the immutable server snapshot. Errors leave the session unassigned;
-neither the device's primary group nor a previous connection is used as fallback.
+The server contract is `cortendesk/docs/session-work-groups.md`, including Client
+organization management API v2. The server implementation/deployment belongs to
+the separate Console project. This client does not deploy it or use admin tokens.
 
-State is held in memory per connection. No new preferences, credentials or group
-cache are written to disk. Token changes stop subsequent requests. A pending
-submission can finish after disconnect; new dialogs are suppressed if the
-captured connection is no longer the current connection. Unsupported servers
-retain their existing connection path. There is no organization-switch action
-inside an established session.
+Desktop launches preflight with the existing device work-groups endpoint before
+opening the transport. One option is automatic; multiple options have no default
+unless an eligible origin was captured from the Organizations tab. Do not select
+continues without an assignment; Cancel aborts the launch. The intent and its
+completed-preflight flag travel with the launch/window arguments, never in a
+shared device-preference cache. After authentication, the client resolves the
+exact GUID using the decimal-string u64 connection ID, target and connection
+type, rechecks choices and saves only an eligible selection for that session.
+A failed connection never creates a session assignment.
 
-Enabled in the Windows x64, macOS, Linux and Android preparation paths. Windows
-x32/Sciter is deliberately unchanged. The receiving client needs no update for
-this feature. No client build or publication is triggered by the adapter.
+## Organization management
 
-Regression surface: two hooks and a helper in Flutter `FfiModel`, additive
-translation keys, and the three existing platform preparation paths. Desktop
-organization origins travel in an asynchronous launch zone, the existing
-window-argument JSON, and optional fields on the five session page types. Their
-FFI initialization captures the hint; the terminal manager assigns it only to a
-new transport, never to an existing shared terminal connection. There is no
-target-keyed pending-choice map or persistent preference. Existing
-connection/authentication, notes, permissions and device-group filtering remain
-unchanged. Incompatible upstream source anchors stop preparation explicitly.
+V2 capability detection and server permissions control search, creation and
+attachment. Every request retains the client Bearer and JSON headers; no
+fallback to admin credentials or Console cookies is used. Creation takes name,
+note and eligible user-group IDs from the server form contract. Returned defaults
+are honored. A created ID is selected and used for the subsequent operation.
+The same creation/attachment UUID and frozen payload are reused after an unknown
+network result. Retry-After blocks premature mutation retries. An explicit 422
+attachment rejection permits selecting a corrected candidate.
 
-Validation: `test_session_work_groups.py` checks source compatibility and adapter
-coexistence, executes the pure-Dart HTTP contract tests, and runs the Flutter
-picker widget test in an isolated host with the existing dialog API signatures.
-CI covers RustDesk 1.5.0/1.5.1 and Flutter 3.24.5. These checks do not replace a full
-client build or an authenticated end-to-end test against the deployed Console.
+For an unconfirmed session, attachment and first assignment use the server's
+atomic `attach_device_if_needed` operation only when v2 and the required
+permission are confirmed. Confirmed assignments cannot change. Adding another
+organization uses the device attachment API without altering the session.
+Successful assignment is reread before displaying its recorded name.
 
-After making a test build (do not publish automatically), connect as a logged-in
-operator to a device with two work groups. Choose one, then verify that exact
-session in Console. Repeat with another simultaneous connection, cancellation,
-one group, and a quick disconnect while Save is pending. Verify that the remote
-computer receives no organization prompt and that access rights are unchanged.
+## Toolbar and closing
 
-## Organizations catalog API (new server increment required)
+The desktop panel reuses original action widgets and permission checks; Chat and
+Recording are under More. The visible return handle or unassigned amber badge
+is movable within the window. No invisible wide hover target is installed. Pin
+keeps the panel visible; active menus/dialogs suspend automatic collapse.
+Unsupported session-accounting servers retain the original toolbar path.
 
-The desktop Organizations tab reads the separate Bearer-authenticated endpoint:
+Intentional final-session closure offers the shared organization editor only
+when v2 says the device and session are unassigned. Save and end waits for the
+confirmed snapshot; End without organization and Return to session remain
+explicit. The native willSessionCloseCloseSession check excludes closing a lone
+display window while the transport continues elsewhere. Cached display windows
+read the same exact session without repeating preflight. A fresh confirmed
+snapshot suppresses an obsolete closing reminder. Per-instance request scopes
+isolate simultaneous windows in the native URL-keyed HTTP bridge.
 
-`GET /api/statusdesk/organizations?current=1&pageSize=100`
+## Validation and regression surface
 
-```json
-{"total":2,"data":[
-  {"id":10,"name":"Organization A","peer_ids":["123456789"]},
-  {"id":20,"name":"Organization B","peer_ids":["123456789"]}
-]}
-```
+Supported-source guards and Dart syntax checks cover both bases. Executable Dart
+protocol tests cover exact IDs, authorization, immutable choices, retry UUIDs and
+rate limits. Flutter tests cover selection/dismissal, closing confirmation,
+additional attachment, stale display snapshots, visible-handle hit testing and
+bounds. A complete desktop analyzer comparison with generated bridge files found
+zero original errors and zero patched errors. Component previews use native
+Flutter rendering with Roboto and Material Icons; demonstration action slots
+are not a complete running client.
 
-`total` counts organizations; pagination is over organizations, with stable order
-and each row containing its complete, deduplicated device ID list. Device IDs
-must be strings. Include each active device in its primary and additional work
-organizations, intersected with the current user's existing device visibility.
-Return no empty organizations. This endpoint must not grant access, change the
-existing accessible-groups endpoint, or reveal other devices in these groups.
+Changed existing runtime paths: FfiModel peer-info capture/state; common dialog
+manager first-frame cleanup; intentional-close helper; desktop window launch
+argument plumbing and five session-page initializers; desktop toolbar rendering
+and submenu lifecycle. Original control/display/keyboard/chat/call/record/close
+action bodies are preserved and checked in source tests. See
+`REMOTE_TOOLBAR_AUDIT_RU.md` for the inventory. No native connection protocol,
+server access control, existing Accessible devices/Colleagues filtering,
+publication or update-channel behavior is changed by this manifest.
 
-The client intersects these IDs with its existing authorized peer list, so a
-device appears once in each matching organization. Group selection uses IDs,
-including when two names happen to match. With no specific organization selected,
-the view shows the union without a preferred organization. Only this tab uses the
-new catalog; Accessible devices and Colleagues keep their current filtering.
-
-The catalog is kept in the owning tab's memory and discarded on account change;
-it is never added to the existing on-disk groups cache. 404/405/501 retain the
-primary-group view with no guessed IDs. Authorization/network/validation errors
-show a retry banner and do not masquerade as an unsupported server. The existing
-session GUID/read/write API and its authorization rules remain unchanged.
+A full native client build and authenticated multi-machine end-to-end test are
+still required before distributing a release. These changes alone neither
+build nor publish clients and do not enable unavailable server APIs.
