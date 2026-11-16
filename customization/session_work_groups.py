@@ -153,7 +153,7 @@ def apply(root, desktop=True):
         if text.count(anchor) != 1:
             raise ValueError('Incompatible work-group translations: '+path.name)
         prefix, suffix = text.split(anchor)
-        entries = ''.join('\n        ('+json.dumps(k)+', '+json.dumps(v if path.name == 'ru.rs' else '', ensure_ascii=False)+'),' for k, v in translations.items() if '"'+k+'"' not in text)
+        entries = ''.join('\n        ('+json.dumps(k, ensure_ascii=False)+', '+json.dumps(v if path.name == 'ru.rs' else '', ensure_ascii=False)+'),' for k, v in translations.items() if '"'+k+'"' not in text)
         edits[path] = prefix.rstrip().removesuffix(',')+','+entries+'\n'+anchor+suffix
     for path, text in edits.items():
         path.write_text(text, encoding='utf-8')
