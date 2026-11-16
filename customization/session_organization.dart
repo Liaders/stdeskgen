@@ -20,6 +20,18 @@ class RdgenSessionOrganization extends ChangeNotifier {
   bool get needsReminder => supported && !assigned && snapshot?['api_version'] == 2 &&
       snapshot?['device_has_organization'] == false;
 
+  Future<void> loadAlias() async {
+    try { await api?.readAlias(); } catch (_) {}
+    notifyListeners();
+  }
+  bool get canAssignAlias => assigned && api?.canSetAlias == true && api?.alias == '';
+  Future<void> assignAlias(OverlayDialogManager manager) async {
+    if (dialogOpen || !canAssignAlias) return;
+    dialogOpen = true; notifyListeners();
+    try { await rdgenEditDeviceAlias(manager, api!); }
+    finally { dialogOpen = false; notifyListeners(); }
+  }
+
   Future<void> attach(WorkGroupSession captured, OverlayDialogManager manager,
       bool Function() current, {bool preflightDone = false}) async {
     session = captured;
@@ -39,6 +51,8 @@ class RdgenSessionOrganization extends ChangeNotifier {
       notifyListeners();
       if (!supported) return;
       _syncCapabilities();
+      await loadAlias();
+      if (!identical(session, captured) || !current()) return;
       if (assigned) {
         if (captured.preferredGroupId != null && fresh?['group']?['id'] != captured.preferredGroupId) {
           error = translate('The server recorded a different organization. Confirmed session assignments cannot be changed.');
@@ -124,43 +138,54 @@ class RdgenSessionOrganization extends ChangeNotifier {
     } finally { dialogOpen = false; notifyListeners(); }
   }
 
-  Future<void> choose(OverlayDialogManager manager, bool Function() current) async {
+  Future<void> switchOrganization(OverlayDialogManager manager, bool Function() current,
+      int id, Future<void> Function(int)? restart) async {
+    if (!supported || dialogOpen || api == null || !current() || snapshot?['group']?['id'] == id) return;
+    if (assigned && restart == null) return;
+    dialogOpen = true; notifyListeners();
+    try {
+      final group = api!.bindings.where((g) => g['id'] == id).toList();
+      if (group.isEmpty || !await rdgenConfirmOrganization(manager, group.single['name'] as String, reconnecting: assigned)) return;
+      if (!current()) return;
+      if (assigned) { await restart!(id); } else { await _save(id, false); }
+    } catch (failure) { error = rdgenOrganizationError(failure); showToast(error!); }
+    finally { dialogOpen = false; notifyListeners(); }
+  }
+
+  Future<void> choose(OverlayDialogManager manager, bool Function() current,
+      {Future<void> Function(int)? restart}) async {
     final captured = session;
     if (captured == null || !supported || dialogOpen || !current()) return;
     dialogOpen = true;
     notifyListeners();
     try {
-      if (assigned) {
-        final add = await manager.show<bool>((setState, close, context) => CustomAlertDialog(
-          title: Text(translate('Session organization')),
-          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(name ?? translate('Organization not selected')),
-            if (error != null) Text(error!),
-            const SizedBox(height: 8),
-            ...api!.bindings.map((g) => Text(g['name'] as String)),
-          ]),
-          actions: [
-            if (api?.version2 == true && api?.permissions['can_attach'] == true)
-              TextButton(onPressed: () => close(true), child: Text(translate('Add organization'))),
-            TextButton(onPressed: close, child: Text(translate('Close')))],
-          onCancel: close));
-        if (add == true && current()) {
-          await rdgenEditOrganization(manager: manager, api: api!, boundChoices: [],
-            additional: true, save: (id, _) => _save(id, true, additional: true));
-        }
-        return;
-      }
       if (api?.version2 == true) {
-        await rdgenEditOrganization(manager: manager, api: api!,
-          boundChoices: WorkGroupSession.choices(snapshot!),
-          loadBound: () async { await refresh(); return WorkGroupSession.choices(snapshot ?? {}); },
-          assignmentConfirmed: () => assigned,
-          origin: captured.preferredGroupId, save: (id, attach) => _save(id, attach));
+        if (api!.alias == null) await loadAlias();
+        final wasAssigned = assigned;
+        int? reopen;
+        final decision = await rdgenEditOrganization(manager: manager, api: api!,
+          boundChoices: api!.bindings.isEmpty ? WorkGroupSession.choices(snapshot!) : api!.bindings,
+          loadBound: () async { await refresh(); return api!.bindings.isEmpty ? WorkGroupSession.choices(snapshot ?? {}) : api!.bindings; },
+          assignmentConfirmed: wasAssigned ? null : () => assigned,
+          additional: wasAssigned, reconnecting: wasAssigned,
+          origin: captured.preferredGroupId, save: (id, attach) async {
+            if (!current()) throw StateError('Session ended');
+            if (wasAssigned) {
+              if (restart == null) throw StateError('Close other display windows before reconnecting');
+              if (snapshot?['group']?['id'] == id) return;
+              if (attach) await api!.attach(id);
+              reopen = id;
+            } else { await _save(id, attach); }
+          });
+        if (decision == RdgenOrganizationDecision.saved && reopen != null && current()) await restart!(reopen!);
       } else {
         await rdgenChooseWorkGroup(captured, manager, current,
             allowSkip: true, showUnassigned: true, onSaved: refresh, onDisconnect: () {});
       }
       if (current()) await refresh();
+    } catch (failure) {
+      error = rdgenOrganizationError(failure);
+      if (current()) showToast(error!);
     } finally {
       dialogOpen = false;
       notifyListeners();

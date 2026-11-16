@@ -58,7 +58,7 @@ class SessionWorkGroupTests(unittest.TestCase):
                 files += [p for p in (root/'flutter/lib/desktop/pages').glob('*.dart')
                           if 'rdgenWorkGroupId' in p.read_text(encoding='utf-8')]
                 for file in files:
-                    subprocess.run(['dart', 'format', '--output=none', str(file)], check=True, capture_output=True, timeout=60)
+                    subprocess.run([shutil.which('dart'), 'format', '--output=none', str(file)], check=True, capture_output=True, timeout=60)
 
     @unittest.skipUnless(shutil.which('dart'), 'Dart SDK is available on CI')
     def test_exact_session_protocol(self):
@@ -70,8 +70,8 @@ class SessionWorkGroupTests(unittest.TestCase):
                              ('organization_api_test.dart', 'api_test.dart'),
                              ('session_work_groups_test.dart', 'test.dart')]:
                 shutil.copyfile(Path(__file__).with_name(src), root/dst)
-            subprocess.run(['dart', str(root/'test.dart')], check=True, timeout=60)
-            subprocess.run(['dart', str(root/'api_test.dart')], check=True, timeout=60)
+            subprocess.run([shutil.which('dart'), str(root/'test.dart')], check=True, timeout=60)
+            subprocess.run([shutil.which('dart'), str(root/'api_test.dart')], check=True, timeout=60)
 
     @unittest.skipUnless(shutil.which('flutter'), 'Flutter SDK is available on the widget runner')
     def test_picker_widgets(self):
@@ -79,7 +79,7 @@ class SessionWorkGroupTests(unittest.TestCase):
             root = Path(directory)
             (root/'lib/models').mkdir(parents=True)
             (root/'test').mkdir()
-            for name in ['session_work_groups', 'session_work_groups_ui', 'work_group_origin', 'organization_choices', 'compact_session_toolbar', 'organization_api', 'organization_editor', 'session_organization']:
+            for name in ['session_work_groups', 'session_work_groups_ui', 'work_group_origin', 'organization_choices', 'compact_session_toolbar', 'organization_api', 'organization_editor', 'session_organization', 'organization_toolbar']:
                 shutil.copyfile(Path(__file__).with_name(name+'.dart'), root/f'lib/models/rdgen_{name}.dart')
             shutil.copyfile(Path(__file__).with_name('session_work_groups_widget_test.dart'), root/'test/picker_test.dart')
             shutil.copyfile(Path(__file__).with_name('compact_session_toolbar_test.dart'), root/'test/toolbar_test.dart')
@@ -94,7 +94,7 @@ typedef CustomAlertDialog = AlertDialog;
 class OverlayDialogManager {
   final BuildContext context;
   OverlayDialogManager(this.context);
-  Future<T?> show<T>(AlertDialog Function(StateSetter, void Function([dynamic]), BuildContext) builder,
+  Future<T?> show<T>(Widget Function(StateSetter, void Function([dynamic]), BuildContext) builder,
       {String? tag, bool backDismiss = false}) => showDialog<T>(context: context,
         builder: (context) => StatefulBuilder(builder: (context, setState) =>
           builder(setState, ([result]) => Navigator.of(context).pop(result), context)));
@@ -103,5 +103,5 @@ class OverlayDialogManager {
   final VoidCallback? onCancel;
   CustomAlertDialog({super.title, required super.content, super.actions, this.onCancel});
 }'''), encoding='utf-8')
-            subprocess.run(['flutter', 'pub', 'get'], cwd=root, check=True, timeout=180)
-            subprocess.run(['flutter', 'test'], cwd=root, check=True, timeout=180)
+            subprocess.run([shutil.which('flutter'), 'pub', 'get'], cwd=root, check=True, timeout=180)
+            subprocess.run([shutil.which('flutter'), 'test'], cwd=root, check=True, timeout=180)

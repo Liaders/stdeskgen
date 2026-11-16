@@ -45,6 +45,7 @@ def apply(root, desktop=True):
         final headers = {'Authorization': 'Bearer $capturedToken', 'Content-Type': 'application/json', 'Accept': 'application/json'};
         final response = method == 'PUT'
             ? await http.put(uri, headers: headers, body: body)
+            : method == 'POST' ? await http.post(uri, headers: headers, body: body)
             : await http.get(uri, headers: headers);
         return WorkGroupReply(response.statusCode, response.body,
             retryAfter: response.headers['retry-after']);
@@ -101,6 +102,17 @@ def apply(root, desktop=True):
       await ffi.ffiModel.rdgenOrganization.beforeClose(ffi.dialogManager)) return true;
   final res = await _showConnEndAuditDialogCloseCanceled(''', 1)
     translations = {
+        'Assign device alias': 'Назначить псевдоним устройства',
+        'Device alias (optional)': 'Псевдоним устройства (необязательно)',
+        'For easier navigation. The computer name stays unchanged.': 'Для удобства поиска и навигации. Имя компьютера не меняется.',
+        'Create and assign': 'Создать и назначить',
+        'Reconnect to this device for another organization?': 'Переподключиться к этому устройству по другой организации?',
+        'Assign this organization to the device?': 'Назначить эту организацию устройству?',
+        'Selected organization': 'Выбранная организация',
+        'The current session will end. A new session will be attributed to this organization.': 'Текущий сеанс будет завершён. Новый сеанс будет учитываться за этой организацией.',
+        'The current session will be attributed to this organization.': 'Текущий сеанс будет учитываться за этой организацией.',
+        'Close other display windows before changing the session organization': 'Для смены организации сначала закройте другие окна дисплеев этого сеанса',
+
         'Session organization': 'Организация сеанса',
         'Choose an organization for this session.': 'Выберите организацию для этого сеанса.',
         'Organization not selected': 'Организация не выбрана',

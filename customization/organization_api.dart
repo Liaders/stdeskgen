@@ -31,6 +31,9 @@ class RdgenOrganizationApi {
   Map<String, dynamic> permissions = {};
   List<Map<String, dynamic>> bindings = [];
   DateTime? retryAt;
+  String? alias;
+  bool canSetAlias = false;
+  int aliasMaxLength = 255;
   RdgenOrganizationMutation? pendingCreate;
   RdgenOrganizationMutation? pendingAttach;
   final String _scope = RdgenOrganizationMutation._uuid();
@@ -88,6 +91,36 @@ class RdgenOrganizationApi {
     if (rows.length != 1) throw FormatException('Invalid created organization');
     pendingCreate = null;
     return rows.single;
+  }
+
+  Uri get _aliasUri => uri('devices/${Uri.encodeComponent(peerId)}/alias');
+  void _acceptAlias(Map<String, dynamic> data) {
+    if (data['api_version'] != 2 || data['device_id'] != peerId || data['alias'] is! String ||
+        data['can_set_alias'] is! bool || data['max_length'] is! int || data['max_length'] < 1) {
+      throw FormatException('Invalid device alias response');
+    }
+    alias = data['alias'] as String;
+    canSetAlias = data['can_set_alias'] == true;
+    aliasMaxLength = data['max_length'] as int;
+  }
+  Future<void> readAlias() async {
+    canSetAlias = false;
+    try { _acceptAlias(await _call('GET', _aliasUri)); }
+    on RdgenOrganizationApiError catch (error) {
+      if (![404,405,501].contains(error.status)) rethrow;
+    }
+  }
+  Future<void> saveAlias(String value) async {
+    if (!canSetAlias) throw RdgenOrganizationApiError(403);
+    try {
+      final data = await _call('PUT', _aliasUri, jsonEncode({'alias': value.trim()}));
+      if (data['saved'] != true) throw FormatException('Alias save not confirmed');
+      _acceptAlias(data);
+    } catch (_) {
+      // Refresh before another explicit retry; never claim an uncertain write succeeded.
+      try { await readAlias(); } catch (_) {}
+      rethrow;
+    }
   }
 
   Future<void> attach(int groupId) async {

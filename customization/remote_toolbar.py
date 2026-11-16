@@ -12,7 +12,7 @@ def apply(root):
             raise ValueError('Incompatible compact session toolbar: '+old[:100])
         source = source.replace(old, new)
 
-    source = "import '../../models/rdgen_compact_session_toolbar.dart';\n"+source
+    source = "import '../../models/rdgen_compact_session_toolbar.dart';\nimport '../../models/rdgen_organization_toolbar.dart';\n"+source
     change('    if (!pin && collapse.isFalse && _isCursorOverImage && _dragging.isFalse) {',
            '''    if (!pin && !widget.ffi.ffiModel.rdgenOrganization.interacting &&
         (!widget.ffi.ffiModel.rdgenOrganization.supported ||
@@ -46,15 +46,38 @@ def apply(root):
     if not body.endswith(anchor): raise ValueError('Incompatible toolbar build end')
     body = body[:-len(anchor)]+'    }));\n  }\n\n'
     source = prefix+body+suffix
-    change('    toolbarItems.add(_ChatMenu(id: widget.id, ffi: widget.ffi));', '''    final compact = widget.ffi.ffiModel.rdgenOrganization.supported;
+    change('    final List<Widget> toolbarItems = [];',
+        '    final compact = widget.ffi.ffiModel.rdgenOrganization.supported;\n    final List<Widget> toolbarItems = [];')
+    if 'mainGetLocalBoolOptionSync(kOptionAllowMonitorSwitchMainToolbar)' in source:
+        source = source.replace('mainGetLocalBoolOptionSync(kOptionAllowMonitorSwitchMainToolbar)',
+            '!widget.ffi.ffiModel.rdgenOrganization.supported && mainGetLocalBoolOptionSync(kOptionAllowMonitorSwitchMainToolbar)', 1)
+    change('    toolbarItems\n        .add(_ControlMenu(id: widget.id, ffi: widget.ffi, state: widget.state));',
+        '    if (!compact) toolbarItems.add(_ControlMenu(id: widget.id, ffi: widget.ffi, state: widget.state));')
+    change('    toolbarItems.add(_ChatMenu(id: widget.id, ffi: widget.ffi));', '''    if (compact) {
+      toolbarItems.insert(2, _IconMenuButton(icon: const RdgenToolbarGlyph('fullscreen'), tooltip: 'Fullscreen',
+        color: _ToolbarTheme.inactiveColor, hoverColor: _ToolbarTheme.hoverInactiveColor,
+        onPressed: () => _setFullscreen(!stateGlobal.fullscreen.value)));
+      toolbarItems.add(_ControlMenu(id: widget.id, ffi: widget.ffi, state: widget.state));
+    }
     if (!compact) toolbarItems.add(_ChatMenu(id: widget.id, ffi: widget.ffi));''')
+    change('      toolbarItems.add(_VoiceCallMenu(id: widget.id, ffi: widget.ffi));',
+        '      if (!compact) toolbarItems.add(_VoiceCallMenu(id: widget.id, ffi: widget.ffi));')
     change('    if (!isWeb) toolbarItems.add(_RecordMenu());', '''    if (!compact && !isWeb) toolbarItems.add(_RecordMenu());
     if (compact) {
-      toolbarItems.insert(1, RdgenOrganizationToolbarButton(
-        name: widget.ffi.ffiModel.rdgenOrganization.name,
-        additionalCount: widget.ffi.ffiModel.rdgenOrganization.additionalCount,
-        onPressed: () => widget.ffi.ffiModel.rdgenOrganization.choose(
-          widget.ffi.dialogManager, () => !widget.ffi.closed)));
+      Future<void> reopen(int group) async {
+        if (!bind.willSessionCloseCloseSession(sessionId: widget.ffi.sessionId)) {
+          throw StateError('Other display windows are still open');
+        }
+        final result = await rustDeskWinManager.call(WindowType.Main,
+          'rdgen-new-organization-session', {'id': widget.id, 'group_id': group});
+        if (result.result is! int || result.result < 0) throw StateError('New session window unavailable');
+        closeConnection(id: widget.id);
+      }
+      toolbarItems.add(Container(width: 1, height: 22, color: const Color(0xff4a4e53)));
+      toolbarItems.add(RdgenOrganizationSessionMenu(
+        organization: widget.ffi.ffiModel.rdgenOrganization, manager: widget.ffi.dialogManager,
+        current: () => !widget.ffi.closed,
+        restart: bind.willSessionCloseCloseSession(sessionId: widget.ffi.sessionId) ? reopen : null));
       toolbarItems.add(_IconSubmenuButton(tooltip: 'More',
         icon: const Icon(Icons.more_horiz, color: Colors.white, size: 20),
         color: _ToolbarTheme.inactiveColor, hoverColor: _ToolbarTheme.hoverInactiveColor,
@@ -64,39 +87,45 @@ def apply(root):
             _ChatMenu(id: widget.id, ffi: widget.ffi),
           ]),
           if (!isWeb) Row(mainAxisSize: MainAxisSize.min, children: [
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text(translate('Voice call'))),
+            _VoiceCallMenu(id: widget.id, ffi: widget.ffi),
+          ]),
+          if (!isWeb) Row(mainAxisSize: MainAxisSize.min, children: [
             Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text(translate('Session recording'))),
             _RecordMenu(),
           ]),
         ]));
     }''')
+    change('    toolbarItems.add(_CloseMenu(id: widget.id, ffi: widget.ffi));',
+        '    if (!compact) toolbarItems.add(_CloseMenu(id: widget.id, ffi: widget.ffi));')
     change('    final toolbarBorderRadius = BorderRadius.all(Radius.circular(4.0));', '''    if (compact) {
-      toolbarItems.insert(2, Obx(() => pi.displaysCount.value == 1
-        ? RdgenDisplayCounter(current: 0, total: pi.displaysCount.value)
-        : const Offstage()));
+      toolbarItems.add(_CloseMenu(id: widget.id, ffi: widget.ffi));
       return Material(color: const Color(0xff22252b), elevation: 4,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
         child: SingleChildScrollView(scrollDirection: Axis.horizontal,
-          child: Padding(padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
-            child: Row(mainAxisSize: MainAxisSize.min, children: toolbarItems))));
+          child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+            child: Row(mainAxisSize: MainAxisSize.min, children: toolbarItems.map((item) =>
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 2.5), child: item)).toList()))));
     }
     final toolbarBorderRadius = BorderRadius.all(Radius.circular(4.0));''')
     change('        icon: monitorsIcon,', '''        icon: ffi.ffiModel.rdgenOrganization.supported
           ? Obx(() => RdgenDisplayCounter(current: CurrentDisplayState.find(id).value,
               total: ffi.ffiModel.pi.displaysCount.value)) : monitorsIcon,''')
     change('        width: width.value,\n        color: _ToolbarTheme.blueColor,',
-           '        width: ffi.ffiModel.rdgenOrganization.supported ? 54 : width.value,\n        color: _ToolbarTheme.blueColor,')
+           '        width: ffi.ffiModel.rdgenOrganization.supported ? 84 : width.value,\n        color: _ToolbarTheme.blueColor,')
     # Only rendering primitives are resized. Their callbacks and action-specific
     # permission/state checks above are untouched.
     start = source.index('class _IconMenuButtonState ')
     end = source.index('class _SubmenuButton ', start)
     prefix, body, suffix = source[:start], source[start:end], source[end:]
-    for name, value in [('buttonSize', '28.0'), ('buttonHMargin', '1.0'), ('buttonVMargin', '1.0')]:
+    for name, value in [('buttonSize', '30.0'), ('buttonHMargin', '0.0'), ('buttonVMargin', '0.0')]:
         body = body.replace('_ToolbarTheme.'+name,
             '(RdgenCompactToolbarScope.active(context) ? '+value+' : _ToolbarTheme.'+name+')')
-    body = body.replace('color: hover ? widget.hoverColor : widget.color,', '''color: RdgenCompactToolbarScope.active(context) &&
-                          widget.color == _ToolbarTheme.blueColor && widget.tooltip != 'Unpin Toolbar'
-                        ? (hover ? const Color(0xff3b414b) : const Color(0xff2e333b))
-                        : hover ? widget.hoverColor : widget.color,''')
+    body = body.replace('color: hover ? widget.hoverColor : widget.color,', """color: RdgenCompactToolbarScope.active(context)
+                        ? (widget.tooltip == 'Close' ? const Color(0xffe44e49)
+                          : widget.tooltip == 'Select Monitor' ? const Color(0xff21464b)
+                          : hover ? const Color(0xff3b414b) : Colors.transparent)
+                        : hover ? widget.hoverColor : widget.color,""")
     anchor = '        child: SubmenuButton(\n'
     if body.count(anchor) != 1: raise ValueError('Incompatible toolbar submenu lifecycle')
     body = body.replace(anchor, anchor+'''            onOpen: () {
@@ -108,11 +137,20 @@ def apply(root):
               if (organization != null && organization.menuDepth > 0) organization.menuDepth--;
             },
 ''', 1)
+    body = body.replace('BorderRadius.circular(_ToolbarTheme.iconRadius)',
+        'BorderRadius.circular(RdgenCompactToolbarScope.active(context) ? 4 : _ToolbarTheme.iconRadius)')
+    body = body.replace('    final icon = widget.icon ??', """    final compact = RdgenCompactToolbarScope.active(context);
+    final glyph = switch (widget.tooltip) {
+      'Pin Toolbar' || 'Unpin Toolbar' => 'pin', 'Close' => 'close',
+      'Control Actions' => 'bolt', 'Display Settings' => 'settings',
+      'Keyboard Settings' => 'keyboard', 'More' => 'more', _ => null,
+    };
+    final icon = compact && glyph != null ? Center(child: RdgenToolbarGlyph(glyph, color: widget.tooltip == 'Unpin Toolbar' ? const Color(0xffef7f1a) : Colors.white)) : widget.icon ??""")
     source = prefix+body+suffix
     # pi.currentDisplay is observed through the existing per-peer display state.
     source = source.replace('pi.currentDisplay < 0 ? "*" : pi.currentDisplay + 1',
         'CurrentDisplayState.find(id).value < 0 ? "*" : CurrentDisplayState.find(id).value + 1')
     path.write_text(source, encoding='utf-8')
-    for name in ['compact_session_toolbar', 'session_organization', 'organization_choices']:
+    for name in ['compact_session_toolbar', 'session_organization', 'organization_choices', 'organization_toolbar']:
         (root/f'flutter/lib/models/rdgen_{name}.dart').write_text(
             Path(__file__).with_name(name+'.dart').read_text(encoding='utf-8'), encoding='utf-8')

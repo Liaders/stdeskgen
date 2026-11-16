@@ -46,5 +46,30 @@ Future<void> main() async {
   await api.attach(7);
   check(attachBodies.length == 2 && attachBodies.first == attachBodies.last);
   check(api.bindings.single['id'] == 7);
+  await aliasContract();
   print('Organization permissions, scoped requests, durable retry IDs and rate limiting: OK');
+}
+
+Future<void> aliasContract() async {
+  var alias = '';
+  var fail = true;
+  final api = RdgenOrganizationApi(Uri.parse('https://console.test'), '000123', (method, uri, body) async {
+    check(uri.path == '/api/statusdesk/devices/000123/alias');
+    if (method == 'PUT') {
+      alias = jsonDecode(body!)['alias'];
+      if (fail) { fail = false; throw StateError('Lost alias response'); }
+    }
+    return WorkGroupReply(200, jsonEncode({'api_version':2,'device_id':'000123',
+      'alias':alias,'can_set_alias':true,'max_length':255, if (method == 'PUT') 'saved':true}));
+  });
+  await api.readAlias();
+  check(api.canSetAlias && api.alias == '');
+  var failed = false;
+  try { await api.saveAlias('New name'); } catch (_) { failed = true; }
+  check(failed && api.alias == 'New name'); // Recovery reads the authoritative value.
+  await api.saveAlias('0');
+  check(api.alias == '0');
+  final old = RdgenOrganizationApi(api.base, api.peerId, (_, __, ___) async => WorkGroupReply(404, '{}'));
+  await old.readAlias();
+  check(!old.canSetAlias && old.alias == null);
 }

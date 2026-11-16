@@ -39,6 +39,8 @@ Future<void> loadPreviewFonts() async {
 
 void main() {
   testWidgets('Only visible return controls intercept input and their drag stays in the window', (tester) async {
+    tester.binding.platformDispatcher.accessibilityFeaturesTestValue = FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue);
     await tester.runAsync(loadPreviewFonts);
     var remoteClicks = 0;
     var expanded = 0;

@@ -81,6 +81,20 @@ def apply(root):
             text = text.replace('        forceRelay: forceRelay,', '        rdgenWorkGroupId: rdgenWorkGroupId,\n        rdgenPreflightDone: rdgenPreflightDone,\n        forceRelay: forceRelay,', 1)
             text = text.replace('        forceRelay: page.forceRelay,', '        rdgenWorkGroupId: page.rdgenWorkGroupId,\n        rdgenPreflightDone: page.rdgenPreflightDone,\n        forceRelay: page.forceRelay,', 1)
         edits[tab] = text
+    home = 'flutter/lib/desktop/pages/desktop_home_page.dart'
+    change(home, "      } else if (call.method == kWindowConnect) {", """      } else if (call.method == 'rdgen-new-organization-session') {
+        final peer = call.arguments['id'];
+        final group = call.arguments['group_id'];
+        if (peer is! String || peer.isEmpty || group is! int || group <= 0) return null;
+        return await rustDeskWinManager.rdgenNewOrganizationSession(peer, group);
+      } else if (call.method == kWindowConnect) {""")
+    change(manager, '  Future<int> newSessionWindow(', """  Future<int> rdgenNewOrganizationSession(String peer, int group) =>
+    newSessionWindow(WindowType.RemoteDesktop, peer, jsonEncode({
+      'type': WindowType.RemoteDesktop.index, 'id': peer,
+      'rdgen_work_group_id': group, 'rdgen_preflight_done': true,
+    }), _remoteDesktopWindows, false);
+
+  Future<int> newSessionWindow(""")
     terminal = 'flutter/lib/desktop/pages/terminal_connection_manager.dart'
     change(terminal, '    required bool? forceRelay,', '    int? rdgenWorkGroupId,\n    bool rdgenPreflightDone = false,\n    required bool? forceRelay,')
     change(terminal, '    final ffi = FFI(null);', '    final ffi = FFI(null);\n    ffi.ffiModel.rdgenPreferredWorkGroupId = rdgenWorkGroupId;\n    ffi.ffiModel.rdgenPreflightDone = rdgenPreflightDone;')
