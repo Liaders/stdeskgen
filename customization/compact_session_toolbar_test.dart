@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import '../lib/models/rdgen_compact_session_toolbar.dart';
 
@@ -24,8 +26,20 @@ Future<void> preview(GlobalKey key, String name) async {
   File('$directory/$name.png').writeAsBytesSync(bytes!.buffer.asUint8List());
 }
 
+Future<void> loadPreviewFonts() async {
+  final sdk = Platform.environment['FLUTTER_ROOT'] ??
+      File((Process.runSync('which', ['flutter']).stdout as String).trim())
+          .resolveSymbolicLinksSync().replaceFirst(RegExp(r'/bin/flutter$'), '');
+  for (final entry in {'Roboto': 'Roboto-Regular.ttf', 'MaterialIcons': 'MaterialIcons-Regular.otf'}.entries) {
+    final bytes = await File('$sdk/bin/cache/artifacts/material_fonts/${entry.value}').readAsBytes();
+    final loader = FontLoader(entry.key)..addFont(Future.value(ByteData.sublistView(bytes)));
+    await loader.load();
+  }
+}
+
 void main() {
   testWidgets('Only visible return controls intercept input and their drag stays in the window', (tester) async {
+    await tester.runAsync(loadPreviewFonts);
     var remoteClicks = 0;
     var expanded = 0;
     var chosen = 0;
@@ -35,12 +49,13 @@ void main() {
         Positioned.fill(child: GestureDetector(onTap: () { remoteClicks++; },
           child: Container(color: const Color(0xff14202c), alignment: Alignment.center,
             child: const Text('Удалённый рабочий стол', style: TextStyle(color: Colors.white38, fontSize: 24))))),
-        Positioned.fill(child: RdgenCompactSessionToolbar(collapsed: collapsed, assigned: assigned,
+        Positioned.fill(child: RdgenCompactSessionToolbar(key: ValueKey('$collapsed/$assigned'), collapsed: collapsed, assigned: assigned,
           organization: assigned ? 'Организация Статус' : null,
           onExpand: () { expanded++; }, onChoose: () { chosen++; }, child: actions())),
       ]))));
     await tester.pumpWidget(host(true, true));
     await tester.pumpAndSettle();
+    await tester.runAsync(() => preview(key, 'toolbar-collapsed-assigned'));
     await tester.tapAt(const Offset(10, 4));
     expect(remoteClicks, 1);
     final handle = find.byIcon(Icons.keyboard_arrow_down);
@@ -52,7 +67,6 @@ void main() {
     await tester.tap(handle);
     await tester.pumpAndSettle();
     expect(expanded, 1);
-    await tester.runAsync(() => preview(key, 'toolbar-collapsed-assigned'));
     await tester.pumpWidget(host(true, false));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Assign organization'));

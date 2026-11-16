@@ -13,12 +13,15 @@ def errors(root):
     if result.returncode not in (0, 1, 2, 3):
         raise RuntimeError('Dart analyzer failed: '+result.stderr[-2000:])
     diagnostics = Counter()
+    parsed = 0
     for line in (result.stdout+'\n'+result.stderr).splitlines():
         fields = line.split('|', 7)
+        if len(fields) == 8 and fields[0] in ('ERROR', 'WARNING', 'INFO'):
+            parsed += 1
         if len(fields) == 8 and fields[0] == 'ERROR':
             name = Path(fields[3]).relative_to(root.resolve()).as_posix()
             diagnostics[(name, fields[2], fields[7])] += 1
-    if not diagnostics and 'No issues found' not in result.stdout and result.returncode != 0:
+    if not parsed and 'No issues found' not in result.stdout and result.returncode != 0:
         raise RuntimeError('Analyzer returned no readable diagnostics: '+result.stdout[-2000:])
     return diagnostics
 
