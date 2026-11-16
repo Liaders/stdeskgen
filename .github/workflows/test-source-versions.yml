@@ -10,6 +10,12 @@ on:
 permissions:
   contents: read
 jobs:
+  desktop-types:
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/test-desktop-organization-types.yml
   compatibility:
     runs-on: ubuntu-24.04
     strategy:
