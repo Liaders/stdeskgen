@@ -88,7 +88,7 @@ class SessionWorkGroupTests(unittest.TestCase):
             # Exercise the generated upstream rendering classes, not stand placeholders.
             with tempfile.TemporaryDirectory() as upstream_directory:
                 upstream = Path(upstream_directory)
-                repo = Path(__file__).resolve().parents[2]/'rustdesk'
+                repo = Path(os.environ.get('RUSTDESK_TEST_SOURCE', Path(__file__).resolve().parents[2]/'rustdesk'))
                 data = subprocess.check_output(['git', '-c', f'safe.directory={repo.as_posix()}',
                     '-C', str(repo), 'archive', os.environ.get('RUSTDESK_TEST_REF', '1.5.1'), 'flutter/lib', 'src/lang'])
                 with tarfile.open(fileobj=io.BytesIO(data)) as archive:

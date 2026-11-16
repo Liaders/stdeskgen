@@ -10,6 +10,7 @@ on:
       - 'customization/compact_session_toolbar*'
       - 'customization/remote_toolbar.py'
       - 'customization/test_session_work_groups.py'
+      - 'customization/native_toolbar*'
       - '.github/workflows/test-session-work-groups.yml'
 permissions:
   contents: read
@@ -18,6 +19,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: rustdesk/rustdesk
+          ref: '23e5bb471a040d62f0a6ad52591fb30784265b73'
+          path: .native-toolbar-source
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.5'
@@ -25,6 +31,8 @@ jobs:
           cache: true
       - name: Test session protocol and picker widgets
         env:
+          RUSTDESK_TEST_SOURCE: ${{ github.workspace }}/.native-toolbar-source
+          RUSTDESK_TEST_REF: HEAD
           RDGEN_PREVIEW_DIR: ${{ runner.temp }}/stdesk-previews
         run: python -m unittest discover -s customization -p test_session_work_groups.py -k 'test_picker_widgets'
       - uses: actions/upload-artifact@v4
