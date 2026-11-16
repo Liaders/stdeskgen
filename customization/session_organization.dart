@@ -9,6 +9,8 @@ class RdgenSessionOrganization extends ChangeNotifier {
   WorkGroupSession? session;
   Map<String, dynamic>? snapshot;
   bool supported = false;
+  bool loading = true;
+  void markUnavailable() { loading = false; supported = false; notifyListeners(); }
   bool dialogOpen = false;
   int menuDepth = 0;
   String? error;
@@ -40,6 +42,7 @@ class RdgenSessionOrganization extends ChangeNotifier {
       query: '', fragment: ''), captured.peerId, captured.requestAuthorized);
     snapshot = null;
     supported = false;
+    loading = true;
     error = null;
     notifyListeners();
     try {
@@ -78,6 +81,8 @@ class RdgenSessionOrganization extends ChangeNotifier {
         error = translate('Could not load the session organization');
         notifyListeners();
       }
+    } finally {
+      if (identical(session, captured)) { loading = false; notifyListeners(); }
     }
   }
 

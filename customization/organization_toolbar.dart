@@ -8,10 +8,15 @@ class RdgenOrganizationSessionMenu extends StatelessWidget {
   final OverlayDialogManager manager;
   final bool Function() current;
   final Future<void> Function(int)? restart;
+  final bool authenticated;
   const RdgenOrganizationSessionMenu({super.key, required this.organization,
-    required this.manager, required this.current, this.restart});
+    required this.manager, required this.current, this.restart, this.authenticated = true});
   @override
   Widget build(BuildContext context) {
+    if (!authenticated || !organization.supported) {
+      return RdgenOrganizationToolbarButton(onPressed: null, name: translate(!authenticated
+        ? 'Sign in to select an organization' : organization.loading ? 'Loading organizations…' : 'Organizations unavailable'));
+    }
     final bindings = organization.api?.bindings ?? [];
     if (bindings.isEmpty) return RdgenOrganizationToolbarButton(name: organization.name,
       onPressed: () => organization.choose(manager, current, restart: restart));

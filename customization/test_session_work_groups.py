@@ -85,6 +85,20 @@ class SessionWorkGroupTests(unittest.TestCase):
             shutil.copyfile(Path(__file__).with_name('compact_session_toolbar_test.dart'), root/'test/toolbar_test.dart')
             shutil.copyfile(Path(__file__).with_name('organization_editor_test.dart'), root/'test/editor_test.dart')
             (root/'pubspec.yaml').write_text('name: session_work_groups_test\nenvironment:\n  sdk: ">=3.5.0 <4.0.0"\ndependencies:\n  flutter:\n    sdk: flutter\ndev_dependencies:\n  flutter_test:\n    sdk: flutter\n', encoding='utf-8')
+            # Exercise the generated upstream rendering classes, not stand placeholders.
+            with tempfile.TemporaryDirectory() as upstream_directory:
+                upstream = Path(upstream_directory)
+                repo = Path(__file__).resolve().parents[2]/'rustdesk'
+                data = subprocess.check_output(['git', '-c', f'safe.directory={repo.as_posix()}',
+                    '-C', str(repo), 'archive', os.environ.get('RUSTDESK_TEST_REF', '1.5.1'), 'flutter/lib', 'src/lang'])
+                with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+                    archive.extractall(upstream, filter='data')
+                apply(upstream)
+                from native_toolbar_fixture import native_toolbar_fixture
+                native_toolbar_fixture(upstream, root/'test/native_render_test.dart')
+            spec = root/'pubspec.yaml'
+            spec.write_text(spec.read_text(encoding='utf-8').replace('dev_dependencies:',
+                '  get: 4.6.6\n  flutter_svg: 2.0.10+1\ndev_dependencies:'), encoding='utf-8')
             # Host only: same public signatures as common.dart, without unrelated FFI plugins.
             (root/'lib/common.dart').write_text('''import 'package:flutter/material.dart';
 export 'package:flutter/material.dart';

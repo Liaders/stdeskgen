@@ -24,13 +24,14 @@ def apply(root, desktop=True):
   final rdgenOrganization = RdgenSessionOrganization();
 
   WorkGroupSession? _rdgenCaptureWorkGroup(String peerId) {
-    if (bind.isDisableAccount()) return null;
+    if (bind.isDisableAccount()) { rdgenOrganization.markUnavailable(); return null; }
     final token = bind.mainGetLocalOption(key: 'access_token');
     final url = bind.sessionGetAuditServerSync(sessionId: sessionId, typ: 'conn/active');
     final connectionId = bind.sessionGetConnSessionId(sessionId: sessionId);
     final uri = Uri.tryParse(url);
     if (token.isEmpty || uri == null || url.isEmpty || connectionId.isEmpty ||
-        connectionId == '0' || _rdgenWorkGroupConnectionId == connectionId) return null;
+        connectionId == '0') { rdgenOrganization.markUnavailable(); return null; }
+    if (_rdgenWorkGroupConnectionId == connectionId) return null;
     _rdgenWorkGroupConnectionId = connectionId;
     final connectionType = switch (parent.target?.connType) {
       ConnType.fileTransfer => 1,
@@ -102,6 +103,9 @@ def apply(root, desktop=True):
       await ffi.ffiModel.rdgenOrganization.beforeClose(ffi.dialogManager)) return true;
   final res = await _showConnEndAuditDialogCloseCanceled(''', 1)
     translations = {
+        'Loading organizations…': 'Загрузка организаций…',
+        'Organizations unavailable': 'Организации недоступны',
+        'Sign in to select an organization': 'Войдите, чтобы выбрать организацию',
         'Assign device alias': 'Назначить псевдоним устройства',
         'Device alias (optional)': 'Псевдоним устройства (необязательно)',
         'For easier navigation. The computer name stays unchanged.': 'Для удобства поиска и навигации. Имя компьютера не меняется.',

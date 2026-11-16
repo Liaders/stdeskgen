@@ -15,7 +15,7 @@ def apply(root):
     source = "import '../../models/rdgen_compact_session_toolbar.dart';\nimport '../../models/rdgen_organization_toolbar.dart';\nimport '../../utils/multi_window_manager.dart';\n"+source
     change('    if (!pin && collapse.isFalse && _isCursorOverImage && _dragging.isFalse) {',
            '''    if (!pin && !widget.ffi.ffiModel.rdgenOrganization.interacting &&
-        (!widget.ffi.ffiModel.rdgenOrganization.supported ||
+        (!isDesktop ||
           (!widget.ffi.dialogManager.rdgenHasOpenDialogs && !gFFI.dialogManager.rdgenHasOpenDialogs)) &&
         collapse.isFalse && _isCursorOverImage && _dragging.isFalse) {''')
     start = source.index('class _RemoteToolbarState ')
@@ -28,10 +28,10 @@ def apply(root):
     return ListenableBuilder(listenable: organization, builder: (context, _) => Obx(() {''', 1)
     anchor = '      // If toolbar is hidden, return empty widget'
     if body.count(anchor) != 1: raise ValueError('Incompatible toolbar visibility')
-    body = body.replace(anchor, '''      if (organization.supported) {
+    body = body.replace(anchor, '''      if (isDesktop) {
         return RdgenCompactSessionToolbar(
           collapsed: !pin && (collapse.value || hide.value),
-          assigned: organization.assigned, organization: organization.name,
+          assigned: !organization.supported || organization.assigned, organization: organization.name,
           onExpand: () {
             if (hide.value) widget.state.switchHide(widget.ffi.sessionId);
             if (collapse.value) widget.state.switchCollapse(widget.ffi.sessionId);
@@ -47,10 +47,10 @@ def apply(root):
     body = body[:-len(anchor)]+'    }));\n  }\n\n'
     source = prefix+body+suffix
     change('    final List<Widget> toolbarItems = [];',
-        '    final compact = widget.ffi.ffiModel.rdgenOrganization.supported;\n    final List<Widget> toolbarItems = [];')
+        '    final compact = isDesktop;\n    final List<Widget> toolbarItems = [];')
     if 'mainGetLocalBoolOptionSync(kOptionAllowMonitorSwitchMainToolbar)' in source:
         source = source.replace('mainGetLocalBoolOptionSync(kOptionAllowMonitorSwitchMainToolbar)',
-            '!widget.ffi.ffiModel.rdgenOrganization.supported && mainGetLocalBoolOptionSync(kOptionAllowMonitorSwitchMainToolbar)', 1)
+            '!isDesktop && mainGetLocalBoolOptionSync(kOptionAllowMonitorSwitchMainToolbar)', 1)
     change('    toolbarItems\n        .add(_ControlMenu(id: widget.id, ffi: widget.ffi, state: widget.state));',
         '    if (!compact) toolbarItems.add(_ControlMenu(id: widget.id, ffi: widget.ffi, state: widget.state));')
     change('    toolbarItems.add(_ChatMenu(id: widget.id, ffi: widget.ffi));', '''    if (compact) {
@@ -76,6 +76,7 @@ def apply(root):
       toolbarItems.add(Container(width: 1, height: 22, margin: const EdgeInsets.symmetric(horizontal: 2.5), color: const Color(0xff4a4e53)));
       toolbarItems.add(Padding(padding: const EdgeInsets.symmetric(horizontal: 2.5), child: RdgenOrganizationSessionMenu(
         organization: widget.ffi.ffiModel.rdgenOrganization, manager: widget.ffi.dialogManager,
+        authenticated: !bind.isDisableAccount() && bind.mainGetLocalOption(key: 'access_token').isNotEmpty,
         current: () => !widget.ffi.closed,
         restart: bind.willSessionCloseCloseSession(sessionId: widget.ffi.sessionId) ? reopen : null)));
       toolbarItems.add(_IconSubmenuButton(tooltip: 'More',
@@ -107,11 +108,11 @@ def apply(root):
             child: Row(mainAxisSize: MainAxisSize.min, children: toolbarItems))));
     }
     final toolbarBorderRadius = BorderRadius.all(Radius.circular(4.0));''')
-    change('        icon: monitorsIcon,', '''        icon: ffi.ffiModel.rdgenOrganization.supported
+    change('        icon: monitorsIcon,', '''        icon: isDesktop
           ? Obx(() => RdgenDisplayCounter(current: CurrentDisplayState.find(id).value,
               total: ffi.ffiModel.pi.displaysCount.value)) : monitorsIcon,''')
     change('        width: width.value,\n        color: _ToolbarTheme.blueColor,',
-           '        width: ffi.ffiModel.rdgenOrganization.supported ? 84 : width.value,\n        color: _ToolbarTheme.blueColor,')
+           '        width: isDesktop ? 84 : width.value,\n        color: _ToolbarTheme.blueColor,')
     # Only rendering primitives are resized. Their callbacks and action-specific
     # permission/state checks above are untouched.
     start = source.index('class _IconMenuButtonState ')
@@ -129,7 +130,7 @@ def apply(root):
     if body.count(anchor) != 1: raise ValueError('Incompatible toolbar submenu lifecycle')
     body = body.replace(anchor, anchor+'''            onOpen: () {
               final organization = widget.ffi?.ffiModel.rdgenOrganization;
-              if (organization != null && organization.supported) organization.menuDepth++;
+              if (organization != null && isDesktop) organization.menuDepth++;
             },
             onClose: () {
               final organization = widget.ffi?.ffiModel.rdgenOrganization;

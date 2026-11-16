@@ -51,7 +51,11 @@ class _RdgenCompactSessionToolbarState
   double offset = 0;
   @override
   Widget build(BuildContext context) {
-    final dark = ThemeData.dark().copyWith(
+    final inherited = Theme.of(context);
+    final dark = inherited.copyWith(
+        brightness: Brightness.dark,
+        textTheme: inherited.textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
+        iconTheme: inherited.iconTheme.copyWith(color: Colors.white),
         visualDensity: VisualDensity.standard,
         menuButtonTheme: const MenuButtonThemeData(style: rdgenCompactMenuButtonStyle),
         menuTheme: const MenuThemeData(style: rdgenCompactMenuStyle),
@@ -134,7 +138,7 @@ class _RdgenCompactSessionToolbarState
 
 class RdgenOrganizationToolbarButton extends StatelessWidget {
   final String? name;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final int additionalCount;
   const RdgenOrganizationToolbarButton(
       {super.key,
