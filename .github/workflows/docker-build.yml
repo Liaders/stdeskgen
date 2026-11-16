@@ -10,6 +10,7 @@ on:
 
 jobs:
   build:
+    if: github.repository == 'bryangerlach/rdgen'
     runs-on: ubuntu-latest
     steps:
       - name: set docker image tag
