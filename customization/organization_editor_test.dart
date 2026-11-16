@@ -52,6 +52,10 @@ void main() {
         }));
       }, () => true);
     await controller.attach(session, manager, () => true, preflightDone: true);
+    final secondary = RdgenSessionOrganization();
+    await secondary.attach(WorkGroupSession(session.audit, session.peerId,
+        session.connectionId, session.connectionType, session.token, session.request,
+        session.authorized), manager, () => true, preflightDone: true);
     expect(controller.needsReminder, true);
     var ending = controller.beforeClose(manager);
     await tester.pumpAndSettle();
@@ -73,6 +77,12 @@ void main() {
     expect(controller.name, 'Recorded A');
     expect(puts, 1);
     expect(await controller.beforeClose(manager), false);
+    // A different display window may still hold the pre-assignment snapshot.
+    final staleClosing = secondary.beforeClose(manager);
+    await tester.pumpAndSettle();
+    expect(await staleClosing, false);
+    expect(secondary.name, 'Recorded A');
+    expect(puts, 1);
 
     final adding = controller.choose(manager, () => true);
     await tester.pumpAndSettle();

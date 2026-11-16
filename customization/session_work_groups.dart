@@ -1,5 +1,6 @@
 // Session-scoped accounting only. No device preferences or credential cache.
 import 'dart:convert';
+import 'dart:math';
 
 class WorkGroupReply {
   final int code;
@@ -19,6 +20,8 @@ class WorkGroupSession {
   final bool Function() authorized;
   final int? preferredGroupId;
   String? _guid;
+  final String _requestScope = List.generate(4, (_) =>
+      Random.secure().nextInt(1 << 32).toRadixString(16).padLeft(8, '0')).join();
 
   WorkGroupSession(this.audit, this.peerId, this.connectionId,
       this.connectionType, this.token, this.request, this.authorized,
@@ -52,6 +55,7 @@ class WorkGroupSession {
       // The Rust HTTP bridge keys pending responses by URL. Keep this request
       // separate from the independent end-of-session note GUID lookup.
       'statusdesk_work_group': '1',
+      'rdgen_request_scope': _requestScope,
     });
     const waits = [1, 1, 2, 2, 3, 3];
     for (final seconds in waits) {
@@ -70,7 +74,8 @@ class WorkGroupSession {
 
   Uri get _uri => audit.replace(
       path: audit.path.substring(0, audit.path.length - '/audit/conn/active'.length) +
-          '/statusdesk/sessions/$_guid/work-group', query: '', fragment: '');
+          '/statusdesk/sessions/$_guid/work-group',
+      queryParameters: {'rdgen_request_scope': _requestScope}, fragment: '');
 
   Future<Map<String, dynamic>?> read() async {
     if (_guid == null) throw StateError('Session not resolved');

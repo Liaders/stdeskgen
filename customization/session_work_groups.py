@@ -56,14 +56,18 @@ def apply(root, desktop=True):
   void _queryAuditGuid(String peerId) async {''')
     replace('  handlePeerInfo(Map<String, dynamic> evt, String peerId, bool isCache) async {', '''  handlePeerInfo(Map<String, dynamic> evt, String peerId, bool isCache) async {
     // Capture before this handler awaits anything; reconnects have different IDs.
-    final workGroup = isCache ? null : _rdgenCaptureWorkGroup(peerId);''')
-    replace('      tryUseAllMyDisplaysForTheRemoteSession(peerId);', '''      tryUseAllMyDisplaysForTheRemoteSession(peerId);
+    final workGroup = _rdgenCaptureWorkGroup(peerId);''')
+    replace('''    if (!isCache) {
+      tryUseAllMyDisplaysForTheRemoteSession(peerId);
+    }''', '''    if (!isCache) {
+      tryUseAllMyDisplaysForTheRemoteSession(peerId);
+    }
       final manager = parent.target?.dialogManager;
       if (workGroup != null && manager != null) {
         unawaited(rdgenOrganization.attach(workGroup, manager, () =>
             parent.target != null &&
             bind.sessionGetConnSessionId(sessionId: sessionId) == workGroup.connectionId,
-            preflightDone: rdgenPreflightDone));
+            preflightDone: isCache || rdgenPreflightDone));
       }''')
     edits[path] = source
     common = root/'flutter/lib/common.dart'

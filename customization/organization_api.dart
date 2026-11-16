@@ -96,7 +96,13 @@ class RdgenOrganizationApi {
       throw RdgenOrganizationApiError(409);
     }
     pendingAttach ??= RdgenOrganizationMutation({'group_id': groupId});
-    final data = await _call('POST', uri('devices/${Uri.encodeComponent(peerId)}/work-groups'), pendingAttach!.body);
+    final Map<String, dynamic> data;
+    try {
+      data = await _call('POST', uri('devices/${Uri.encodeComponent(peerId)}/work-groups'), pendingAttach!.body);
+    } on RdgenOrganizationApiError catch (error) {
+      if (error.status == 422) pendingAttach = null;
+      rethrow;
+    }
     bindings = WorkGroupSession.choices({'groups': data['bindings']});
     pendingAttach = null;
     if (!bindings.any((g) => g['id'] == groupId)) throw RdgenOrganizationApiError(409);

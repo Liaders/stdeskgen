@@ -37,7 +37,8 @@ class SessionWorkGroupTests(unittest.TestCase):
             self.assertIn('willSessionCloseCloseSession', (root/'flutter/lib/common/widgets/dialog.dart').read_text(encoding='utf-8'))
             original_query = original[original.index('  void _queryAuditGuid('):original.index('  /// Handle the peer info')]
             self.assertIn(original_query, text)  # Notes retain their existing independent path.
-            self.assertIn('final workGroup = isCache ? null', text)
+            self.assertIn('final workGroup = _rdgenCaptureWorkGroup(peerId)', text)
+            self.assertIn('preflightDone: isCache || rdgenPreflightDone', text)
             self.assertIn('sessionGetConnSessionId(sessionId: sessionId)', text)
             self.assertNotIn('mainSetLocalOption', text[text.index('  String? _rdgen'):text.index('  void _queryAuditGuid')])
             apply_titles(root)

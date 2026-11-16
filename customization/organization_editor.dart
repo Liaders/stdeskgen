@@ -76,6 +76,7 @@ Future<RdgenOrganizationDecision> rdgenEditOrganization({
   required List<Map<String, dynamic>> boundChoices,
   required Future<void> Function(int groupId, bool needsAttachment) save,
   Future<List<Map<String, dynamic>>> Function()? loadBound,
+  bool Function()? assignmentConfirmed,
   int? origin, bool closing = false, bool additional = false,
 }) async {
   final byId = {for (final group in boundChoices) group['id'] as int: group};
@@ -94,6 +95,10 @@ Future<RdgenOrganizationDecision> rdgenEditOrganization({
         setState(() { busy = true; });
         try {
           if (loadBound != null) bound = await loadBound();
+          if (assignmentConfirmed?.call() == true) {
+            if (!disposed && context.mounted) finish(RdgenOrganizationDecision.saved);
+            return;
+          }
           final available = await api.search();
           if (disposed || !context.mounted) return;
           setState(() {

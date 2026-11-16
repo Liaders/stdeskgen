@@ -118,6 +118,7 @@ class RdgenSessionOrganization extends ChangeNotifier {
       final decision = await rdgenEditOrganization(manager: manager, api: api!,
         boundChoices: WorkGroupSession.choices(snapshot!), closing: true,
         loadBound: () async { await refresh(); return WorkGroupSession.choices(snapshot ?? {}); },
+        assignmentConfirmed: () => assigned,
         save: (id, attach) => _save(id, attach));
       return decision == RdgenOrganizationDecision.cancel;
     } finally { dialogOpen = false; notifyListeners(); }
@@ -153,6 +154,7 @@ class RdgenSessionOrganization extends ChangeNotifier {
         await rdgenEditOrganization(manager: manager, api: api!,
           boundChoices: WorkGroupSession.choices(snapshot!),
           loadBound: () async { await refresh(); return WorkGroupSession.choices(snapshot ?? {}); },
+          assignmentConfirmed: () => assigned,
           origin: captured.preferredGroupId, save: (id, attach) => _save(id, attach));
       } else {
         await rdgenChooseWorkGroup(captured, manager, current,
