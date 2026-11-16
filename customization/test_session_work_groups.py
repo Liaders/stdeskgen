@@ -94,7 +94,7 @@ typedef CustomAlertDialog = AlertDialog;
 class OverlayDialogManager {
   final BuildContext context;
   OverlayDialogManager(this.context);
-  Future<T?> show<T>(Widget Function(StateSetter, void Function([dynamic]), BuildContext) builder,
+  Future<T?> show<T>(CustomAlertDialog Function(StateSetter, void Function([dynamic]), BuildContext) builder,
       {String? tag, bool backDismiss = false}) => showDialog<T>(context: context,
         builder: (context) => StatefulBuilder(builder: (context, setState) =>
           builder(setState, ([result]) => Navigator.of(context).pop(result), context)));

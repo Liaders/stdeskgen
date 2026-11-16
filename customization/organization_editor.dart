@@ -46,8 +46,8 @@ Future<Map<String, dynamic>?> rdgenCreateOrganization(
         }
       }
       final locked = busy || api.pendingCreate != null;
-      return _RdgenDialogLifetime(controllers: [name, note], child: CustomAlertDialog(title: Text(translate('Create organization…')),
-        content: SizedBox(width: 420, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      return CustomAlertDialog(title: Text(translate('Create organization…')),
+        content: _RdgenDialogLifetime(controllers: [name, note], child: SizedBox(width: 420, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(controller: name, enabled: !locked, maxLength: fields['name']['max_length'] as int,
             decoration: InputDecoration(labelText: translate('Name')),
             onChanged: (_) => setState(() {})),
@@ -62,13 +62,13 @@ Future<Map<String, dynamic>?> rdgenCreateOrganization(
             Text(translate('Retry the pending creation to recover its result without duplicates')),
           if (busy) const LinearProgressIndicator(),
           if (error != null) Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-        ]))),
+        ])))),
         actions: [TextButton(onPressed: busy ? null : cancel, child: Text(translate('Cancel'))),
           OutlinedButton(onPressed: busy || name.text.trim().isEmpty ? null : () => submit(),
             child: Text(translate(api.pendingCreate == null ? 'Create' : 'Retry'))),
           ElevatedButton(onPressed: busy || name.text.trim().isEmpty ? null : () => submit(assign: true),
             child: Text(translate('Create and assign')))],
-        onCancel: busy ? null : cancel));
+        onCancel: busy ? null : cancel);
     });
   } finally { closed = true; }
 }
@@ -156,8 +156,8 @@ Future<RdgenOrganizationDecision> rdgenEditOrganization({
         if (created && !disposed && context.mounted) await submit();
       }
       final groups = byId.values.toList()..sort((a,b) => (a['name'] as String).compareTo(b['name'] as String));
-      return _RdgenDialogLifetime(controllers: [alias], child: CustomAlertDialog(title: Text(translate(additional ? 'Add organization' : 'Session organization')),
-        content: SizedBox(width: 420, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      return CustomAlertDialog(title: Text(translate(additional ? 'Add organization' : 'Session organization')),
+        content: _RdgenDialogLifetime(controllers: [alias], child: SizedBox(width: 420, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           if (closing) Text(translate('You are ending a session with a device without an organization. Select or create one to attribute this entire session to it.')),
           if (offerAlias) TextField(controller: alias, enabled: !busy, maxLength: api.aliasMaxLength,
             decoration: InputDecoration(labelText: translate('Device alias (optional)'), helperText: translate('For easier navigation. The computer name stays unchanged.'), helperMaxLines: 2)),
@@ -169,7 +169,7 @@ Future<RdgenOrganizationDecision> rdgenEditOrganization({
           if (busy) const LinearProgressIndicator(),
           if (error != null) Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           if (error != null) TextButton(onPressed: busy ? null : load, child: Text(translate('Retry'))),
-        ]))),
+        ])))),
         actions: [
           if (!additional) TextButton(onPressed: mutating ? null : () => finish(RdgenOrganizationDecision.skip),
             child: Text(translate(closing ? 'End without organization' : 'Do not select'))),
@@ -178,7 +178,7 @@ Future<RdgenOrganizationDecision> rdgenEditOrganization({
           ElevatedButton(onPressed: busy || selected == null || authorizationFailed ||
               (!bound.any((g) => g['id'] == selected) && (!api.version2 || api.permissions['can_attach'] != true)) ? null : submit,
             child: Text(translate(closing ? 'Save and end session' : 'Confirm'))),
-        ], onCancel: mutating ? null : () => finish(RdgenOrganizationDecision.cancel)));
+        ], onCancel: mutating ? null : () => finish(RdgenOrganizationDecision.cancel));
     });
     return result ?? RdgenOrganizationDecision.cancel;
   } finally { disposed = true; }
@@ -211,16 +211,16 @@ Future<void> rdgenEditDeviceAlias(OverlayDialogManager manager, RdgenOrganizatio
           if (!closed && context.mounted) setState(() { error = rdgenOrganizationError(failure); });
         } finally { if (!closed && context.mounted) setState(() { busy = false; }); }
       }
-      return _RdgenDialogLifetime(controllers: [alias], child: CustomAlertDialog(title: Text(translate('Assign device alias')),
-        content: SizedBox(width: 420, child: Column(mainAxisSize: MainAxisSize.min, children: [
+      return CustomAlertDialog(title: Text(translate('Assign device alias')),
+        content: _RdgenDialogLifetime(controllers: [alias], child: SizedBox(width: 420, child: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(controller: alias, enabled: !busy, autofocus: true, maxLength: api.aliasMaxLength,
             onChanged: (_) => setState(() {}), decoration: InputDecoration(labelText: translate('Alias'),
               helperText: translate('For easier navigation. The computer name stays unchanged.'), helperMaxLines: 2)),
           if (busy) const LinearProgressIndicator(),
           if (error != null) Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-        ])), actions: [TextButton(onPressed: busy ? null : cancel, child: Text(translate('Cancel'))),
+        ]))), actions: [TextButton(onPressed: busy ? null : cancel, child: Text(translate('Cancel'))),
           ElevatedButton(onPressed: busy || alias.text.trim().isEmpty ? null : submit, child: Text(translate('Save')))],
-        onCancel: busy ? null : cancel));
+        onCancel: busy ? null : cancel);
     });
   } finally { closed = true; }
 }

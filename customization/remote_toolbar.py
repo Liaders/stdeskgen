@@ -12,7 +12,7 @@ def apply(root):
             raise ValueError('Incompatible compact session toolbar: '+old[:100])
         source = source.replace(old, new)
 
-    source = "import '../../models/rdgen_compact_session_toolbar.dart';\nimport '../../models/rdgen_organization_toolbar.dart';\n"+source
+    source = "import '../../models/rdgen_compact_session_toolbar.dart';\nimport '../../models/rdgen_organization_toolbar.dart';\nimport '../../utils/multi_window_manager.dart';\n"+source
     change('    if (!pin && collapse.isFalse && _isCursorOverImage && _dragging.isFalse) {',
            '''    if (!pin && !widget.ffi.ffiModel.rdgenOrganization.interacting &&
         (!widget.ffi.ffiModel.rdgenOrganization.supported ||
