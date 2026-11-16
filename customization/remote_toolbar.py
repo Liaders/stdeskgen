@@ -70,6 +70,9 @@ def apply(root):
         ]));
     }''')
     change('    final toolbarBorderRadius = BorderRadius.all(Radius.circular(4.0));', '''    if (compact) {
+      toolbarItems.insert(2, Obx(() => pi.displaysCount.value == 1
+        ? RdgenDisplayCounter(current: 0, total: pi.displaysCount.value)
+        : const Offstage()));
       return Material(color: const Color(0xff22252b), elevation: 4,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
         child: SingleChildScrollView(scrollDirection: Axis.horizontal,
@@ -78,12 +81,10 @@ def apply(root):
     }
     final toolbarBorderRadius = BorderRadius.all(Radius.circular(4.0));''')
     change('        icon: monitorsIcon,', '''        icon: ffi.ffiModel.rdgenOrganization.supported
-          ? SizedBox(width: 54, child: Obx(() => Row(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.desktop_windows_outlined, color: Colors.white, size: 16),
-              const SizedBox(width: 3),
-              Text('${pi.currentDisplay < 0 ? "*" : pi.currentDisplay + 1}/${ffi.ffiModel.pi.displaysCount.value}',
-                style: const TextStyle(color: Colors.white, fontSize: 11)),
-            ]))) : monitorsIcon,''')
+          ? Obx(() => RdgenDisplayCounter(current: CurrentDisplayState.find(id).value,
+              total: ffi.ffiModel.pi.displaysCount.value)) : monitorsIcon,''')
+    change('        width: width.value,\n        color: _ToolbarTheme.blueColor,',
+           '        width: ffi.ffiModel.rdgenOrganization.supported ? 54 : width.value,\n        color: _ToolbarTheme.blueColor,')
     # Only rendering primitives are resized. Their callbacks and action-specific
     # permission/state checks above are untouched.
     start = source.index('class _IconMenuButtonState ')
@@ -92,6 +93,10 @@ def apply(root):
     for name, value in [('buttonSize', '28.0'), ('buttonHMargin', '1.0'), ('buttonVMargin', '1.0')]:
         body = body.replace('_ToolbarTheme.'+name,
             '(RdgenCompactToolbarScope.active(context) ? '+value+' : _ToolbarTheme.'+name+')')
+    body = body.replace('color: hover ? widget.hoverColor : widget.color,', '''color: RdgenCompactToolbarScope.active(context) &&
+                          widget.color == _ToolbarTheme.blueColor && widget.tooltip != 'Unpin Toolbar'
+                        ? (hover ? const Color(0xff3b414b) : const Color(0xff2e333b))
+                        : hover ? widget.hoverColor : widget.color,''')
     anchor = '        child: SubmenuButton(\n'
     if body.count(anchor) != 1: raise ValueError('Incompatible toolbar submenu lifecycle')
     body = body.replace(anchor, anchor+'''            onOpen: () {

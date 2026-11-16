@@ -50,6 +50,7 @@ void main() {
     expect(rectangle.left, greaterThanOrEqualTo(0));
     expect(rectangle.right, lessThanOrEqualTo(800));
     await tester.tap(handle);
+    await tester.pumpAndSettle();
     expect(expanded, 1);
     await tester.runAsync(() => preview(key, 'toolbar-collapsed-assigned'));
     await tester.pumpWidget(host(true, false));
@@ -57,6 +58,7 @@ void main() {
     await tester.tap(find.text('Assign organization'));
     expect(chosen, 1);
     await tester.tap(handle);
+    await tester.pumpAndSettle();
     expect(expanded, 2);
     await tester.runAsync(() => preview(key, 'toolbar-collapsed-unassigned'));
     await tester.pumpWidget(host(false, true));

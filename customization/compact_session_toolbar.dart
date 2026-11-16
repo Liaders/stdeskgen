@@ -56,7 +56,9 @@ class _RdgenCompactSessionToolbarState extends State<RdgenCompactSessionToolbar>
       return Align(alignment: Alignment.topCenter, child: widget.collapsed
         ? Transform.translate(offset: Offset(dx, 0), child: handle)
         : ConstrainedBox(constraints: BoxConstraints(maxWidth: constraints.maxWidth),
-            child: RdgenCompactToolbarScope(child: widget.child)));
+            child: Material(color: const Color(0xff22252b), elevation: 4,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
+              child: RdgenCompactToolbarScope(child: widget.child))));
     }));
   }
 }
@@ -79,4 +81,18 @@ class RdgenOrganizationToolbarButton extends StatelessWidget {
         if (additionalCount > 0) Padding(padding: const EdgeInsets.only(left: 4),
           child: Text('+$additionalCount', style: const TextStyle(color: Colors.white54, fontSize: 10))),
       ])));
+}
+
+class RdgenDisplayCounter extends StatelessWidget {
+  final int current;
+  final int total;
+  const RdgenDisplayCounter({super.key, required this.current, required this.total});
+  @override
+  Widget build(BuildContext context) => total < 1 ? const SizedBox.shrink() : SizedBox(width: 54,
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      const Icon(Icons.desktop_windows_outlined, color: Colors.white, size: 16),
+      const SizedBox(width: 3),
+      Text('${current < 0 ? "*" : current + 1}/$total',
+        style: const TextStyle(color: Colors.white, fontSize: 11)),
+    ]));
 }
