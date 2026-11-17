@@ -44,35 +44,35 @@ Future<RdgenOrganizationIntent> rdgenOrganizationPreflight(String id) async {
         if (token != bind.mainGetLocalOption(key: 'access_token')) throw RdgenOrganizationApiError(401);
         return WorkGroupReply(response.statusCode, response.body, retryAfter: response.headers['retry-after']);
       });
-    final response = await api.request('GET', api.uri('devices/${Uri.encodeComponent(api.peerId)}/work-groups'), null);
-    if (token != bind.mainGetLocalOption(key: 'access_token')) {
-      return const RdgenOrganizationIntent(proceed: false);
-    }
-    if (response.code != 200) return const RdgenOrganizationIntent();
-    final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic> || decoded['groups'] is! List) {
-      return const RdgenOrganizationIntent();
-    }
-    final groups = WorkGroupSession.choices(decoded);
-    if (groups.length == 1) return RdgenOrganizationIntent(supported: true, groupId: groups.single['id'] as int);
-    if (groups.isEmpty) {
-      try { await api.search(); } catch (_) { return const RdgenOrganizationIntent(supported: true); }
-      if (!api.version2 || api.permissions['can_attach'] != true) return const RdgenOrganizationIntent(supported: true);
-    }
-    final origin = groups.any((g) => g['id'] == rdgenLaunchingWorkGroup) ? rdgenLaunchingWorkGroup : null;
-    try { await api.readAlias(); } catch (_) {}
+    var supported = false;
     if (isDesktop) await windowOnTop(null);
     int? selected;
     final decision = await rdgenEditOrganization(manager: gFFI.dialogManager, api: api,
-      boundChoices: groups, origin: origin,
+      boundChoices: const [], origin: rdgenLaunchingWorkGroup, preflight: true,
+      loadAlias: api.readAlias,
+      loadBound: () async {
+        final response = await api.request('GET',
+          api.uri('devices/' + Uri.encodeComponent(api.peerId) + '/work-groups'), null);
+        if (response.code != 200) throw RdgenOrganizationApiError(response.code);
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map<String, dynamic> || decoded['groups'] is! List) {
+          throw FormatException('Unsupported device work-groups response');
+        }
+        supported = true;
+        return WorkGroupSession.choices(decoded);
+      },
       save: (id, needsAttachment) async {
         if (token != bind.mainGetLocalOption(key: 'access_token')) throw RdgenOrganizationApiError(401);
         if (needsAttachment) await api.attach(id);
         selected = id;
       });
+    if (token != bind.mainGetLocalOption(key: 'access_token') ||
+        base != (await bind.mainGetApiServer()).replaceFirst(RegExp(r'/$'), '')) {
+      return const RdgenOrganizationIntent(proceed: false);
+    }
     return decision == RdgenOrganizationDecision.cancel
       ? const RdgenOrganizationIntent(proceed: false)
-      : RdgenOrganizationIntent(supported: true, groupId: selected);
+      : RdgenOrganizationIntent(supported: supported, groupId: selected);
   } catch (_) {
     debugPrint('Organization preflight unavailable; preserving the connection path');
     return const RdgenOrganizationIntent();

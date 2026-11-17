@@ -136,7 +136,7 @@ class RdgenSessionOrganization extends ChangeNotifier {
     dialogOpen = true;
     notifyListeners();
     try {
-      final decision = await rdgenEditOrganization(manager: manager, api: api!,
+      final decision = await rdgenEditOrganization(manager: manager, api: api!, loadAlias: api!.readAlias,
         boundChoices: api!.bindings, closing: true,
         loadBound: () async { await refresh(); return api!.bindings; },
         assignmentConfirmed: () => assigned,
@@ -167,10 +167,9 @@ class RdgenSessionOrganization extends ChangeNotifier {
     notifyListeners();
     try {
       if (api?.version2 == true) {
-        await loadAlias();
         final wasAssigned = assigned;
         int? reopen;
-        final decision = await rdgenEditOrganization(manager: manager, api: api!,
+        final decision = await rdgenEditOrganization(manager: manager, api: api!, loadAlias: api!.readAlias,
           boundChoices: api!.bindings.isEmpty ? WorkGroupSession.choices(snapshot!) : api!.bindings,
           loadBound: () async { await refresh(); return api!.bindings.isEmpty ? WorkGroupSession.choices(snapshot ?? {}) : api!.bindings; },
           assignmentConfirmed: wasAssigned ? null : () => assigned,

@@ -62,16 +62,29 @@ class RdgenOrganizationApi {
     return data;
   }
 
-  Future<List<Map<String, dynamic>>> search() async {
-    Map<String, dynamic>? cached;
+  Map<String, dynamic>? _cachedCatalog() {
     try {
       final raw = readCatalog?.call() ?? '';
-      if (raw.isNotEmpty) cached = jsonDecode(raw) as Map<String, dynamic>;
-    } catch (_) { /* A damaged local catalog is replaced by an authorized fetch. */ }
+      return raw.isEmpty ? null : jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) { return null; }
+  }
+
+  // Cached names are a search preview, never permission or binding evidence.
+  List<Map<String, dynamic>> cachedChoices() {
+    final cached = _cachedCatalog();
+    final saved = DateTime.tryParse(cached?['saved_at'] is String ? cached!['saved_at'] as String : '');
+    if (saved == null) return [];
+    final age = DateTime.now().difference(saved);
+    if (age.isNegative || age >= const Duration(hours: 12)) return [];
+    return WorkGroupSession.choices({'groups': cached?['rows'] ?? []});
+  }
+
+  Future<List<Map<String, dynamic>>> search() async {
+    final cached = _cachedCatalog();
     final rows = <Map<String, dynamic>>[];
     for (var page = 1; ; page++) {
       final data = await _call('GET', uri('devices/${Uri.encodeComponent(peerId)}/organization-options',
-        {'current': '$page', 'pageSize': '100'}));
+        {'current': '$page', 'pageSize': '500'}));
       if (data['api_version'] != 2 || data['total'] is! int || data['data'] is! List) {
         throw FormatException('Unsupported organization management API');
       }

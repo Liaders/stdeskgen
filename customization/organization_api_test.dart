@@ -86,15 +86,17 @@ Future<void> catalogCacheContract() async {
   RdgenOrganizationApi api() => RdgenOrganizationApi(Uri.parse('https://console.test'), '123', (method, uri, body) async {
     if (forbidden) return WorkGroupReply(403, '{}');
     pages++;
+    check(uri.queryParameters['pageSize'] == '500');
     final page = int.parse(uri.queryParameters['current']!);
-    return WorkGroupReply(200, jsonEncode({'api_version':2,'total':101,
-      'data': List.generate(page == 1 ? 100 : 1, (i) => {'id':(page - 1)*100+i+1,'name':'Group ' + ((page - 1)*100+i+1).toString()}),
+    return WorkGroupReply(200, jsonEncode({'api_version':2,'total':501,
+      'data': List.generate(page == 1 ? 500 : 1, (i) => {'id':(page - 1)*500+i+1,'name':'Group ' + ((page - 1)*500+i+1).toString()}),
       'bindings':[{'id':bound,'name':'Group ' + bound.toString()}], 'permissions':{'can_attach':true}}));
   }, readCatalog: () => stored, writeCatalog: (value) async { stored = value; });
-  check((await api().search()).length == 101 && pages == 2);
+  check((await api().search()).length == 501 && pages == 2);
+  check(api().cachedChoices().length == 501);
   bound = 2;
   final fresh = api();
-  check((await fresh.search()).length == 101 && pages == 3);
+  check((await fresh.search()).length == 501 && pages == 3);
   check(fresh.bindings.single['id'] == 2);
   final expired = jsonDecode(stored);
   expired['saved_at'] = DateTime.now().subtract(const Duration(hours:13)).toIso8601String();

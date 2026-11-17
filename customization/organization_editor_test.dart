@@ -164,4 +164,64 @@ void main() {
     await alias;
     expect(api.alias, 'New alias');
   });
+  testWidgets('Picker opens before network; bound selection works while catalog and alias are loading', (tester) async {
+    late BuildContext context;
+    await tester.pumpWidget(MaterialApp(home: Builder(builder: (c) { context = c; return const Scaffold(); })));
+    final bound = Completer<List<Map<String, dynamic>>>();
+    final catalog = Completer<WorkGroupReply>();
+    final alias = Completer<WorkGroupReply>();
+    final saves = <String>[];
+    final api = RdgenOrganizationApi(Uri.parse('https://console.test'), '123',
+      (_, uri, __) => uri.path.endsWith('/alias') ? alias.future : catalog.future,
+      readCatalog: () => jsonEncode({'saved_at':DateTime.now().toUtc().toIso8601String(),
+        'rows':[{'id':8,'name':'Cached new'}]}));
+    final result = rdgenEditOrganization(manager: OverlayDialogManager(context), api: api,
+      boundChoices: [], preflight: true, origin: 7,
+      loadBound: () => bound.future, loadAlias: api.readAlias,
+      save: (id, attach) async { saves.add('$id/$attach'); });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.text('Choose organization'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Cached');
+    await tester.pump();
+    await tester.tap(find.byWidgetPredicate((w) => w is Text && w.data == 'Cached new'));
+    await tester.pump();
+    expect(tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Confirm')).onPressed, isNull);
+    bound.complete([{'id':7,'name':'Bound A'},{'id':9,'name':'Bound B'}]);
+    await tester.pump();
+    expect(find.text('Bound A'), findsOneWidget);
+    expect(tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Confirm')).onPressed, isNull);
+    await tester.tap(find.text('Bound A'));
+    await tester.pump();
+    expect(tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Confirm')).onPressed, isNotNull);
+    await tester.tap(find.text('Confirm'));
+    await tester.pumpAndSettle();
+    expect(await result, RdgenOrganizationDecision.saved);
+    expect(saves, ['7/false']);
+    catalog.complete(WorkGroupReply(200, '{"api_version":2,"total":1,"data":[{"id":8,"name":"Cached new"}],"bindings":[{"id":7,"name":"Bound A"}],"permissions":{"can_attach":true}}'));
+    alias.complete(WorkGroupReply(200, '{"api_version":2,"device_id":"123","alias":"","can_set_alias":true,"max_length":255}'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('One fresh binding automatically closes the preflight picker without loading the catalog', (tester) async {
+    late BuildContext context;
+    await tester.pumpWidget(MaterialApp(home: Builder(builder: (c) { context = c; return const Scaffold(); })));
+    final bound = Completer<List<Map<String, dynamic>>>();
+    final api = RdgenOrganizationApi(Uri.parse('https://console.test'), '123',
+      (_, __, ___) async => throw StateError('A sole binding needs no catalog'));
+    int? selected;
+    final result = rdgenEditOrganization(manager: OverlayDialogManager(context), api: api,
+      boundChoices: [], preflight: true, loadBound: () => bound.future,
+      save: (id, attach) async { expect(attach, false); selected = id; });
+    await tester.pump();
+    expect(find.text('Choose organization'), findsOneWidget);
+    bound.complete([{'id':7,'name':'Only organization'}]);
+    await tester.pumpAndSettle();
+    expect(await result, RdgenOrganizationDecision.saved);
+    expect(selected, 7);
+    expect(find.text('Choose organization'), findsNothing);
+  });
+
 }

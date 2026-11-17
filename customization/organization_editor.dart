@@ -20,54 +20,89 @@ Future<RdgenOrganizationDecision> rdgenEditOrganization({
   required Future<void> Function(int groupId, bool needsAttachment) save,
   Future<List<Map<String, dynamic>>> Function()? loadBound,
   bool Function()? assignmentConfirmed,
+  Future<void> Function()? loadAlias,
+  bool preflight = false,
   int? origin, int? currentGroup, bool closing = false, bool additional = false, bool reconnecting = false,
 }) async {
-  final byId = {for (final group in boundChoices) group['id'] as int: group};
+  final byId = {for (final group in [...api.cachedChoices(), ...boundChoices]) group['id'] as int: group};
   var bound = List<Map<String, dynamic>>.of(boundChoices);
-  int? selected = byId.containsKey(origin) ? origin : null;
+  int? selected = boundChoices.any((g) => g['id'] == origin) ? origin : null;
   var busy = true;
   var mutating = false;
+  var catalogLoading = true;
+  var aliasLoading = loadAlias != null;
+  var bindingsLoaded = false;
   var confirming = false;
   var authorizationFailed = false;
   var started = false;
   var disposed = false;
   String? error;
   final alias = TextEditingController(text: api.alias ?? '');
-  final offerAlias = api.canSetAlias;
+
   try {
     final result = await manager.show<RdgenOrganizationDecision>((setState, close, context) {
       void finish(RdgenOrganizationDecision decision) { disposed = true; close(decision); }
+      void updateChoices(List<Map<String, dynamic>> available) {
+        byId.clear();
+        for (final group in [...available, ...bound]) { byId[group['id'] as int] = group; }
+        if (!byId.containsKey(selected)) selected = null;
+        if (selected == null && bound.any((g) => g['id'] == origin)) selected = origin;
+      }
+      Future<void> refreshAlias() async {
+        try { await loadAlias?.call(); } catch (_) { /* Alias failure does not block session selection. */ }
+        if (disposed || !context.mounted) return;
+        setState(() {
+          aliasLoading = false;
+          alias.text = api.alias ?? '';
+        });
+      }
       Future<void> load() async {
-        setState(() { busy = true; });
+        setState(() { busy = true; catalogLoading = true; error = null; bindingsLoaded = false; });
         try {
           if (loadBound != null) bound = await loadBound();
+          if (disposed || !context.mounted) return;
+          bindingsLoaded = true;
           if (assignmentConfirmed?.call() == true) {
+            finish(RdgenOrganizationDecision.saved);
+            return;
+          }
+          if (preflight && bound.length == 1) {
+            await save(bound.single['id'] as int, false);
             if (!disposed && context.mounted) finish(RdgenOrganizationDecision.saved);
             return;
           }
+          setState(() { updateChoices(byId.values.toList()); busy = false; authorizationFailed = false; });
           final available = await api.search();
-          if (api.version2) bound = List<Map<String, dynamic>>.of(api.bindings);
           if (disposed || !context.mounted) return;
-          setState(() {
-            byId.clear();
-            for (final group in bound) { byId[group['id'] as int] = group; }
-            for (final group in available) { byId[group['id'] as int] = group; }
-            if (!byId.containsKey(selected)) selected = null;
-            if (selected == null && origin != null && byId.containsKey(origin)) selected = origin;
-            error = null;
-            authorizationFailed = false;
-          });
+          if (api.version2) bound = List<Map<String, dynamic>>.of(api.bindings);
+          if (preflight && bound.isEmpty && api.permissions['can_attach'] != true) {
+            finish(RdgenOrganizationDecision.skip);
+            return;
+          }
+          setState(() { updateChoices(available); error = null; authorizationFailed = false; });
         } catch (failure) {
           if (disposed || !context.mounted) return;
-          if (failure is RdgenOrganizationApiError && [401,403].contains(failure.status)) authorizationFailed = true;
+          final denied = failure is RdgenOrganizationApiError && [401,403].contains(failure.status);
+          if (preflight && !denied && (!bindingsLoaded ||
+              failure is RdgenOrganizationApiError && !api.version2 && [404,405,501].contains(failure.status))) {
+            finish(RdgenOrganizationDecision.skip);
+            return;
+          }
+          if (denied) authorizationFailed = true;
           if (!(failure is RdgenOrganizationApiError && !api.version2 && [404,405,501].contains(failure.status))) {
             setState(() { error = rdgenOrganizationError(failure); });
           }
-        } finally { if (!disposed && context.mounted) setState(() { busy = false; }); }
+        } finally {
+          if (!disposed && context.mounted) setState(() { busy = false; catalogLoading = false; });
+        }
       }
-      if (!started) { started = true; Future.microtask(load); }
+      if (!started) {
+        started = true;
+        Future.microtask(load);
+        if (loadAlias != null) Future.microtask(refreshAlias);
+      }
       Future<void> submit() async {
-        if (busy || confirming || selected == null) return;
+        if (busy || !bindingsLoaded || mutating || confirming || selected == null) return;
         final selectedId = selected!;
         final selectedName = byId[selectedId]?['name'] as String? ?? '$selectedId';
         confirming = true;
@@ -78,7 +113,7 @@ Future<RdgenOrganizationDecision> rdgenEditOrganization({
         if (!confirmed || disposed || !context.mounted) return;
         setState(() { busy = true; mutating = true; error = null; });
         try {
-          if (offerAlias && api.alias != alias.text.trim()) await api.saveAlias(alias.text);
+          if (!aliasLoading && api.canSetAlias && api.alias != alias.text.trim()) await api.saveAlias(alias.text);
           await save(selectedId, needsAttachment);
           if (!disposed && context.mounted) finish(RdgenOrganizationDecision.saved);
         } catch (failure) {
@@ -87,7 +122,7 @@ Future<RdgenOrganizationDecision> rdgenEditOrganization({
         } finally { if (!disposed && context.mounted) setState(() { busy = false; mutating = false; }); }
       }
       Future<void> saveAlias() async {
-        if (busy || !offerAlias) return;
+        if (busy || mutating || aliasLoading || !api.canSetAlias) return;
         setState(() { busy = true; mutating = true; error = null; });
         try {
           await api.saveAlias(alias.text);
@@ -102,22 +137,22 @@ Future<RdgenOrganizationDecision> rdgenEditOrganization({
       return CustomAlertDialog(title: Text(translate('Choose organization')),
         content: _RdgenDialogLifetime(controllers: [alias], child: SizedBox(width: 420, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           if (closing) Text(translate('You are ending a session with a device without an organization. Select one to attribute this entire session to it.')),
-          if (offerAlias) TextField(controller: alias, enabled: !busy, maxLength: api.aliasMaxLength,
+          if (!aliasLoading && api.canSetAlias) TextField(controller: alias, enabled: !busy && !mutating, maxLength: api.aliasMaxLength,
             decoration: InputDecoration(labelText: translate('Device alias (optional)'),
-              suffixIcon: IconButton(onPressed: busy ? null : saveAlias, tooltip: translate('Save device alias'), icon: const Icon(Icons.check)), helperText: translate('For easier navigation. The computer name stays unchanged.'), helperMaxLines: 2)),
-          RdgenOrganizationChoices(groups: groups, boundGroups: bound, selected: selected, origin: origin, busy: busy,
+              suffixIcon: IconButton(onPressed: busy || mutating ? null : saveAlias, tooltip: translate('Save device alias'), icon: const Icon(Icons.check)), helperText: translate('For easier navigation. The computer name stays unchanged.'), helperMaxLines: 2)),
+          RdgenOrganizationChoices(key: const ValueKey('rdgen-organization-choices'), groups: groups, boundGroups: bound, selected: selected, origin: origin, busy: mutating,
             showCreate: false, onChanged: (value) => setState(() { selected = value; })),
-          if (busy) const LinearProgressIndicator(),
+          if (busy || catalogLoading || aliasLoading) const LinearProgressIndicator(),
           if (error != null) Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           if (error != null) TextButton(onPressed: busy ? null : load, child: Text(translate('Retry'))),
         ])))),
         actions: [
-          if (!additional) TextButton(onPressed: mutating ? null : () => finish(RdgenOrganizationDecision.skip),
+          if (!additional) TextButton(onPressed: busy || !bindingsLoaded || mutating ? null : () => finish(RdgenOrganizationDecision.skip),
             child: Text(translate(closing ? 'End without organization' : 'Do not select'))),
           TextButton(onPressed: mutating ? null : () => finish(RdgenOrganizationDecision.cancel),
             child: Text(translate(closing ? 'Return to session' : 'Cancel'))),
-          ElevatedButton(onPressed: busy || selected == null || authorizationFailed ||
-              (!bound.any((g) => g['id'] == selected) && (!api.version2 || api.permissions['can_attach'] != true)) ? null : submit,
+          ElevatedButton(onPressed: busy || !bindingsLoaded || mutating || selected == null || authorizationFailed ||
+              (!bound.any((g) => g['id'] == selected) && (catalogLoading || error != null || !api.version2 || api.permissions['can_attach'] != true)) ? null : submit,
             child: Text(translate(closing ? 'Save and end session' : 'Confirm'))),
         ], onCancel: mutating ? null : () => finish(RdgenOrganizationDecision.cancel));
     });

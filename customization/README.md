@@ -148,6 +148,19 @@ confirmed session requires a fresh connection. Organization creation is currentl
 absent from the client UI. Device aliases can be edited or cleared independently,
 using the server's current value and permissions.
 
+The preflight opens this dialog before any organization HTTP request. Its
+binding lookup and alias lookup start inside the dialog; catalog loading follows
+the binding lookup, using pages of 500. Bound choices become selectable without
+waiting for the catalog or alias. A fresh sole binding automatically completes
+preflight without requesting the catalog, so this case can briefly show the
+dialog. Recent cached catalog names are available for search immediately, but
+attaching an unbound choice requires a successful catalog refresh and current
+permissions. Closing the dialog prevents late responses from changing its UI or
+starting a connection. A changed account/API server cancels the launch intent.
+The session and closing-reminder callers likewise refresh aliases inside the
+dialog instead of delaying its appearance. These changes are confined to the
+existing preflight/editor/API modules and their session callers.
+
 The options catalog is cached in native local options, separately for each API
 server, account and device. The first authorized page always refreshes bindings
 and permissions. Remaining catalog pages are reused for up to twelve hours if
