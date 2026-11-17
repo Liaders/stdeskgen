@@ -27,13 +27,12 @@ def add_organizations(root, edits, replace):
   @override
   void initState() {
     super.initState();
-    _organizationData = RdgenOrganizationData();
+    _organizationData = gFFI.groupModel.rdgenOrganizations;
   }
 
   Widget _buildLandscape() {''')
     change('  Widget _buildLandscape() {', '''  @override
   void dispose() {
-    _organizationData.dispose();
     searchUserController.dispose();
     super.dispose();
   }

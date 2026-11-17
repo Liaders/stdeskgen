@@ -91,7 +91,7 @@ def apply(root, desktop=True):
           'statusdesk-work-group-${bind.sessionGetConnSessionId(sessionId: sessionId)}');
       try {
         await canvasModel.updateViewStyle();''', 1)
-    for name in ['session_work_groups', 'session_work_groups_ui', 'session_organization', 'organization_choices', 'organization_api', 'organization_store', 'organization_editor']:
+    for name in ['session_work_groups', 'session_work_groups_ui', 'session_organization', 'organization_choices', 'organization_api', 'organization_store', 'device_refresh', 'organization_editor']:
         edits[root/f'flutter/lib/models/rdgen_{name}.dart'] = Path(__file__).with_name(name+'.dart').read_text(encoding='utf-8')
     dialog = root/'flutter/lib/common/widgets/dialog.dart'
     dialog_source = dialog.read_text(encoding='utf-8')

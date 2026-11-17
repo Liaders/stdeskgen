@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'rdgen_group_refresh.dart';
 import 'rdgen_organization_api.dart';
 import 'rdgen_session_work_groups.dart';
 
@@ -48,6 +50,7 @@ Future<void> main() async {
   check(api.bindings.single['id'] == 7);
   await aliasContract();
   await catalogCacheContract();
+  await groupRefreshContract();
   print('Organization permissions, scoped requests, durable retry IDs and rate limiting: OK');
 }
 
@@ -101,4 +104,21 @@ Future<void> catalogCacheContract() async {
   forbidden = true;
   try { await api().search(); } on RdgenOrganizationApiError catch (e) { check(e.status == 403); }
   check(stored.isEmpty);
+}
+
+Future<void> groupRefreshContract() async {
+  final gate = RdgenGroupRefresh();
+  final response = Completer<void>();
+  var requests = 0;
+  Future<void> load() async { requests++; await response.future; }
+  final first = gate.run('server/account', load);
+  final second = gate.run('server/account', load);
+  check(requests == 1);
+  response.complete();
+  await Future.wait([first,second]);
+  gate.catalogAt = DateTime.now();
+  await gate.run('server/account', () async { check(gate.catalogFresh); });
+  await gate.run('server/account', () async { check(!gate.catalogFresh); }, catalog: true);
+  gate.catalogAt = DateTime.now();
+  await gate.run('other/account', () async { check(!gate.catalogFresh); });
 }

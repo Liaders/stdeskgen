@@ -190,6 +190,9 @@ def apply(root, version, profile, check=False, desktop_navigation=True):
     if desktop_navigation and profile.get('organizations', False):
         from organizations import add_organizations
         add_organizations(root, edits, replace)
+    if desktop_navigation and profile.get('organizations', False):
+        from group_refresh import add_group_refresh
+        add_group_refresh(root, edits, replace)
     if desktop_navigation:
         from navigation import add_navigation
         add_navigation(root, edits, replace, navigation)

@@ -67,6 +67,7 @@ class SessionWorkGroupTests(unittest.TestCase):
             for src, dst in [('session_work_groups.dart', 'rdgen_session_work_groups.dart'),
                              ('organization_catalog.dart', 'rdgen_organization_catalog.dart'),
                              ('organization_api.dart', 'rdgen_organization_api.dart'),
+                             ('group_refresh.dart', 'rdgen_group_refresh.dart'),
                              ('organization_api_test.dart', 'api_test.dart'),
                              ('session_work_groups_test.dart', 'test.dart')]:
                 shutil.copyfile(Path(__file__).with_name(src), root/dst)
@@ -105,6 +106,7 @@ class SessionWorkGroupTests(unittest.TestCase):
 }
 final bind = _Bind();
 ''', encoding='utf-8')
+            (root/'lib/models/rdgen_device_refresh.dart').write_text('Future<void> rdgenNotifyDeviceChanged(Uri base, String peer) async {}', encoding='utf-8')
             # Host only: same public signatures as common.dart, without unrelated FFI plugins.
             (root/'lib/common.dart').write_text('''import 'package:flutter/material.dart';
 export 'package:flutter/material.dart';

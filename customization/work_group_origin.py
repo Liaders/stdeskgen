@@ -82,6 +82,16 @@ def apply(root):
             text = text.replace('        forceRelay: page.forceRelay,', '        rdgenWorkGroupId: page.rdgenWorkGroupId,\n        rdgenPreflightDone: page.rdgenPreflightDone,\n        forceRelay: page.forceRelay,', 1)
         edits[tab] = text
     home = 'flutter/lib/desktop/pages/desktop_home_page.dart'
+    change(home, "import 'dart:async';", "import 'dart:async';\nimport '../../models/rdgen_device_refresh.dart';")
+    change(home, "      } else if (call.method == kWindowConnect) {", """      } else if (call.method == 'rdgen-device-changed') {
+        final peer = call.arguments['id'];
+        if (peer is! String || peer.isEmpty ||
+            call.arguments['server']?.toString().replaceFirst(RegExp(r'/$'), '') != (await bind.mainGetApiServer()).replaceFirst(RegExp(r'/$'), '') ||
+            call.arguments['account'] != bind.mainGetLocalOption(key: 'user_info')) return null;
+        await rdgenRefreshVisibleDevice?.call(peer);
+        return true;
+      } else if (call.method == kWindowConnect) {""")
+
     change(home, "      } else if (call.method == kWindowConnect) {", """      } else if (call.method == 'rdgen-new-organization-session') {
         final peer = call.arguments['id'];
         final group = call.arguments['group_id'];

@@ -118,6 +118,28 @@ The AppImage staging script exports the Ubuntu 2012/2018 archive public keys fro
 
 ## Desktop organization picker and session panel
 
+With the Organizations desktop profile, `group_refresh.py` adds a shared refresh
+gate to `group_model.dart`. Group, user and peer pages contain up to 500 entries.
+Concurrent callers await one refresh, and the native device cache is restored
+before network loading starts. The cache checks both account token and API server.
+Existing rows remain visible during refresh; failed group-dictionary requests
+retain the last successful dictionary. A server/account change discards results
+from an older request.
+
+Ordinary device refresh reuses the group dictionary for up to twelve hours.
+The manual refresh arrow explicitly refreshes dictionaries too. Organizations
+use one model owned by GroupModel, instead of creating another loader for each
+view. This model keeps its last successful rows on transient network failure;
+authentication failures clear them. There is no new server API or idle poller.
+
+Successful alias/binding changes notify the main window through the existing
+multi-window channel. It reads that device's work-groups and alias endpoints and
+updates the visible memberships/alias, without reloading the full dictionaries.
+`desktop_home_page.dart` receives this thin notification hook. The notification
+checks the API server and account before touching the main window's data. The
+existing `peer_tab_page.dart` refresh callbacks pass the explicit dictionary flag.
+Android and Sciter keep their original refresh paths. Test against RustDesk 1.5.1.
+
 `organization_editor.dart` is shared by pre-connection selection, the active
 session and the closing reminder. Bound organizations precede the search field;
 search suggestions contain only additional candidates. Choosing a bound entry

@@ -20,7 +20,7 @@ Future<List<WorkOrganization>?> loadWorkOrganizations(Uri base, String token,
   for (var page = 1; ; page++) {
     if (!authorized()) throw StateError('Account changed');
     final uri = base.replace(path: base.path.replaceFirst(RegExp(r'/$'), '') +
-        '/api/statusdesk/organizations', queryParameters: {'current': '$page', 'pageSize': '100'});
+        '/api/statusdesk/organizations', queryParameters: {'current': '$page', 'pageSize': '500'});
     final reply = await request('GET', uri, token, null);
     if (!authorized()) throw StateError('Account changed');
     if (page == 1 && [404, 405, 501].contains(reply.code)) return null;

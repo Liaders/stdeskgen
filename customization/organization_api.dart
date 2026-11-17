@@ -37,9 +37,10 @@ class RdgenOrganizationApi {
   RdgenOrganizationMutation? pendingCreate;
   RdgenOrganizationMutation? pendingAttach;
   final String _scope = RdgenOrganizationMutation._uuid();
+  final Future<void> Function()? onDeviceChanged;
   final String Function()? readCatalog;
   final Future<void> Function(String)? writeCatalog;
-  RdgenOrganizationApi(this.base, this.peerId, this.request, {this.readCatalog, this.writeCatalog});
+  RdgenOrganizationApi(this.base, this.peerId, this.request, {this.readCatalog, this.writeCatalog, this.onDeviceChanged});
 
   Uri uri(String route, [Map<String, String>? query]) => base.replace(
     path: base.path.replaceFirst(RegExp(r'/$'), '') + '/api/statusdesk/$route',
@@ -139,6 +140,7 @@ class RdgenOrganizationApi {
       final data = await _call('PUT', _aliasUri, jsonEncode({'alias': value.trim()}));
       if (data['saved'] != true) throw FormatException('Alias save not confirmed');
       _acceptAlias(data);
+      await onDeviceChanged?.call();
     } catch (_) {
       // Refresh before another explicit retry; never claim an uncertain write succeeded.
       try { await readAlias(); } catch (_) {}
@@ -162,5 +164,6 @@ class RdgenOrganizationApi {
     bindings = WorkGroupSession.choices({'groups': data['bindings']});
     pendingAttach = null;
     if (!bindings.any((g) => g['id'] == groupId)) throw RdgenOrganizationApiError(409);
+    await onDeviceChanged?.call();
   }
 }

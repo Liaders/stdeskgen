@@ -127,6 +127,7 @@ class RdgenSessionOrganization extends ChangeNotifier {
     await refresh();
     if (!additional && !assigned) throw StateError('Assignment not confirmed');
     if (!additional && snapshot?['group']?['id'] != id) throw RdgenOrganizationApiError(409);
+    if (!additional && needsAttachment) await api!.onDeviceChanged?.call();
   }
 
   Future<bool> beforeClose(OverlayDialogManager manager) async {
