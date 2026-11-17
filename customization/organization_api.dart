@@ -37,7 +37,9 @@ class RdgenOrganizationApi {
   RdgenOrganizationMutation? pendingCreate;
   RdgenOrganizationMutation? pendingAttach;
   final String _scope = RdgenOrganizationMutation._uuid();
-  RdgenOrganizationApi(this.base, this.peerId, this.request);
+  final String Function()? readCatalog;
+  final Future<void> Function(String)? writeCatalog;
+  RdgenOrganizationApi(this.base, this.peerId, this.request, {this.readCatalog, this.writeCatalog});
 
   Uri uri(String route, [Map<String, String>? query]) => base.replace(
     path: base.path.replaceFirst(RegExp(r'/$'), '') + '/api/statusdesk/$route',
@@ -52,6 +54,7 @@ class RdgenOrganizationApi {
       final seconds = int.tryParse(reply.retryAfter ?? '') ?? 60;
       retryAt = DateTime.now().add(Duration(seconds: seconds.clamp(1, 3600).toInt()));
     }
+    if ([401, 403, 409, 422].contains(reply.code)) await writeCatalog?.call('');
     if (reply.code != 200) throw RdgenOrganizationApiError(reply.code);
     final data = jsonDecode(reply.body);
     if (data is! Map<String, dynamic>) throw FormatException('Invalid organization response');
@@ -59,6 +62,11 @@ class RdgenOrganizationApi {
   }
 
   Future<List<Map<String, dynamic>>> search() async {
+    Map<String, dynamic>? cached;
+    try {
+      final raw = readCatalog?.call() ?? '';
+      if (raw.isNotEmpty) cached = jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) { /* A damaged local catalog is replaced by an authorized fetch. */ }
     final rows = <Map<String, dynamic>>[];
     for (var page = 1; ; page++) {
       final data = await _call('GET', uri('devices/${Uri.encodeComponent(peerId)}/organization-options',
@@ -70,9 +78,24 @@ class RdgenOrganizationApi {
       permissions = Map<String, dynamic>.from(data['permissions'] as Map);
       bindings = WorkGroupSession.choices({'groups': data['bindings']});
       final current = WorkGroupSession.choices({'groups': data['data']});
+      if (page == 1 && cached != null) {
+        final savedAt = DateTime.tryParse(cached['saved_at'] is String ? cached['saved_at'] as String : '');
+        final age = savedAt == null ? null : DateTime.now().difference(savedAt);
+        final savedRows = WorkGroupSession.choices({'groups': cached['rows'] ?? []});
+        if (age != null && !age.isNegative && age < const Duration(hours: 12) &&
+            savedRows.length == data['total'] &&
+            jsonEncode(cached['permissions']) == jsonEncode(permissions) &&
+            jsonEncode(savedRows.take(current.length).toList()) == jsonEncode(current)) {
+          return savedRows; // Bindings and permissions above are always from today's server reply.
+        }
+      }
       if (current.isEmpty && rows.length < data['total']) throw FormatException('Incomplete organization search');
       rows.addAll(current);
-      if (rows.length >= data['total']) return rows;
+      if (rows.length >= data['total']) {
+        await writeCatalog?.call(jsonEncode({'saved_at': DateTime.now().toUtc().toIso8601String(),
+          'rows': rows, 'permissions': permissions}));
+        return rows;
+      }
     }
   }
 

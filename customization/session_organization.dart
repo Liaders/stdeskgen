@@ -3,6 +3,7 @@ import '../common.dart';
 import 'rdgen_session_work_groups.dart';
 import 'rdgen_session_work_groups_ui.dart';
 import 'rdgen_organization_api.dart';
+import 'rdgen_organization_store.dart';
 import 'rdgen_organization_editor.dart';
 
 class RdgenSessionOrganization extends ChangeNotifier {
@@ -26,18 +27,18 @@ class RdgenSessionOrganization extends ChangeNotifier {
     try { await api?.readAlias(); } catch (_) {}
     notifyListeners();
   }
-  bool get canAssignAlias => assigned && api?.canSetAlias == true && api?.alias == '';
+  bool get canAssignAlias => api?.canSetAlias == true;
   Future<void> assignAlias(OverlayDialogManager manager) async {
     if (dialogOpen || !canAssignAlias) return;
     dialogOpen = true; notifyListeners();
-    try { await rdgenEditDeviceAlias(manager, api!); }
+    try { await loadAlias(); await rdgenEditDeviceAlias(manager, api!); }
     finally { dialogOpen = false; notifyListeners(); }
   }
 
   Future<void> attach(WorkGroupSession captured, OverlayDialogManager manager,
       bool Function() current, {bool preflightDone = false}) async {
     session = captured;
-    api = RdgenOrganizationApi(captured.audit.replace(
+    api = rdgenStoredOrganizationApi(captured.audit.replace(
       path: captured.audit.path.substring(0, captured.audit.path.length - '/api/audit/conn/active'.length),
       query: '', fragment: ''), captured.peerId, captured.requestAuthorized);
     snapshot = null;
@@ -112,7 +113,7 @@ class RdgenSessionOrganization extends ChangeNotifier {
       await api!.attach(id);
     } else {
       if (assigned && snapshot?['group']?['id'] != id) throw RdgenOrganizationApiError(409);
-      final attach = needsAttachment || snapshot?['status'] == 'ungrouped';
+      final attach = needsAttachment;
       if (attach && (snapshot?['api_version'] != 2 ||
           snapshot?['permissions']?['can_attach_and_assign'] != true)) {
         throw RdgenOrganizationApiError(403);
@@ -135,8 +136,8 @@ class RdgenSessionOrganization extends ChangeNotifier {
     notifyListeners();
     try {
       final decision = await rdgenEditOrganization(manager: manager, api: api!,
-        boundChoices: WorkGroupSession.choices(snapshot!), closing: true,
-        loadBound: () async { await refresh(); return WorkGroupSession.choices(snapshot ?? {}); },
+        boundChoices: api!.bindings, closing: true,
+        loadBound: () async { await refresh(); return api!.bindings; },
         assignmentConfirmed: () => assigned,
         save: (id, attach) => _save(id, attach));
       return decision == RdgenOrganizationDecision.cancel;
@@ -165,14 +166,14 @@ class RdgenSessionOrganization extends ChangeNotifier {
     notifyListeners();
     try {
       if (api?.version2 == true) {
-        if (api!.alias == null) await loadAlias();
+        await loadAlias();
         final wasAssigned = assigned;
         int? reopen;
         final decision = await rdgenEditOrganization(manager: manager, api: api!,
           boundChoices: api!.bindings.isEmpty ? WorkGroupSession.choices(snapshot!) : api!.bindings,
           loadBound: () async { await refresh(); return api!.bindings.isEmpty ? WorkGroupSession.choices(snapshot ?? {}) : api!.bindings; },
           assignmentConfirmed: wasAssigned ? null : () => assigned,
-          additional: wasAssigned, reconnecting: wasAssigned,
+          additional: wasAssigned, reconnecting: wasAssigned, currentGroup: snapshot?['group']?['id'] as int?,
           origin: captured.preferredGroupId, save: (id, attach) async {
             if (!current()) throw StateError('Session ended');
             if (wasAssigned) {

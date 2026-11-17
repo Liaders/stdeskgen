@@ -79,7 +79,7 @@ class SessionWorkGroupTests(unittest.TestCase):
             root = Path(directory)
             (root/'lib/models').mkdir(parents=True)
             (root/'test').mkdir()
-            for name in ['session_work_groups', 'session_work_groups_ui', 'work_group_origin', 'organization_choices', 'compact_session_toolbar', 'organization_api', 'organization_editor', 'session_organization', 'organization_toolbar']:
+            for name in ['session_work_groups', 'session_work_groups_ui', 'work_group_origin', 'organization_choices', 'compact_session_toolbar', 'organization_api', 'organization_store', 'organization_editor', 'session_organization', 'organization_toolbar']:
                 shutil.copyfile(Path(__file__).with_name(name+'.dart'), root/f'lib/models/rdgen_{name}.dart')
             shutil.copyfile(Path(__file__).with_name('session_work_groups_widget_test.dart'), root/'test/picker_test.dart')
             shutil.copyfile(Path(__file__).with_name('compact_session_toolbar_test.dart'), root/'test/toolbar_test.dart')
@@ -99,6 +99,12 @@ class SessionWorkGroupTests(unittest.TestCase):
             spec = root/'pubspec.yaml'
             spec.write_text(spec.read_text(encoding='utf-8').replace('dev_dependencies:',
                 '  get: 4.6.6\n  flutter_svg: 2.0.10+1\ndev_dependencies:'), encoding='utf-8')
+            (root/'lib/models/platform_model.dart').write_text('''class _Bind {
+  String mainGetLocalOption({required String key}) => '';
+  Future<void> mainSetLocalOption({required String key, required String value}) async {}
+}
+final bind = _Bind();
+''', encoding='utf-8')
             # Host only: same public signatures as common.dart, without unrelated FFI plugins.
             (root/'lib/common.dart').write_text('''import 'package:flutter/material.dart';
 export 'package:flutter/material.dart';

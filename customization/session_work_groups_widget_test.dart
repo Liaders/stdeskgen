@@ -39,7 +39,7 @@ void main() {
     void disconnect() { disconnects++; }
     var flow = rdgenChooseWorkGroup(session(), manager, () => true, onDisconnect: disconnect);
     await tester.pumpAndSettle();
-    expect(find.text('Session organization'), findsOneWidget);
+    expect(find.text('Choose organization'), findsOneWidget);
     expect(tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed, isNull);
     await tester.tap(find.text('Disconnect session'));
     await tester.pumpAndSettle();
@@ -58,13 +58,13 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Confirm'));
     await tester.pump(); // A pending PUT is not shown as saved.
-    expect(find.text('Session organization'), findsOneWidget);
+    expect(find.text('Choose organization'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
     expect(tester.widget<TextButton>(find.widgetWithText(TextButton, 'Disconnect session')).onPressed, isNull);
     saved.complete(WorkGroupReply(200, '{"saved":true}'));
     await tester.pumpAndSettle();
     await flow;
-    expect(find.text('Session organization'), findsNothing);
+    expect(find.text('Choose organization'), findsNothing);
     expect(puts, 1);
     expect(disconnects, 1);
 
@@ -97,7 +97,7 @@ void main() {
     single = true;
     await rdgenChooseWorkGroup(session(), manager, () => false, onDisconnect: disconnect); // Quick disconnect is not a save veto.
     expect(puts, 3);
-    expect(find.text('Session organization'), findsNothing);
+    expect(find.text('Choose organization'), findsNothing);
   });
 
   testWidgets('Organization context belongs to one widget and asynchronous launch', (tester) async {

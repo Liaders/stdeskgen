@@ -47,6 +47,7 @@ Future<void> main() async {
   check(attachBodies.length == 2 && attachBodies.first == attachBodies.last);
   check(api.bindings.single['id'] == 7);
   await aliasContract();
+  await catalogCacheContract();
   print('Organization permissions, scoped requests, durable retry IDs and rate limiting: OK');
 }
 
@@ -72,4 +73,32 @@ Future<void> aliasContract() async {
   final old = RdgenOrganizationApi(api.base, api.peerId, (_, __, ___) async => WorkGroupReply(404, '{}'));
   await old.readAlias();
   check(!old.canSetAlias && old.alias == null);
+}
+
+Future<void> catalogCacheContract() async {
+  var stored = '';
+  var pages = 0;
+  var bound = 1;
+  var forbidden = false;
+  RdgenOrganizationApi api() => RdgenOrganizationApi(Uri.parse('https://console.test'), '123', (method, uri, body) async {
+    if (forbidden) return WorkGroupReply(403, '{}');
+    pages++;
+    final page = int.parse(uri.queryParameters['current']!);
+    return WorkGroupReply(200, jsonEncode({'api_version':2,'total':101,
+      'data': List.generate(page == 1 ? 100 : 1, (i) => {'id':(page - 1)*100+i+1,'name':'Group ' + ((page - 1)*100+i+1).toString()}),
+      'bindings':[{'id':bound,'name':'Group ' + bound.toString()}], 'permissions':{'can_attach':true}}));
+  }, readCatalog: () => stored, writeCatalog: (value) async { stored = value; });
+  check((await api().search()).length == 101 && pages == 2);
+  bound = 2;
+  final fresh = api();
+  check((await fresh.search()).length == 101 && pages == 3);
+  check(fresh.bindings.single['id'] == 2);
+  final expired = jsonDecode(stored);
+  expired['saved_at'] = DateTime.now().subtract(const Duration(hours:13)).toIso8601String();
+  stored = jsonEncode(expired);
+  await api().search();
+  check(pages == 5);
+  forbidden = true;
+  try { await api().search(); } on RdgenOrganizationApiError catch (e) { check(e.status == 403); }
+  check(stored.isEmpty);
 }

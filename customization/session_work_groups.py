@@ -91,7 +91,7 @@ def apply(root, desktop=True):
           'statusdesk-work-group-${bind.sessionGetConnSessionId(sessionId: sessionId)}');
       try {
         await canvasModel.updateViewStyle();''', 1)
-    for name in ['session_work_groups', 'session_work_groups_ui', 'session_organization', 'organization_choices', 'organization_api', 'organization_editor']:
+    for name in ['session_work_groups', 'session_work_groups_ui', 'session_organization', 'organization_choices', 'organization_api', 'organization_store', 'organization_editor']:
         edits[root/f'flutter/lib/models/rdgen_{name}.dart'] = Path(__file__).with_name(name+'.dart').read_text(encoding='utf-8')
     dialog = root/'flutter/lib/common/widgets/dialog.dart'
     dialog_source = dialog.read_text(encoding='utf-8')
@@ -103,6 +103,11 @@ def apply(root, desktop=True):
       await ffi.ffiModel.rdgenOrganization.beforeClose(ffi.dialogManager)) return true;
   final res = await _showConnEndAuditDialogCloseCanceled(''', 1)
     translations = {
+        'Save device alias': 'Сохранить псевдоним устройства',
+        'The organization will be assigned to the device. The current session will end and a new session will begin.': 'Организация будет назначена устройству. Текущий сеанс завершится и начнётся новый.',
+        'Choose organization': 'Выберите организацию',
+        'Edit device alias': 'Изменить псевдоним устройства',
+        'You are ending a session with a device without an organization. Select one to attribute this entire session to it.': 'Вы завершаете сеанс с устройством без организации. Выберите организацию для учёта всего сеанса.',
         'Loading organizations…': 'Загрузка организаций…',
         'Organizations unavailable': 'Организации недоступны',
         'Sign in to select an organization': 'Войдите, чтобы выбрать организацию',

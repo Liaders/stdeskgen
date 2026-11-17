@@ -72,7 +72,7 @@ Future<void> rdgenChooseWorkGroup(WorkGroupSession session,
 
         return CustomAlertDialog(
           title: Row(children: [
-            Expanded(child: Text(translate('Session organization'))),
+            Expanded(child: Text(translate('Choose organization'))),
             IconButton(onPressed: busy ? null : cancel,
               tooltip: translate(allowSkip ? 'Close' : 'Disconnect session'), icon: const Icon(Icons.close)),
           ]),
@@ -82,7 +82,7 @@ Future<void> rdgenChooseWorkGroup(WorkGroupSession session,
             children: [
               Text(translate('Choose an organization for this session.')),
               const SizedBox(height: 12),
-              RdgenOrganizationChoices(groups: groups, selected: selected,
+              RdgenOrganizationChoices(groups: groups, boundGroups: groups, selected: selected,
                 origin: origin, busy: busy,
                 onChanged: (value) => setState(() { selected = value; })),
               if (state?['status'] == 'ungrouped')

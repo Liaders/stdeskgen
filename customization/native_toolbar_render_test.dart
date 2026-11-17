@@ -11,12 +11,16 @@ void main() {
         Positioned.fill(child: RdgenCompactSessionToolbar(collapsed: collapsed, assigned: true,
           onExpand: () {}, onChoose: () {}, child: Row(mainAxisSize: MainAxisSize.min, children: [
             _IconMenuButton(icon: const Icon(Icons.push_pin), tooltip: 'Pin Toolbar', color: Colors.grey, hoverColor: Colors.grey, onPressed: () {}),
+            _IconMenuButton(icon: const RdgenToolbarGlyph('fullscreen'), tooltip: 'Fullscreen', color: Colors.grey, hoverColor: Colors.grey, onPressed: () {}),
+            _IconMenuButton(icon: const Icon(Icons.close), tooltip: 'Close', color: Colors.grey, hoverColor: Colors.grey, onPressed: () {}),
             for (final label in ['Display Settings', 'Keyboard Settings', 'Control Actions'])
               _IconSubmenuButton(icon: const Icon(Icons.settings_outlined), tooltip: label,
                 color: Colors.grey, hoverColor: Colors.grey, menuChildrenGetter: (_) => [
                   MenuItemButton(onPressed: () {}, child: const Text('Native action'))]),
             Builder(builder: (context) {
               expect(Theme.of(context).extension<ColorThemeExtension>(), same(extension));
+              expect(Theme.of(context).brightness, mode);
+              expect(rdgenToolbarSurface(context), mode == Brightness.dark ? const Color(0xff22252b) : const Color(0xfff5f6f8));
               return const SizedBox();
             }),
           ]))),
@@ -25,6 +29,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.byType(ErrorWidget), findsNothing);
+      for (final label in ['Pin Toolbar', 'Fullscreen', 'Close']) {
+        final face = find.descendant(of: find.byWidgetPredicate((w) => w is _IconMenuButton && w.tooltip == label), matching: find.byType(Ink));
+        expect(tester.getSize(face), const Size(30, 30), reason: label);
+      }
       await tester.tap(find.byTooltip('Display Settings').first);
       await tester.pumpAndSettle();
       expect(find.text('Native action'), findsOneWidget);

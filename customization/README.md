@@ -115,3 +115,33 @@ again on future updates. A failed write leaves the marker unset for a later retr
 
 ## ARM64 AppImage archive keys
 The AppImage staging script exports the Ubuntu 2012/2018 archive public keys from the runner's installed ubuntu-keyring package, checks their full fingerprints, and replaces all four online keyserver URLs with an ASCII-armored local file URI. ARM64 package signatures are required; suites and payload packages are unchanged. The same packaging script now uses the shared reachable-mirror helper instead of forcing archive.ubuntu.com. CI verifies signed focal ARM64 metadata with the exported keys.
+
+## Desktop organization picker and session panel
+
+`organization_editor.dart` is shared by pre-connection selection, the active
+session and the closing reminder. Bound organizations precede the search field;
+search suggestions contain only additional candidates. Choosing a bound entry
+does not attach it again. New bindings require confirmation, and changing a
+confirmed session requires a fresh connection. Organization creation is currently
+absent from the client UI. Device aliases can be edited or cleared independently,
+using the server's current value and permissions.
+
+The options catalog is cached in native local options, separately for each API
+server, account and device. The first authorized page always refreshes bindings
+and permissions. Remaining catalog pages are reused for up to twelve hours if
+the total, permissions and first-page contents match. Expiry triggers a full
+refresh on next use; there is no idle background polling. Authorization and
+conflict responses invalidate this cache. Cached entries never grant access.
+
+Runtime changes to upstream files are limited to existing adapter hooks:
+`remote_toolbar.dart` renders themed, 30-pixel control faces and retains the
+original chat/record controls; `desktop_home_page.dart` closes the old native
+session before creating its replacement so RustDesk cannot reuse that peer's
+old transport; the existing launch hook in `multi_window_manager.dart` raises
+the main window before showing the organization picker. Translation modules
+receive the new labels. No server, Android or Windows x86 changes are required.
+
+Regression checks cover bound/new selection, confirmation, alias prefilling,
+catalog reuse/expiry and fresh bindings, native toolbar rendering in both themes,
+and preservation of RustDesk's theme extensions. A real reconnection and OS
+foreground activation still need verification in the next test client build.

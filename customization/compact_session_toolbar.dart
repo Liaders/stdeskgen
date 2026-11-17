@@ -17,6 +17,13 @@ const rdgenCompactMenuStyle = MenuStyle(
   padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5)),
 );
 
+bool rdgenToolbarDark(BuildContext context) => Theme.of(context).brightness == Brightness.dark;
+Color rdgenToolbarForeground(BuildContext context) => rdgenToolbarDark(context) ? Colors.white : const Color(0xff24272c);
+Color rdgenToolbarSurface(BuildContext context) => rdgenToolbarDark(context) ? const Color(0xff22252b) : const Color(0xfff5f6f8);
+Color rdgenToolbarAccent(BuildContext context) => rdgenToolbarDark(context) ? const Color(0xffffcb75) : const Color(0xff965000);
+MenuStyle rdgenToolbarMenuStyle(BuildContext context) => rdgenCompactMenuStyle.copyWith(
+  backgroundColor: WidgetStatePropertyAll(rdgenToolbarSurface(context)));
+
 class RdgenCompactToolbarScope extends InheritedWidget {
   const RdgenCompactToolbarScope({super.key, required super.child});
   static bool active(BuildContext context) =>
@@ -52,20 +59,20 @@ class _RdgenCompactSessionToolbarState
   @override
   Widget build(BuildContext context) {
     final inherited = Theme.of(context);
+    final foreground = rdgenToolbarForeground(context);
     final dark = inherited.copyWith(
-        brightness: Brightness.dark,
-        textTheme: inherited.textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
-        iconTheme: inherited.iconTheme.copyWith(color: Colors.white),
+        textTheme: inherited.textTheme.apply(bodyColor: foreground, displayColor: foreground),
+        iconTheme: inherited.iconTheme.copyWith(color: foreground),
         visualDensity: VisualDensity.standard,
         menuButtonTheme: const MenuButtonThemeData(style: rdgenCompactMenuButtonStyle),
-        menuTheme: const MenuThemeData(style: rdgenCompactMenuStyle),
+        menuTheme: MenuThemeData(style: rdgenToolbarMenuStyle(context)),
         menuBarTheme: const MenuBarThemeData(style: MenuStyle(
           backgroundColor: WidgetStatePropertyAll(Colors.transparent),
           surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
           padding: WidgetStatePropertyAll(EdgeInsets.zero), elevation: WidgetStatePropertyAll(0))),
         dividerTheme: const DividerThemeData(space: 9, thickness: 1),
-        colorScheme: const ColorScheme.dark(
-            primary: Color(0xffef7f1a), surface: Color(0xff22252b)),
+        colorScheme: inherited.colorScheme.copyWith(primary: const Color(0xffef7f1a),
+            surface: rdgenToolbarSurface(context), onSurface: foreground),
         tooltipTheme:
             const TooltipThemeData(waitDuration: Duration(milliseconds: 500)));
     return Theme(
@@ -90,7 +97,7 @@ class _RdgenCompactSessionToolbarState
                         child: TextButton(
                             onPressed: widget.onChoose,
                             style: TextButton.styleFrom(
-                                foregroundColor: const Color(0xffffcb75),
+                                foregroundColor: rdgenToolbarAccent(context),
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 8)),
                             child: RdgenOrganizationPulse(
@@ -113,8 +120,8 @@ class _RdgenCompactSessionToolbarState
               },
               child: Material(
                   color: widget.assigned
-                      ? const Color(0xff30343c)
-                      : const Color(0xff49391f),
+                      ? rdgenToolbarSurface(context)
+                      : rdgenToolbarAccent(context).withOpacity(.16),
                   borderRadius:
                       const BorderRadius.vertical(bottom: Radius.circular(6)),
                   child: handle));
@@ -126,7 +133,7 @@ class _RdgenCompactSessionToolbarState
                       constraints:
                           BoxConstraints(maxWidth: constraints.maxWidth),
                       child: Material(
-                          color: const Color(0xff22252b),
+                          color: rdgenToolbarSurface(context),
                           elevation: 4,
                           borderRadius: const BorderRadius.vertical(
                               bottom: Radius.circular(8)),
@@ -152,7 +159,8 @@ class RdgenOrganizationToolbarButton extends StatelessWidget {
       child: TextButton(
           onPressed: onPressed,
           style: rdgenToolbarButtonStyle(
-              background: const Color(0xff292b2d),
+              foreground: rdgenToolbarForeground(context),
+              background: rdgenToolbarDark(context) ? const Color(0xff292b2d) : const Color(0xffebeef1),
               border: name == null
                   ? const Color(0xff705932)
                   : const Color(0xff454950)),
@@ -160,8 +168,7 @@ class RdgenOrganizationToolbarButton extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const RdgenToolbarGlyph('organization',
-                    color: Color(0xffffcb75)),
+                RdgenToolbarGlyph('organization', color: rdgenToolbarAccent(context)),
                 const SizedBox(width: 7),
                 Flexible(
                     child: RdgenOrganizationPulse(
@@ -174,8 +181,8 @@ class RdgenOrganizationToolbarButton extends StatelessWidget {
                                 : TextOverflow.ellipsis,
                             style: TextStyle(
                                 color: name == null
-                                    ? const Color(0xffffcb75)
-                                    : Colors.white,
+                                    ? rdgenToolbarAccent(context)
+                                    : rdgenToolbarForeground(context),
                                 fontSize: 14,
                                 height: 1,
                                 fontWeight: FontWeight.w500)))),
@@ -186,18 +193,16 @@ class RdgenOrganizationToolbarButton extends StatelessWidget {
                           style: const TextStyle(
                               color: Colors.white54, fontSize: 11))),
                 const SizedBox(width: 7),
-                const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: RdgenToolbarGlyph('down', color: Color(0xffffcb75))),
+                SizedBox(width: 14, height: 14,
+                    child: RdgenToolbarGlyph('down', color: rdgenToolbarAccent(context))),
               ])));
 }
 
 ButtonStyle rdgenToolbarButtonStyle(
-        {Color background = Colors.transparent,
+        {Color foreground = Colors.white, Color background = Colors.transparent,
         Color border = Colors.transparent}) =>
     TextButton.styleFrom(
-        foregroundColor: Colors.white,
+        foregroundColor: foreground,
         backgroundColor: background,
         minimumSize: const Size(32, 30),
         maximumSize: const Size(double.infinity, 30),
@@ -226,8 +231,8 @@ class RdgenDisplayCounter extends StatelessWidget {
                 const RdgenToolbarGlyph('monitor'),
                 const SizedBox(width: 7),
                 Text('${current < 0 ? "*" : current + 1}/$total',
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 14, height: 1)),
+                    style: TextStyle(
+                        color: rdgenToolbarForeground(context), fontSize: 14, height: 1)),
                 const SizedBox(width: 5),
                 const SizedBox(
                     width: 14, height: 14, child: RdgenToolbarGlyph('down')),
@@ -247,7 +252,7 @@ class _RdgenOrganizationPulseState extends State<RdgenOrganizationPulse>
     with SingleTickerProviderStateMixin {
   late final AnimationController controller = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 900));
-  late final Animation<double> opacity = Tween<double>(begin: 1, end: .58)
+  late final Animation<double> opacity = Tween<double>(begin: 1, end: .25)
       .animate(CurvedAnimation(parent: controller, curve: Curves.easeInOut));
   @override
   void didChangeDependencies() {
@@ -286,13 +291,13 @@ class _RdgenOrganizationPulseState extends State<RdgenOrganizationPulse>
 /// Small stroke icons share a 24px canvas and a consistent 1.5px line.
 class RdgenToolbarGlyph extends StatelessWidget {
   final String kind;
-  final Color color;
-  const RdgenToolbarGlyph(this.kind, {super.key, this.color = Colors.white});
+  final Color? color;
+  const RdgenToolbarGlyph(this.kind, {super.key, this.color});
   @override
   Widget build(BuildContext context) => SizedBox(
       width: 22,
       height: 22,
-      child: CustomPaint(painter: _ToolbarGlyphPainter(kind, color)));
+      child: CustomPaint(painter: _ToolbarGlyphPainter(kind, color ?? rdgenToolbarForeground(context))));
 }
 
 class _ToolbarGlyphPainter extends CustomPainter {

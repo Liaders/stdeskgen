@@ -69,9 +69,9 @@ def apply(root):
           throw StateError('Other display windows are still open');
         }
         final result = await rustDeskWinManager.call(WindowType.Main,
-          'rdgen-new-organization-session', {'id': widget.id, 'group_id': group});
+          'rdgen-new-organization-session', {'id': widget.id, 'group_id': group, 'session_id': widget.ffi.sessionId.toString()});
         if (result.result is! int || result.result < 0) throw StateError('New session window unavailable');
-        closeConnection(id: widget.id);
+        if (mounted && !widget.ffi.closed) closeConnection(id: widget.id);
       }
       toolbarItems.add(Container(width: 1, height: 22, margin: const EdgeInsets.symmetric(horizontal: 2.5), color: const Color(0xff4a4e53)));
       toolbarItems.add(Padding(padding: const EdgeInsets.symmetric(horizontal: 2.5), child: RdgenOrganizationSessionMenu(
@@ -80,20 +80,12 @@ def apply(root):
         current: () => !widget.ffi.closed,
         restart: bind.willSessionCloseCloseSession(sessionId: widget.ffi.sessionId) ? reopen : null)));
       toolbarItems.add(_IconSubmenuButton(tooltip: 'More',
-        icon: const Icon(Icons.more_horiz, color: Colors.white, size: 20),
+        icon: Icon(Icons.more_horiz, color: rdgenToolbarForeground(context), size: 20),
         color: _ToolbarTheme.inactiveColor, hoverColor: _ToolbarTheme.hoverInactiveColor,
         ffi: widget.ffi, menuChildrenGetter: (_) => [
           Row(mainAxisSize: MainAxisSize.min, children: [
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text(translate('Chat'))),
             _ChatMenu(id: widget.id, ffi: widget.ffi),
-          ]),
-          if (!isWeb) Row(mainAxisSize: MainAxisSize.min, children: [
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text(translate('Voice call'))),
-            _VoiceCallMenu(id: widget.id, ffi: widget.ffi),
-          ]),
-          if (!isWeb) Row(mainAxisSize: MainAxisSize.min, children: [
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text(translate('Session recording'))),
-            _RecordMenu(),
+            if (!isWeb) _RecordMenu(),
           ]),
         ]));
     }''')
@@ -101,7 +93,7 @@ def apply(root):
         '    if (!compact) toolbarItems.add(_CloseMenu(id: widget.id, ffi: widget.ffi));')
     change('    final toolbarBorderRadius = BorderRadius.all(Radius.circular(4.0));', '''    if (compact) {
       toolbarItems.add(_CloseMenu(id: widget.id, ffi: widget.ffi));
-      return Material(color: const Color(0xff22252b), elevation: 4,
+      return Material(color: rdgenToolbarSurface(context), elevation: 4,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
         child: SingleChildScrollView(scrollDirection: Axis.horizontal,
           child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
@@ -123,8 +115,8 @@ def apply(root):
             '(RdgenCompactToolbarScope.active(context) ? '+value+' : _ToolbarTheme.'+name+')')
     body = body.replace('color: hover ? widget.hoverColor : widget.color,', """color: RdgenCompactToolbarScope.active(context)
                         ? (widget.tooltip == 'Close' ? const Color(0xffe44e49)
-                          : widget.tooltip == 'Select Monitor' ? const Color(0xff21464b)
-                          : hover ? const Color(0xff3b414b) : Colors.transparent)
+                          : widget.tooltip == 'Select Monitor' ? (rdgenToolbarDark(context) ? const Color(0xff21464b) : const Color(0xffdcebee))
+                          : hover ? (rdgenToolbarDark(context) ? const Color(0xff3b414b) : const Color(0xffdde1e7)) : Colors.transparent)
                         : hover ? widget.hoverColor : widget.color,""")
     anchor = '        child: SubmenuButton(\n'
     if body.count(anchor) != 1: raise ValueError('Incompatible toolbar submenu lifecycle')
@@ -145,7 +137,17 @@ def apply(root):
       'Control Actions' => 'bolt', 'Display Settings' => 'settings',
       'Keyboard Settings' => 'keyboard', 'More' => 'more', _ => null,
     };
-    final icon = compact && glyph != null ? Center(child: RdgenToolbarGlyph(glyph, color: widget.tooltip == 'Unpin Toolbar' ? const Color(0xffef7f1a) : Colors.white)) : widget.icon ??""")
+    final icon = compact && glyph != null ? Center(child: RdgenToolbarGlyph(glyph, color: widget.tooltip == 'Unpin Toolbar' ? const Color(0xffef7f1a) : widget.tooltip == 'Close' ? Colors.white : rdgenToolbarForeground(context))) : widget.icon ??""")
+    body = body.replace('ColorFilter.mode(Colors.white, BlendMode.srcIn)',
+        'ColorFilter.mode(RdgenCompactToolbarScope.active(context) ? rdgenToolbarForeground(context) : Colors.white, BlendMode.srcIn)')
+    # Paint the whole 30px face, including pin/fullscreen/close glyphs. Do not
+    # inherit the compact context-menu row's 28px maximum or intrinsic icon width.
+    body = body.replace('child: icon', "child: RdgenCompactToolbarScope.active(context) ? SizedBox(width: widget.width ?? 30, height: 30, child: Center(child: icon)) : icon")
+    body = body.replace('style: ButtonStyle(', """style: ButtonStyle(
+              minimumSize: RdgenCompactToolbarScope.active(context) ? const WidgetStatePropertyAll(Size(30, 30)) : null,
+              maximumSize: RdgenCompactToolbarScope.active(context) ? const WidgetStatePropertyAll(Size(double.infinity, 30)) : null,
+              visualDensity: RdgenCompactToolbarScope.active(context) ? VisualDensity.standard : null,
+              tapTargetSize: RdgenCompactToolbarScope.active(context) ? MaterialTapTargetSize.shrinkWrap : null,""")
     source = prefix+body+suffix
     # pi.currentDisplay is observed through the existing per-peer display state.
     source = source.replace('pi.currentDisplay < 0 ? "*" : pi.currentDisplay + 1',

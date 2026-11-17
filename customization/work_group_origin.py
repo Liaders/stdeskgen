@@ -86,6 +86,13 @@ def apply(root):
         final peer = call.arguments['id'];
         final group = call.arguments['group_id'];
         if (peer is! String || peer.isEmpty || group is! int || group <= 0) return null;
+        final previous = call.arguments['session_id'];
+        if (previous is! String || previous.isEmpty) return null;
+        final session = SessionID(previous);
+        if (!bind.willSessionCloseCloseSession(sessionId: session)) return null;
+        // Complete removal from RustDesk's peer-keyed session registry before opening.
+        // This runs in the main engine and survives disposal of the old remote window.
+        await bind.sessionClose(sessionId: session);
         return await rustDeskWinManager.rdgenNewOrganizationSession(peer, group);
       } else if (call.method == kWindowConnect) {""")
     change(manager, '  Future<int> newSessionWindow(', """  Future<int> rdgenNewOrganizationSession(String peer, int group) =>

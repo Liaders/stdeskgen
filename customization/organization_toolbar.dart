@@ -20,7 +20,7 @@ class RdgenOrganizationSessionMenu extends StatelessWidget {
     final bindings = organization.api?.bindings ?? [];
     if (bindings.isEmpty) return RdgenOrganizationToolbarButton(name: organization.name,
       onPressed: () => organization.choose(manager, current, restart: restart));
-    return MenuAnchor(style: rdgenCompactMenuStyle,
+    return MenuAnchor(style: rdgenToolbarMenuStyle(context),
       onOpen: () { organization.menuDepth++; },
       onClose: () { if (organization.menuDepth > 0) organization.menuDepth--; },
       menuChildren: [
@@ -38,7 +38,7 @@ class RdgenOrganizationSessionMenu extends StatelessWidget {
           onPressed: () => organization.choose(manager, current, restart: restart),
           child: Text(translate('Assign organization'))),
         if (organization.canAssignAlias) MenuItemButton(style: rdgenCompactMenuButtonStyle,
-          onPressed: () => organization.assignAlias(manager), child: Text(translate('Assign device alias'))),
+          onPressed: () => organization.assignAlias(manager), child: Text(translate(organization.api?.alias == '' ? 'Assign device alias' : 'Edit device alias'))),
         if (organization.assigned && restart == null) MenuItemButton(style: rdgenCompactMenuButtonStyle,
           child: Text(translate('Close other display windows before changing the session organization'))),
       ], builder: (_, controller, __) => RdgenOrganizationToolbarButton(name: organization.name,

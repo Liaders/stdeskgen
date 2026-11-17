@@ -8,6 +8,7 @@ import 'rdgen_organization_choices.dart';
 import 'rdgen_session_work_groups.dart';
 import 'rdgen_work_group_origin.dart';
 import 'rdgen_organization_api.dart';
+import 'rdgen_organization_store.dart';
 import 'rdgen_organization_editor.dart';
 
 const rdgenPreflightCheckedKey = #statusdeskOrganizationPreflightChecked;
@@ -32,12 +33,13 @@ Future<RdgenOrganizationIntent> rdgenOrganizationPreflight(String id) async {
   if (token.isEmpty || bind.isDisableAccount()) return const RdgenOrganizationIntent();
   try {
     final base = (await bind.mainGetApiServer()).replaceFirst(RegExp(r'/$'), '');
-    final api = RdgenOrganizationApi(Uri.parse(base), id.replaceAll(' ', ''),
+    final api = rdgenStoredOrganizationApi(Uri.parse(base), id.replaceAll(' ', ''),
       (method, uri, body) async {
         if (token != bind.mainGetLocalOption(key: 'access_token')) throw RdgenOrganizationApiError(401);
         final headers = {'Authorization': 'Bearer $token', 'Accept': 'application/json', 'Content-Type': 'application/json'};
         final response = method == 'POST'
           ? await http.post(uri, headers: headers, body: body)
+          : method == 'PUT' ? await http.put(uri, headers: headers, body: body)
           : await http.get(uri, headers: headers);
         if (token != bind.mainGetLocalOption(key: 'access_token')) throw RdgenOrganizationApiError(401);
         return WorkGroupReply(response.statusCode, response.body, retryAfter: response.headers['retry-after']);
@@ -58,6 +60,8 @@ Future<RdgenOrganizationIntent> rdgenOrganizationPreflight(String id) async {
       if (!api.version2 || api.permissions['can_attach'] != true) return const RdgenOrganizationIntent(supported: true);
     }
     final origin = groups.any((g) => g['id'] == rdgenLaunchingWorkGroup) ? rdgenLaunchingWorkGroup : null;
+    try { await api.readAlias(); } catch (_) {}
+    if (isDesktop) await windowOnTop(null);
     int? selected;
     final decision = await rdgenEditOrganization(manager: gFFI.dialogManager, api: api,
       boundChoices: groups, origin: origin,
