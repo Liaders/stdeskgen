@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import '../common.dart';
 import 'platform_model.dart';
 import '../utils/multi_window_manager.dart';

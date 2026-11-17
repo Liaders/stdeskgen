@@ -65,11 +65,13 @@ import 'rdgen_device_refresh.dart';""")
         """        final requestToken = bind.mainGetLocalOption(key: 'access_token');
         final resp = await http.get(uri, headers: getHttpHeaders());
         if (isDesktop && requestToken != bind.mainGetLocalOption(key: 'access_token')) return false;""")
-    anchor = '      } while (current * pageSize < total);\\n      return true;'
+    anchor = '      } while (current * pageSize < total);\n      return true;'
+    if source.count(anchor) != 3: raise ValueError('Incompatible group completion anchor')
     source = source.replace(anchor, """      } while (current * pageSize < total);
       if (isDesktop) _rdgenRefresh.catalogAt = DateTime.now();
       return true;""", 1)
-    source = source.replace('    initialized = false;\\n    groupLoadError', """    initialized = false;
+    if source.count('    initialized = false;\n    groupLoadError') != 1: raise ValueError('Incompatible group reset anchor')
+    source = source.replace('    initialized = false;\n    groupLoadError', """    initialized = false;
     _cacheLoadOnceFlag = false;
     _rdgenRefresh.catalogAt = null;
     if (isDesktop) rdgenOrganizations.reset();
