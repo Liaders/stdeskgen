@@ -133,6 +133,29 @@ Future<RdgenOrganizationDecision> rdgenEditOrganization({
           if (!disposed && context.mounted) setState(() { busy = false; mutating = false; });
         }
       }
+      Future<void> saveBinding() async {
+        if (busy || catalogLoading || mutating || confirming || selected == null ||
+            !api.version2 || api.permissions['can_attach'] != true) return;
+        final id = selected!;
+        if (bound.any((g) => g['id'] == id)) return;
+        confirming = true;
+        final confirmed = await rdgenConfirmOrganization(manager,
+          byId[id]?['name'] as String? ?? '$id', attaching: true);
+        confirming = false;
+        if (!confirmed || disposed || !context.mounted) return;
+        setState(() { busy = true; mutating = true; error = null; });
+        try {
+          await api.attach(id);
+          if (!disposed && context.mounted) setState(() {
+            bound = List<Map<String, dynamic>>.of(api.bindings);
+            updateChoices(byId.values.toList());
+          });
+        } catch (failure) {
+          if (!disposed && context.mounted) setState(() { error = rdgenOrganizationError(failure); });
+        } finally {
+          if (!disposed && context.mounted) setState(() { busy = false; mutating = false; });
+        }
+      }
       final groups = byId.values.toList()..sort((a,b) => (a['name'] as String).compareTo(b['name'] as String));
       return CustomAlertDialog(title: Text(translate('Choose organization')),
         content: _RdgenDialogLifetime(controllers: [alias], child: SizedBox(width: 420, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -151,9 +174,13 @@ Future<RdgenOrganizationDecision> rdgenEditOrganization({
             child: Text(translate(closing ? 'End without organization' : 'Do not select'))),
           TextButton(onPressed: mutating ? null : () => finish(RdgenOrganizationDecision.cancel),
             child: Text(translate(closing ? 'Return to session' : 'Cancel'))),
+          ElevatedButton(onPressed: busy || catalogLoading || !bindingsLoaded || mutating || confirming || selected == null ||
+              authorizationFailed || !api.version2 || api.permissions['can_attach'] != true ||
+              bound.any((g) => g['id'] == selected) ? null : saveBinding,
+            child: Text(translate('Save'))),
           ElevatedButton(onPressed: busy || !bindingsLoaded || mutating || selected == null || authorizationFailed ||
               (!bound.any((g) => g['id'] == selected) && (catalogLoading || error != null || !api.version2 || api.permissions['can_attach'] != true)) ? null : submit,
-            child: Text(translate(closing ? 'Save and end session' : 'Confirm'))),
+            child: Text(translate(closing ? 'Save and end session' : 'Connect'))),
         ], onCancel: mutating ? null : () => finish(RdgenOrganizationDecision.cancel));
     });
     return result ?? RdgenOrganizationDecision.cancel;

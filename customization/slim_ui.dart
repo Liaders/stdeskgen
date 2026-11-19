@@ -29,7 +29,6 @@ class RdgenConnectionLayout extends StatelessWidget {
       return Column(mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          children[0],
           IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [Flexible(child: input), const SizedBox(width: 12), actions])),
         ]);

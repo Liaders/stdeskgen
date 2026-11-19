@@ -9,6 +9,43 @@ import '../lib/models/rdgen_organization_api.dart';
 import '../lib/models/rdgen_organization_editor.dart';
 
 void main() {
+  testWidgets('Save binds a device without selecting the session or closing the picker', (tester) async {
+    late BuildContext context;
+    await tester.pumpWidget(MaterialApp(home: Builder(builder: (c) { context = c; return const Scaffold(); })));
+    var posts = 0;
+    var connections = 0;
+    final api = RdgenOrganizationApi(Uri.parse('https://console.test'), '123', (method, uri, body) async {
+      if (method == 'POST') {
+        posts++;
+        expect(jsonDecode(body!)['group_id'], 8);
+        return WorkGroupReply(200, '{"bindings":[{"id":7,"name":"Existing"},{"id":8,"name":"Additional"}]}');
+      }
+      return WorkGroupReply(200, '{"api_version":2,"total":2,"data":[{"id":7,"name":"Existing"},{"id":8,"name":"Additional"}],"bindings":[{"id":7,"name":"Existing"}],"permissions":{"can_attach":true}}');
+    });
+    final result = rdgenEditOrganization(manager: OverlayDialogManager(context), api: api,
+      boundChoices: [{'id':7,'name':'Existing'}], save: (id, attach) async {
+        connections++; expect(id, 8); expect(attach, false);
+      });
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'Additional');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byWidgetPredicate((w) => w is Text && w.data == 'Additional'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(posts, 0);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Assign organization'));
+    await tester.pumpAndSettle();
+    expect(posts, 1);
+    expect(connections, 0);
+    expect(find.text('Choose organization'), findsOneWidget);
+    expect(find.byType(RadioListTile<int>), findsNWidgets(2));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Connect'));
+    await tester.pumpAndSettle();
+    expect(await result, RdgenOrganizationDecision.saved);
+    expect(connections, 1);
+    expect(posts, 1);
+  });
   testWidgets('Close reminder waits for exact-session persistence; extra binding keeps the saved organization', (tester) async {
     late BuildContext context;
     await tester.pumpWidget(MaterialApp(home: Builder(builder: (c) { context = c; return const Scaffold(); })));
@@ -98,7 +135,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byWidgetPredicate((w) => w is Text && w.data == 'B'));
     await tester.pump();
-    await tester.tap(find.text('Confirm'));
+    await tester.tap(find.text('Connect'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Reconnect'));
     await tester.pumpAndSettle();
@@ -132,7 +169,7 @@ void main() {
     expect(find.text('New'), findsNothing);
     expect(find.text('Create organization…'), findsNothing);
     expect(tester.widget<RadioListTile<int>>(find.byType(RadioListTile<int>)).groupValue, 7);
-    await tester.tap(find.text('Confirm'));
+    await tester.tap(find.text('Connect'));
     await tester.pumpAndSettle();
     expect(await editing, RdgenOrganizationDecision.saved);
     expect(assignments, 1);
@@ -143,13 +180,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byWidgetPredicate((w) => w is Text && w.data == 'New'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Confirm'));
+    await tester.tap(find.text('Connect'));
     await tester.pumpAndSettle();
     expect(assignments, 1);
     await tester.tap(find.text('Cancel').last);
     await tester.pumpAndSettle();
     expect(attaches, 0);
-    await tester.tap(find.text('Confirm'));
+    await tester.tap(find.text('Connect'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ElevatedButton, 'Assign organization'));
     await tester.pumpAndSettle();
@@ -187,15 +224,15 @@ void main() {
     await tester.pump();
     await tester.tap(find.byWidgetPredicate((w) => w is Text && w.data == 'Cached new'));
     await tester.pump();
-    expect(tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Confirm')).onPressed, isNull);
+    expect(tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Connect')).onPressed, isNull);
     bound.complete([{'id':7,'name':'Bound A'},{'id':9,'name':'Bound B'}]);
     await tester.pump();
     expect(find.text('Bound A'), findsOneWidget);
-    expect(tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Confirm')).onPressed, isNull);
+    expect(tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Connect')).onPressed, isNull);
     await tester.tap(find.text('Bound A'));
     await tester.pump();
-    expect(tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Confirm')).onPressed, isNotNull);
-    await tester.tap(find.text('Confirm'));
+    expect(tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Connect')).onPressed, isNotNull);
+    await tester.tap(find.text('Connect'));
     await tester.pumpAndSettle();
     expect(await result, RdgenOrganizationDecision.saved);
     expect(saves, ['7/false']);

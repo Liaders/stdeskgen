@@ -52,7 +52,7 @@ def apply(root):
     replace(connection, '''      child: Ink(
         child: Column(''', '''      child: Ink(
         child: RdgenConnectionLayout(''')
-    replace(connection, 'getConnectionPageTitle(context, false).marginOnly(bottom: 15)', 'getConnectionPageTitle(context, false).marginOnly(bottom: rdgenSlimUi.value ? 8 : 15)')
+    replace(connection, 'getConnectionPageTitle(context, false).marginOnly(bottom: 15)', 'rdgenSlimUi.value ? const SizedBox.shrink() : getConnectionPageTitle(context, false).marginOnly(bottom: 15)')
     replace(connection, '''contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 15, vertical: 13)''', '''contentPadding: EdgeInsets.symmetric(
                                   horizontal: 15, vertical: rdgenSlimUi.value ? 6 : 13)''')

@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../common.dart' show translate;
+import '../common.dart' show translate, MyTheme;
 
 const rdgenCompactMenuButtonStyle = ButtonStyle(
   textStyle: WidgetStatePropertyAll(TextStyle(fontFamily: 'Roboto', fontSize: 13, height: 1.2, fontWeight: FontWeight.w400)),
@@ -20,7 +20,7 @@ const rdgenCompactMenuStyle = MenuStyle(
 bool rdgenToolbarDark(BuildContext context) => Theme.of(context).brightness == Brightness.dark;
 Color rdgenToolbarForeground(BuildContext context) => rdgenToolbarDark(context) ? Colors.white : const Color(0xff24272c);
 Color rdgenToolbarSurface(BuildContext context) => rdgenToolbarDark(context) ? const Color(0xff22252b) : const Color(0xfff5f6f8);
-Color rdgenToolbarAccent(BuildContext context) => rdgenToolbarDark(context) ? const Color(0xffffcb75) : const Color(0xff965000);
+Color rdgenToolbarAccent(BuildContext context) => MyTheme.accent;
 MenuStyle rdgenToolbarMenuStyle(BuildContext context) => rdgenCompactMenuStyle.copyWith(
   backgroundColor: WidgetStatePropertyAll(rdgenToolbarSurface(context)));
 

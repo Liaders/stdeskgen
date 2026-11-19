@@ -110,6 +110,7 @@ final bind = _Bind();
             # Host only: same public signatures as common.dart, without unrelated FFI plugins.
             (root/'lib/common.dart').write_text('''import 'package:flutter/material.dart';
 export 'package:flutter/material.dart';
+class MyTheme { static const accent = Color(0xffef7f1a); }
 String translate(String value) => value;
 void showToast(String value) {}
 typedef CustomAlertDialog = AlertDialog;

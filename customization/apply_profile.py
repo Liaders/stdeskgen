@@ -145,43 +145,44 @@ def apply(root, version, profile, check=False, desktop_navigation=True):
         # The first two occurrences are the tile and grid title; the delete dialog is untouched.
         path = root / cards
         text = edits.get(path, path.read_text(encoding="utf-8"))
-        if text.count(old) != 2:
+        if text.count(old) != 2 and "rdgenServerDeviceName" not in text:
             raise ValueError("Incompatible device card titles")
         edits[path] = text.replace(old, "widget.tab == PeerTabIndex.group ? gFFI.groupModel.deviceDisplayName(peer) : (peer.alias.isEmpty ? formatID(peer.id) : peer.alias),")
-        replace(cards, "    // menuItems.add(_renameAction(peer.id));", """    menuItems.add(MenuEntryButton<String>(
-      childBuilder: (TextStyle? style) => Text(translate('Alias'), style: style),
-      proc: () {
-        final controller = TextEditingController(text: gFFI.groupModel.deviceUserNames[peer.id] ?? '');
-        gFFI.dialogManager.show((setState, close, context) {
-          return CustomAlertDialog(
-            title: Text(translate('Alias')),
-            content: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text('${peer.hostname} (${peer.id})'),
-              if (peer.alias.trim().isNotEmpty)
-                Text('${translate('Server')}: ${peer.alias}'),
-              TextField(controller: controller, autofocus: true,
-                maxLength: 128,
-                decoration: InputDecoration(labelText: '${translate('Alias')} (${translate('Local')})', hintText: peer.hostname)),
-            ]),
-            actions: [
-              dialogButton('Cancel', onPressed: close),
-              dialogButton('OK', onPressed: () async {
-                await gFFI.groupModel.setDeviceUserName(peer, controller.text);
-                close();
-              }),
-            ],
-            onCancel: close,
-          );
-        }).whenComplete(controller.dispose);
-      },
-      padding: menuPadding,
-      dismissOnClicked: true,
-    ));""")
-        replace("flutter/lib/common.dart", "  if (peer.alias.toLowerCase().contains(searchText)) {", """  if (peerTabIndex == PeerTabIndex.group &&
-      (gFFI.groupModel.deviceUserNames[peer.id] ?? '').toLowerCase().contains(searchText)) {
-    return true;
-  }
-  if (peer.alias.toLowerCase().contains(searchText)) {""")
+        if not desktop_navigation:
+            replace(cards, "    // menuItems.add(_renameAction(peer.id));", """    menuItems.add(MenuEntryButton<String>(
+          childBuilder: (TextStyle? style) => Text(translate('Alias'), style: style),
+          proc: () {
+            final controller = TextEditingController(text: gFFI.groupModel.deviceUserNames[peer.id] ?? '');
+            gFFI.dialogManager.show((setState, close, context) {
+              return CustomAlertDialog(
+                title: Text(translate('Alias')),
+                content: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text('${peer.hostname} (${peer.id})'),
+                  if (peer.alias.trim().isNotEmpty)
+                    Text('${translate('Server')}: ${peer.alias}'),
+                  TextField(controller: controller, autofocus: true,
+                    maxLength: 128,
+                    decoration: InputDecoration(labelText: '${translate('Alias')} (${translate('Local')})', hintText: peer.hostname)),
+                ]),
+                actions: [
+                  dialogButton('Cancel', onPressed: close),
+                  dialogButton('OK', onPressed: () async {
+                    await gFFI.groupModel.setDeviceUserName(peer, controller.text);
+                    close();
+                  }),
+                ],
+                onCancel: close,
+              );
+            }).whenComplete(controller.dispose);
+          },
+          padding: menuPadding,
+          dismissOnClicked: true,
+        ));""")
+            replace("flutter/lib/common.dart", "  if (peer.alias.toLowerCase().contains(searchText)) {", """  if (peerTabIndex == PeerTabIndex.group &&
+          (gFFI.groupModel.deviceUserNames[peer.id] ?? '').toLowerCase().contains(searchText)) {
+        return true;
+      }
+      if (peer.alias.toLowerCase().contains(searchText)) {""")
     if "colleagues" in profile and type(profile["colleagues"]) is not bool:
         raise ValueError("colleagues must be boolean")
     if profile.get("colleagues", False):
@@ -196,6 +197,15 @@ def apply(root, version, profile, check=False, desktop_navigation=True):
     if desktop_navigation:
         from navigation import add_navigation
         add_navigation(root, edits, replace, navigation)
+    if desktop_navigation and profile.get("device_names", False):
+        path = root/"flutter/lib/models/rdgen_device_display_name.dart"
+        edits[path] = edits[path].replace("  if (localAlias.trim().isNotEmpty) return localAlias.trim();\n", "")
+        path = root/"flutter/lib/models/group_model.dart"
+        text = edits[path]
+        start = text.index("    final key = await _deviceNameKey();")
+        end = text.index("\n  String deviceDisplayName", start)
+        text = text[:start] + "    // Local device aliases are retired on desktop.\n  }\n" + text[end:]
+        edits[path] = text
     # Validate all anchors and inputs before writing any source file.
     if not check:
         for path, text in edits.items():

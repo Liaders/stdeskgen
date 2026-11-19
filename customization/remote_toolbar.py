@@ -80,7 +80,7 @@ def apply(root):
         current: () => !widget.ffi.closed,
         restart: bind.willSessionCloseCloseSession(sessionId: widget.ffi.sessionId) ? reopen : null)));
       toolbarItems.add(_IconSubmenuButton(tooltip: 'More',
-        icon: Icon(Icons.more_horiz, color: rdgenToolbarForeground(context), size: 20),
+        icon: Icon(Icons.more_horiz, color: Provider.of<RecordingModel>(context).start ? Colors.redAccent : rdgenToolbarForeground(context), size: 20),
         color: _ToolbarTheme.inactiveColor, hoverColor: _ToolbarTheme.hoverInactiveColor,
         ffi: widget.ffi, menuChildrenGetter: (_) => [
           Row(mainAxisSize: MainAxisSize.min, children: [
@@ -88,6 +88,12 @@ def apply(root):
             if (!isWeb) _RecordMenu(),
           ]),
         ]));
+      toolbarItems.add(_IconMenuButton(icon: Icon(Icons.keyboard_arrow_up, color: rdgenToolbarForeground(context), size: 20),
+        tooltip: 'Hide Toolbar', color: _ToolbarTheme.inactiveColor, hoverColor: _ToolbarTheme.hoverInactiveColor,
+        onPressed: () {
+          if (pin) widget.state.switchPin();
+          widget.state.switchCollapse(widget.ffi.sessionId);
+        }));
     }''')
     change('    toolbarItems.add(_CloseMenu(id: widget.id, ffi: widget.ffi));',
         '    if (!compact) toolbarItems.add(_CloseMenu(id: widget.id, ffi: widget.ffi));')
@@ -135,11 +141,11 @@ def apply(root):
     final glyph = switch (widget.tooltip) {
       'Pin Toolbar' || 'Unpin Toolbar' => 'pin', 'Close' => 'close',
       'Control Actions' => 'bolt', 'Display Settings' => 'settings',
-      'Keyboard Settings' => 'keyboard', 'More' => 'more', _ => null,
+      'Keyboard Settings' => 'keyboard', _ => null,
     };
     final icon = compact && glyph != null ? Center(child: RdgenToolbarGlyph(glyph, color: widget.tooltip == 'Unpin Toolbar' ? const Color(0xffef7f1a) : widget.tooltip == 'Close' ? Colors.white : rdgenToolbarForeground(context))) : widget.icon ??""")
     body = body.replace('ColorFilter.mode(Colors.white, BlendMode.srcIn)',
-        'ColorFilter.mode(RdgenCompactToolbarScope.active(context) ? rdgenToolbarForeground(context) : Colors.white, BlendMode.srcIn)')
+        "ColorFilter.mode(RdgenCompactToolbarScope.active(context) ? (widget.tooltip == 'Stop session recording' ? Colors.redAccent : rdgenToolbarForeground(context)) : Colors.white, BlendMode.srcIn)")
     # Paint the whole 30px face, including pin/fullscreen/close glyphs. Do not
     # inherit the compact context-menu row's 28px maximum or intrinsic icon width.
     body = body.replace('child: icon', "child: RdgenCompactToolbarScope.active(context) ? SizedBox(width: widget.width ?? 30, height: 30, child: Center(child: icon)) : icon")

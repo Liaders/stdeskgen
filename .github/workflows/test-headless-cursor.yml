@@ -1,0 +1,19 @@
+name: Check Windows headless cursor adapter
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [master]
+    paths:
+      - 'customization/headless_cursor.*'
+      - 'customization/check_headless_cursor.py'
+      - '.github/workflows/test-headless-cursor.yml'
+permissions:
+  contents: read
+jobs:
+  windows-api:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check actual adapter against Windows API
+        run: python customization/check_headless_cursor.py --output "${{ runner.temp }}/cursor-check"

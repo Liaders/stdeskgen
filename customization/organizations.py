@@ -15,6 +15,7 @@ def add_organizations(root, edits, replace):
         source = source.replace(old, new)
 
     source = source.replace('MyGroup', 'RdgenOrganizations')
+    source = "import '../../models/rdgen_device_organization_origin.dart';\n" + source
     change('  RxBool get isSelectedDeviceGroup => gFFI.groupModel.isSelectedDeviceGroup;',
            '  final isSelectedDeviceGroup = true.obs;')
     change('  RxString get selectedAccessibleItemName =>\n      gFFI.groupModel.selectedAccessibleItemName;',
@@ -87,7 +88,7 @@ class RdgenOrganizationsPeerView extends BasePeersView {
       (selected.isEmpty || group.selectionKey == selected) &&
       (search.isEmpty || group.name.toLowerCase().contains(search))),
     peerCardBuilder: (Peer peer) {
-      final card = MyGroupPeerCard(peer: peer, menuPadding: menuPadding);
+      final card = RdgenDeviceOrganizationOrigin(child: MyGroupPeerCard(peer: peer, menuPadding: menuPadding));
       final origins = organizations.where((group) => group.selectionKey == selected &&
           group.peerIds.contains(peer.id) && group.id != null);
       return origins.isEmpty ? card : RdgenWorkGroupOrigin(
