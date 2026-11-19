@@ -6,6 +6,13 @@ permissions:
   contents: read
   actions: read
 jobs:
+  windows-cursor:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Windows cursor adapter against WinAPI
+        run: python customization/check_headless_cursor.py --output "${{ runner.temp }}/cursor-check"
   analyze:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
