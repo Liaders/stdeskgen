@@ -32,4 +32,4 @@ pub mod config {
 #[path = '''+json.dumps(module, ensure_ascii=False)+''']
 pub mod cursor;
 ''', encoding='utf-8')
-subprocess.run(['cargo', 'check', '--manifest-path', str(root/'Cargo.toml')], check=True)
+subprocess.run(['cargo', 'test', '--manifest-path', str(root/'Cargo.toml')], check=True)
