@@ -30,11 +30,15 @@ def apply(root):
     body = source[start:end]
     if body.count('    return menuItems;') != 1: raise ValueError('Incompatible discovered alias menu')
     source = source[:start] + body.replace('    return menuItems;', '    if (isDesktop) menuItems.add(_renameAction(context, peer.id));\n    return menuItems;') + source[end:]
+    start = source.index('class AddressBookPeerCard extends BasePeerCard {')
+    end = source.index('\nclass MyGroupPeerCard', start)
+    body = source[start:end]
+    body = body.replace('menuItems.add(_renameAction(context, peer.id));', 'if (!isDesktop) menuItems.add(_renameAction(context, peer.id));')
+    if body.count('    return menuItems;') != 1: raise ValueError('Incompatible address book alias menu')
+    source = source[:start] + body.replace('    return menuItems;', '    if (isDesktop) menuItems.add(_renameAction(context, peer.id));\n    return menuItems;') + source[end:]
     old = "peer.alias.isEmpty ? formatID(peer.id) : peer.alias,"
     change(old, "isDesktop ? rdgenServerDeviceName(peer.id, peer.hostname) : (peer.alias.isEmpty ? formatID(peer.id) : peer.alias),", 2)
     # Keep existing layout/selection behavior; only replace the subtitle content.
-    old = "'${peer.username}${peer.username.isNotEmpty && peer.hostname.isNotEmpty ? '@' : ''}${peer.hostname}'"
-    change(old, "(isDesktop && [PeerTabIndex.group, PeerTabIndex.ab].contains(widget.tab) ? formatID(peer.id) : '${peer.username}${peer.username.isNotEmpty && peer.hostname.isNotEmpty ? '@' : ''}${peer.hostname}')", 2)
     change('final name = hideUsernameOnCard == true', 'final name = isDesktop && [PeerTabIndex.group, PeerTabIndex.ab].contains(widget.tab) ? formatID(peer.id) : hideUsernameOnCard == true', 2)
     source = "import '../../models/rdgen_device_organization_origin.dart';\n" + source
     path.write_text(source, encoding='utf-8')
@@ -44,3 +48,9 @@ def apply(root):
     text = connection.read_text(encoding='utf-8')
     if text.count("translate('Ready')") != 1: raise ValueError('Incompatible ready status')
     connection.write_text(text.replace("translate('Ready')", "translate('Connected')"), encoding='utf-8')
+    common = root/'flutter/lib/common.dart'
+    text = common.read_text(encoding='utf-8')
+    old = '  if (peer.alias.toLowerCase().contains(searchText)) {'
+    if text.count(old) != 1: raise ValueError('Incompatible device name search')
+    text = text.replace(old, '  if ((isDesktop ? rdgenServerDeviceName(peer.id, peer.hostname) : peer.alias).toLowerCase().contains(searchText)) {')
+    common.write_text("import 'models/rdgen_device_menu.dart';\n" + text, encoding='utf-8')
