@@ -11,6 +11,15 @@ class RdgenAccountGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (compact) return LayoutBuilder(builder: (context, constraints) =>
+      Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        Expanded(child: child),
+        const SizedBox(width: 12),
+        Container(width: 1, height: 24, color: Theme.of(context).dividerColor),
+        const SizedBox(width: 12),
+        SizedBox(width: (constraints.maxWidth * 0.36).clamp(180.0, 300.0).toDouble(),
+          child: const RdgenDesktopAccount(compact: true)),
+      ]));
     return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
       Expanded(child: Align(alignment: Alignment.centerLeft,
         child: ConstrainedBox(
@@ -25,13 +34,13 @@ class RdgenAccountGroup extends StatelessWidget {
 }
 
 class RdgenDesktopAccount extends StatelessWidget {
-  const RdgenDesktopAccount({super.key});
+  final bool compact;
+  const RdgenDesktopAccount({super.key, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() => Column(mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
+    return Obx(() {
+      final children = <Widget>[
         Row(mainAxisSize: MainAxisSize.min, children: [
           const Icon(Icons.person_outline, size: 16),
           const SizedBox(width: 6),
@@ -43,6 +52,10 @@ class RdgenDesktopAccount extends StatelessWidget {
         if (!gFFI.userModel.isLogin)
           OutlinedButton.icon(
             onPressed: loginDialog,
+            style: compact ? OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 32),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap) : null,
             icon: const Icon(Icons.login, size: 16),
             label: Text(translate('Login')),
           )
@@ -67,7 +80,11 @@ class RdgenDesktopAccount extends StatelessWidget {
           },
           child: Text(translate('Open web panel'), textAlign: TextAlign.center),
         ),
-      ],
-    ));
+      ];
+      if (compact) return Row(mainAxisAlignment: MainAxisAlignment.end,
+        children: [Flexible(child: children.first), const SizedBox(width: 10), children.last]);
+      return Column(mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end, children: children);
+    });
   }
 }

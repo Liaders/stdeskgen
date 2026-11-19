@@ -48,7 +48,7 @@ def apply(root):
     replace(connection, ').marginOnly(top: 22),', ').marginOnly(top: rdgenSlimUi.value ? 8 : 22, right: rdgenSlimList ? 12 : 0),')
     replace(connection, '            SizedBox(height: 12),', '            SizedBox(height: rdgenSlimUi.value ? 8 : 12),')
     replace(connection, '      width: 320 + 20 * 2,', '      width: rdgenSlimUi.value ? double.infinity : 320 + 20 * 2,')
-    replace(connection, '      padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),', '      padding: rdgenSlimUi.value ? const EdgeInsets.all(12) : const EdgeInsets.fromLTRB(20, 24, 20, 22),')
+    replace(connection, '      padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),', '      padding: rdgenSlimUi.value ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8) : const EdgeInsets.fromLTRB(20, 24, 20, 22),')
     replace(connection, '''      child: Ink(
         child: Column(''', '''      child: Ink(
         child: RdgenConnectionLayout(''')
