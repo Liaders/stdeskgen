@@ -89,6 +89,7 @@ def apply(root):
             call.arguments['server']?.toString().replaceFirst(RegExp(r'/$'), '') != (await bind.mainGetApiServer()).replaceFirst(RegExp(r'/$'), '') ||
             call.arguments['account'] != bind.mainGetLocalOption(key: 'user_info')) return null;
         await rdgenRefreshVisibleDevice?.call(peer);
+        gFFI.groupModel.peers.refresh();
         return true;
       } else if (call.method == kWindowConnect) {""")
 
