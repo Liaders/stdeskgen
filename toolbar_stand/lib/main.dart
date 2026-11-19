@@ -2,6 +2,7 @@ import 'dart:async';
 import 'organization_picker.dart';
 import 'package:flutter/material.dart';
 import 'models/rdgen_compact_session_toolbar.dart';
+import 'stand_icons.dart';
 
 const standMenuItemStyle = ButtonStyle(
   textStyle: WidgetStatePropertyAll(TextStyle(
@@ -38,7 +39,8 @@ class StandPage extends StatefulWidget {
 
 class _StandPageState extends State<StandPage> {
   bool collapsed = false, pinned = true, recording = false, dark = true;
-  bool controls = true;
+  bool controls = true, svgIcons = true;
+  Color get ink => dark ? Colors.white : const Color(0xff24272c);
   int total = 3, current = 0, menuDepth = 0;
   String? organization = 'Организация Статус';
   final List<String> bindings = ['Организация Статус', 'Узорметалл'];
@@ -78,21 +80,12 @@ class _StandPageState extends State<StandPage> {
         context: context,
         builder: (_) => StandOrganizationPicker(
             organizations: List.of(organizations),
-            offerDeviceAlias: bindings.isEmpty && deviceAlias == null));
+            bindings: List.of(bindings),
+            current: organization,
+            deviceAlias: deviceAlias));
     if (!mounted) return;
     if (selection != null) {
-      if (selection.created) {
-        setState(() {
-          organizations.add(selection.name);
-        });
-      }
-      if (!selection.assign) {
-        log('Организация «${selection.name}» создана без назначения устройству.');
-        menuClosed();
-        return;
-      }
-      final accepted =
-          await activateOrganization(selection.name, groups: selection.groups);
+      final accepted = await activateOrganization(selection.name);
       if (mounted && accepted && selection.deviceAlias != null) {
         setState(() => deviceAlias = selection.deviceAlias);
       }
@@ -105,6 +98,14 @@ class _StandPageState extends State<StandPage> {
     if (name == organization) return true;
     menuOpened();
     final reconnect = organization != null;
+    if (!reconnect && bindings.contains(name)) {
+      setState(() {
+        organization = name;
+        event = 'Демонстрация: выбрана организация $name';
+      });
+      menuClosed();
+      return true;
+    }
     final accepted = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
@@ -143,7 +144,8 @@ class _StandPageState extends State<StandPage> {
   Future<void> assignAlias() async {
     menuOpened();
     final alias = await showDialog<String>(
-        context: context, builder: (_) => const StandDeviceAliasDialog());
+        context: context,
+        builder: (_) => StandDeviceAliasDialog(current: deviceAlias));
     if (!mounted) return;
     if (alias != null) {
       setState(() {
@@ -159,11 +161,12 @@ class _StandPageState extends State<StandPage> {
       Tooltip(
           message: label,
           child: SizedBox(
-              width: 34,
+              width: 30,
               height: 30,
               child: TextButton(
                   onPressed: click,
                   style: rdgenToolbarButtonStyle(
+                          foreground: ink,
                           background: icon == Icons.close
                               ? const Color(0xffe44e49)
                               : Colors.transparent)
@@ -184,7 +187,8 @@ class _StandPageState extends State<StandPage> {
                                           : icon == Icons.mouse_outlined
                                               ? 'fullscreen'
                                               : 'pin',
-                      color: color ?? Colors.white))));
+                      color: color ??
+                          (icon == Icons.close ? Colors.white : ink)))));
 
   Widget separator() => Container(
       width: 1,
@@ -241,13 +245,9 @@ class _StandPageState extends State<StandPage> {
       MenuAnchor(
           onOpen: menuOpened,
           onClose: menuClosed,
-          style: const MenuStyle(
-              backgroundColor: WidgetStatePropertyAll(Color(0xff262a30)),
-              surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
-              shape: WidgetStatePropertyAll(RoundedRectangleBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(6)))),
-              padding:
-                  WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5))),
+          style: rdgenCompactMenuStyle.copyWith(
+              backgroundColor: WidgetStatePropertyAll(
+                  dark ? const Color(0xff262a30) : const Color(0xfff5f6f8))),
           menuChildren: children,
           builder: (_, controller, __) => Tooltip(
               message: tooltip,
@@ -260,13 +260,13 @@ class _StandPageState extends State<StandPage> {
               })));
 
   Widget menuIcon(String glyph, VoidCallback open, {Color? color}) => SizedBox(
-      width: 34,
+      width: 30,
       height: 30,
       child: TextButton(
           onPressed: open,
-          style: rdgenToolbarButtonStyle()
+          style: rdgenToolbarButtonStyle(foreground: ink)
               .copyWith(padding: const WidgetStatePropertyAll(EdgeInsets.zero)),
-          child: RdgenToolbarGlyph(glyph, color: color ?? Colors.white)));
+          child: RdgenToolbarGlyph(glyph, color: color ?? ink)));
 
   List<Widget> displayMenu() => [
         item('Подогнать окно'),
@@ -384,8 +384,11 @@ class _StandPageState extends State<StandPage> {
                       maxLines: 1, overflow: TextOverflow.ellipsis))),
         const Divider(height: 9, thickness: 1),
         item('Назначить организацию…', onPressed: choose),
-        if (organization != null && deviceAlias == null)
-          item('Назначить псевдоним устройства', onPressed: assignAlias),
+        item(
+            deviceAlias == null
+                ? 'Назначить псевдоним устройства'
+                : 'Изменить псевдоним устройства',
+            onPressed: assignAlias),
       ];
 
   Widget toolbar() {
@@ -421,21 +424,17 @@ class _StandPageState extends State<StandPage> {
                 child: TextButton(
                     onPressed: open,
                     style: rdgenToolbarButtonStyle(
-                            background: const Color(0xff21464b),
+                            background: dark
+                                ? const Color(0xff21464b)
+                                : const Color(0xffdcebee),
                             border: const Color(0xff356068))
                         .copyWith(
                             padding:
                                 const WidgetStatePropertyAll(EdgeInsets.zero)),
                     child:
                         RdgenDisplayCounter(current: current, total: total)))),
-      menu(
-          'Режим окна',
-          [
-            for (final label in ['Оконный режим', 'Полноэкранный режим'])
-              radio('Режим окна', label, 'Оконный режим'),
-            item('Подогнать окно')
-          ],
-          (open) => menuIcon('fullscreen', open)),
+      action(Icons.mouse_outlined, 'Полноэкранный режим',
+          () => log('Демонстрация: переключение полноэкранного режима')),
       menu('Параметры изображения', displayMenu(),
           (open) => menuIcon('settings', open)),
       menu('Клавиатура и мышь', keyboardMenu(),
@@ -456,35 +455,23 @@ class _StandPageState extends State<StandPage> {
       menu(
           'Ещё',
           [
-            submenu('Чат', [item('Текстовый чат'), item('Голосовой вызов')]),
-            item(recording ? 'Остановить запись' : 'Запись сеанса',
-                onPressed: () => setState(() {
-                      recording = !recording;
-                      event = recording
-                          ? 'Демонстрация: запись включена'
-                          : 'Демонстрация: запись выключена';
-                    })),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              menu('Чат', [item('Текстовый чат'), item('Голосовой вызов')],
+                  (open) => menuIcon('chat', open)),
+              Tooltip(
+                  message: recording ? 'Остановить запись' : 'Запись сеанса',
+                  child: menuIcon(
+                      'record',
+                      () => setState(() {
+                            recording = !recording;
+                            event = recording
+                                ? 'Демонстрация: запись включена'
+                                : 'Демонстрация: запись выключена';
+                          }),
+                      color: recording ? Colors.redAccent : null)),
+            ]),
           ],
-          (open) => SizedBox(
-              width: 34,
-              height: 30,
-              child: TextButton(
-                  onPressed: open,
-                  style: rdgenToolbarButtonStyle(
-                          background: const Color(0xff34383e),
-                          border: const Color(0xff4a4e53))
-                      .copyWith(
-                          padding:
-                              const WidgetStatePropertyAll(EdgeInsets.zero)),
-                  child: RdgenToolbarGlyph('more',
-                      color: recording ? Colors.redAccent : Colors.white)))),
-      action(
-          Icons.keyboard_arrow_up,
-          'Свернуть',
-          () => setState(() {
-                pinned = false;
-                collapsed = true;
-              })),
+          (open) => menuIcon('more', open)),
       action(Icons.close, 'Завершить тестовый сеанс',
           () => log('Демонстрация: сеанс завершён. Реальных соединений нет.')),
     ];
@@ -539,16 +526,24 @@ class _StandPageState extends State<StandPage> {
                               color: dark ? Colors.white54 : Colors.black54)),
                     ]))))),
         Positioned.fill(
-            child: RdgenCompactSessionToolbar(
-                collapsed: collapsed,
-                assigned: organization != null,
-                organization: organization,
-                onExpand: () {
-                  setState(() => collapsed = false);
-                  scheduleHide();
-                },
-                onChoose: choose,
-                child: toolbar())),
+            child: Theme(
+                data: (dark ? ThemeData.dark() : ThemeData.light()).copyWith(
+                    colorScheme: (dark
+                            ? const ColorScheme.dark()
+                            : const ColorScheme.light())
+                        .copyWith(primary: const Color(0xffef7f1a))),
+                child: StandIconStyle(
+                    svg: svgIcons,
+                    child: RdgenCompactSessionToolbar(
+                        collapsed: collapsed,
+                        assigned: organization != null,
+                        organization: organization,
+                        onExpand: () {
+                          setState(() => collapsed = false);
+                          scheduleHide();
+                        },
+                        onChoose: choose,
+                        child: Builder(builder: (_) => toolbar()))))),
         Positioned(
             left: 12,
             bottom: 12,
@@ -615,6 +610,12 @@ class _StandPageState extends State<StandPage> {
         OutlinedButton(
             onPressed: choose, child: const Text('Выбрать организацию')),
         const SizedBox(height: 16),
+        SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Новые SVG-иконки'),
+            subtitle: const Text('Выключить для сравнения с клиентом'),
+            value: svgIcons,
+            onChanged: (value) => setState(() => svgIcons = value)),
         const Text('Количество мониторов'),
         DropdownButton<int>(
             isExpanded: true,
@@ -633,7 +634,7 @@ class _StandPageState extends State<StandPage> {
             onChanged: (v) => setState(() => recording = v)),
         SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Тёмный рабочий стол'),
+            title: const Text('Тёмная тема сеанса'),
             value: dark,
             onChanged: (v) => setState(() => dark = v)),
         const Divider(height: 9, thickness: 1),

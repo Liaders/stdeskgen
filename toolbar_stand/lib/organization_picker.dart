@@ -2,62 +2,40 @@ import 'package:flutter/material.dart';
 
 class StandOrganizationChoice {
   final String name;
-  final bool created;
-  final bool assign;
-  final List<String> groups;
   final String? deviceAlias;
-  const StandOrganizationChoice(this.name,
-      {this.created = false,
-      this.assign = true,
-      this.groups = const [],
-      this.deviceAlias});
+  const StandOrganizationChoice(this.name, {this.deviceAlias});
 }
 
 class StandOrganizationPicker extends StatefulWidget {
-  final List<String> organizations;
-  final bool offerDeviceAlias;
+  final List<String> organizations, bindings;
+  final String? current, deviceAlias;
   const StandOrganizationPicker(
-      {super.key, required this.organizations, this.offerDeviceAlias = false});
+      {super.key,
+      required this.organizations,
+      this.bindings = const [],
+      this.current,
+      this.deviceAlias});
   @override
   State<StandOrganizationPicker> createState() =>
       _StandOrganizationPickerState();
 }
 
 class _StandOrganizationPickerState extends State<StandOrganizationPicker> {
-  final search = TextEditingController();
-  final alias = TextEditingController();
-  void select(StandOrganizationChoice choice) {
-    Navigator.pop(
-        context,
-        StandOrganizationChoice(choice.name,
-            created: choice.created,
-            assign: choice.assign,
-            groups: choice.groups,
-            deviceAlias: widget.offerDeviceAlias && alias.text.trim().isNotEmpty
-                ? alias.text.trim()
-                : null));
-  }
-
+  late final alias = TextEditingController(text: widget.deviceAlias ?? '');
+  late String? selected = widget.current;
   @override
   void dispose() {
-    search.dispose();
     alias.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    final query = search.text.trim().toLowerCase();
-    final filtered = widget.organizations
-        .where((name) => name.toLowerCase().contains(query))
-        .toList();
-    return AlertDialog(
-        title: const Text('Назначить организацию'),
-        content: SizedBox(
-            width: 460,
-            height: widget.offerDeviceAlias ? 410 : 300,
-            child: Column(children: [
-              if (widget.offerDeviceAlias) ...[
+  Widget build(BuildContext context) => AlertDialog(
+          title: const Text('Выберите организацию'),
+          content: SizedBox(
+              width: 420,
+              child: SingleChildScrollView(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
                 TextField(
                     key: const ValueKey('device-alias'),
                     controller: alias,
@@ -65,198 +43,105 @@ class _StandOrganizationPickerState extends State<StandOrganizationPicker> {
                     decoration: const InputDecoration(
                         labelText: 'Псевдоним устройства (необязательно)',
                         helperText:
-                            'Для удобства поиска и навигации. Имя компьютера не меняется.',
-                        helperMaxLines: 2,
-                        isDense: true,
-                        counterText: '')),
-                const SizedBox(height: 20),
-              ],
-              TextField(
-                  key: const ValueKey('organization-search'),
-                  controller: search,
-                  autofocus: true,
-                  onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                      labelText: 'Поиск организации',
-                      prefixIcon: Icon(Icons.search),
-                      isDense: true)),
-              const SizedBox(height: 12),
-              Expanded(
-                  child: filtered.isEmpty
-                      ? const Center(child: Text('Организации не найдены'))
-                      : ListView.builder(
-                          itemCount: filtered.length,
-                          itemBuilder: (_, index) => ListTile(
-                              dense: true,
-                              title: Text(filtered[index],
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w400)),
-                              leading: const Icon(Icons.apartment_outlined,
-                                  size: 20),
-                              onTap: () => select(
-                                  StandOrganizationChoice(filtered[index]))))),
-              const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Демонстрация · без обращения к серверу',
-                      style: TextStyle(fontSize: 12, color: Colors.grey))),
-            ])),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Отмена')),
-          OutlinedButton.icon(
-              key: const ValueKey('create-organization'),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Создать организацию'),
-              onPressed: () async {
-                final result = await showDialog<StandOrganizationChoice>(
-                    context: context,
-                    builder: (_) => StandCreateOrganization(
-                        existing: widget.organizations,
-                        initialName: search.text.trim()));
-                if (context.mounted && result != null) {
-                  select(result);
-                }
-              })
-        ]);
-  }
-}
-
-class StandCreateOrganization extends StatefulWidget {
-  final List<String> existing;
-  final String initialName;
-  const StandCreateOrganization(
-      {super.key, required this.existing, this.initialName = ''});
-  @override
-  State<StandCreateOrganization> createState() =>
-      _StandCreateOrganizationState();
-}
-
-class _StandCreateOrganizationState extends State<StandCreateOrganization> {
-  late final controller = TextEditingController(text: widget.initialName);
-  final groups = <String>{'Статус'};
-  String? error;
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  void save({bool assign = true}) {
-    final name = controller.text.trim();
-    if (name.isEmpty ||
-        widget.existing.any((e) => e.toLowerCase() == name.toLowerCase())) {
-      setState(() => error = name.isEmpty
-          ? 'Введите название'
-          : 'Организация с таким названием уже есть');
-      return;
-    }
-    Navigator.pop(
-        context,
-        StandOrganizationChoice(name,
-            created: true, assign: assign, groups: groups.toList()));
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-          title: const Text('Создать организацию'),
-          content: SizedBox(
-              width: 460,
-              child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                        key: const ValueKey('new-organization-name'),
-                        controller: controller,
-                        autofocus: true,
-                        maxLength: 255,
-                        decoration: InputDecoration(
-                            labelText: 'Название организации',
-                            errorText: error),
-                        onSubmitted: (_) => save()),
-                    const SizedBox(height: 12),
-                    const Text('Группы пользователей',
-                        style: TextStyle(fontWeight: FontWeight.w400)),
-                    CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        title: const Text('Статус'),
-                        subtitle: const Text(
-                            'Группа текущего оператора · выбрана заранее'),
-                        value: groups.contains('Статус'),
-                        onChanged: (value) => setState(() {
-                              if (value == true) {
-                                groups.add('Статус');
-                              } else {
-                                groups.remove('Статус');
-                              }
-                            })),
-                    const Text(
-                        '«Создать» — только добавить в список. «Создать и назначить» — создать и запросить подтверждение назначения устройству.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  ])),
+                            'Для удобства навигации. Имя компьютера не меняется.',
+                        helperMaxLines: 2)),
+                ...widget.bindings.map((name) => RadioListTile<String>(
+                    dense: true,
+                    title: Text(name),
+                    value: name,
+                    groupValue: selected,
+                    onChanged: (value) => setState(() => selected = value))),
+                RawAutocomplete<String>(
+                    optionsBuilder: (value) => value.text.trim().isEmpty
+                        ? const []
+                        : widget.organizations.where((name) =>
+                            !widget.bindings.contains(name) &&
+                            name
+                                .toLowerCase()
+                                .contains(value.text.toLowerCase())),
+                    onSelected: (value) => setState(() => selected = value),
+                    fieldViewBuilder: (context, controller, focus, submit) =>
+                        TextField(
+                            key: const ValueKey('organization-search'),
+                            controller: controller,
+                            focusNode: focus,
+                            onChanged: (_) => setState(() => selected = null),
+                            onSubmitted: (_) => submit(),
+                            decoration: const InputDecoration(
+                                prefixIcon: Icon(Icons.search),
+                                hintText: 'Поиск организаций')),
+                    optionsViewBuilder: (context, select, options) => Align(
+                        alignment: Alignment.topLeft,
+                        child: Material(
+                            elevation: 6,
+                            borderRadius: BorderRadius.circular(6),
+                            child: SizedBox(
+                                width: 396,
+                                height:
+                                    (options.length * 36.0).clamp(0.0, 216.0),
+                                child: ListView(
+                                    padding: EdgeInsets.zero,
+                                    children: options
+                                        .map((name) => InkWell(
+                                            onTap: () => select(name),
+                                            child: SizedBox(
+                                                height: 36,
+                                                child: Padding(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                                    child: Align(alignment: Alignment.centerLeft, child: Text(name))))))
+                                        .toList()))))),
+              ]))),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Отмена')),
-            OutlinedButton(
-                key: const ValueKey('create-only-organization'),
-                onPressed: () => save(assign: false),
-                child: const Text('Создать')),
             ElevatedButton(
-                key: const ValueKey('confirm-create-organization'),
-                onPressed: () => save(),
-                child: const Text('Создать и назначить'))
+                onPressed: selected == null
+                    ? null
+                    : () => Navigator.pop(
+                        context,
+                        StandOrganizationChoice(selected!,
+                            deviceAlias: alias.text.trim())),
+                child: const Text('Подтвердить')),
           ]);
 }
 
 class StandDeviceAliasDialog extends StatefulWidget {
-  const StandDeviceAliasDialog({super.key});
+  final String? current;
+  const StandDeviceAliasDialog({super.key, this.current});
   @override
   State<StandDeviceAliasDialog> createState() => _StandDeviceAliasDialogState();
 }
 
 class _StandDeviceAliasDialogState extends State<StandDeviceAliasDialog> {
-  final controller = TextEditingController();
-  String? error;
+  late final controller = TextEditingController(text: widget.current ?? '');
   @override
   void dispose() {
     controller.dispose();
     super.dispose();
   }
 
-  void save() {
-    final value = controller.text.trim();
-    if (value.isEmpty) {
-      setState(() => error = 'Введите псевдоним');
-      return;
-    }
-    Navigator.pop(context, value);
-  }
-
   @override
   Widget build(BuildContext context) => AlertDialog(
-          title: const Text('Назначить псевдоним устройства'),
+          title: const Text('Изменить псевдоним устройства'),
           content: SizedBox(
-              width: 460,
+              width: 420,
               child: TextField(
                   key: const ValueKey('standalone-device-alias'),
                   controller: controller,
-                  autofocus: true,
                   maxLength: 255,
-                  onSubmitted: (_) => save(),
-                  decoration: InputDecoration(
+                  autofocus: true,
+                  decoration: const InputDecoration(
                       labelText: 'Псевдоним устройства',
-                      errorText: error,
                       helperText:
-                          'Для удобства поиска и навигации. Имя компьютера не меняется.',
+                          'Для удобства навигации. Имя компьютера не меняется.',
                       helperMaxLines: 2))),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text('Отмена')),
-            ElevatedButton(onPressed: save, child: const Text('Сохранить'))
+            ElevatedButton(
+                onPressed: () => Navigator.pop(context, controller.text.trim()),
+                child: const Text('Сохранить')),
           ]);
 }
