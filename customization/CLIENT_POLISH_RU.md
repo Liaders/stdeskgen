@@ -27,6 +27,7 @@
 - `connection_page.dart` / `rdgen_slim_ui.dart`: заголовок и статус, без изменения боковой панели и поля ID.
 - `remote_toolbar.dart`: отображение записи и действие сворачивания; штатные действия записи/чата сохраняются.
 - общий `rdgen_organization_editor.dart`: независимое сохранение привязки.
+- `rdgen_organization_store.dart` / `desktop_home_page.dart`: обновление существующего кэша серверных имён и перерисовка вкладок после явного изменения псевдонима.
 - Windows `platform/mod.rs`, `server/input_service.rs`: регистрация модуля и тонкие хуки состояния службы курсора. На других ОС обработка курсора остаётся исходной.
 - `desktop_setting_page.dart`: переключатель коррекции только для Windows.
 

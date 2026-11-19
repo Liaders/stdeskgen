@@ -12,19 +12,17 @@ import 'rdgen_organization_preflight.dart';
 import 'rdgen_work_group_origin.dart';
 
 String rdgenServerDeviceName(String id, String hostname) {
-  final accessible = gFFI.groupModel.peers.where((peer) => peer.id == id);
-  if (accessible.isNotEmpty) {
-    final alias = accessible.first.alias.trim();
-    return alias.isNotEmpty ? alias : hostname.isEmpty ? id : hostname;
-  }
+  // Observe the existing list so server-edit notifications rebuild every tab.
+  final accessible = gFFI.groupModel.peers.where((peer) => peer.id == id).toList();
   try {
     final token = bind.mainGetLocalOption(key: 'access_token');
     final data = jsonDecode(bind.mainGetLocalOption(key: 'rdgen-session-title-peers-v1'));
     if (token.isNotEmpty && data['access_token'] == token) {
       final alias = data['peers']?[id]?['alias'];
-      if (alias is String && alias.trim().isNotEmpty) return alias.trim();
+      if (alias is String) return alias.trim().isNotEmpty ? alias.trim() : hostname.isEmpty ? id : hostname;
     }
   } catch (_) { /* No authenticated server snapshot yet. */ }
+  if (accessible.isNotEmpty && accessible.first.alias.trim().isNotEmpty) return accessible.first.alias.trim();
   return hostname.isEmpty ? id : hostname;
 }
 
