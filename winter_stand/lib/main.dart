@@ -1,0 +1,290 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'snow_field.dart';
+import 'snow_panel.dart';
+
+void main() => runApp(const WinterStand());
+
+class WinterStand extends StatefulWidget {
+  const WinterStand({super.key});
+  @override
+  State<WinterStand> createState() => _WinterStandState();
+}
+
+class _WinterStandState extends State<WinterStand> {
+  bool dark = true, running = true;
+  final field = SnowField();
+  final stats = ValueNotifier<String>('Подготовка карты снега…');
+  final List<int> _buildTimes = [], _rasterTimes = [];
+  late final Timer _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    SchedulerBinding.instance.addTimingsCallback(_timings);
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      int percentile(List<int> times) {
+        if (times.isEmpty) return 0;
+        final sorted = List<int>.of(times)..sort();
+        return sorted[((sorted.length - 1) * 0.95).round()];
+      }
+
+      stats.value =
+          '${running ? '30 шагов/с' : 'Пауза'}  ·  Частицы: ${field.particles.length} / ${SnowField.fallingCount + SnowField.maxDebris}  ·  Расчёт: ${(field.lastStepMicros / 1000).toStringAsFixed(2)} мс  ·  Кадр p95: UI ${(percentile(_buildTimes) / 1000).toStringAsFixed(1)} / raster ${(percentile(_rasterTimes) / 1000).toStringAsFixed(1)} мс';
+      _buildTimes.clear();
+      _rasterTimes.clear();
+    });
+  }
+
+  void _timings(List<FrameTiming> frames) {
+    for (final f in frames) {
+      if (_buildTimes.length < 120) {
+        _buildTimes.add(f.buildDuration.inMicroseconds);
+        _rasterTimes.add(f.rasterDuration.inMicroseconds);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'StatusDesk — зимний стенд',
+      theme: ThemeData(
+          useMaterial3: true,
+          brightness: dark ? Brightness.dark : Brightness.light,
+          colorSchemeSeed: orange,
+          scaffoldBackgroundColor:
+              dark ? const Color(0xff191a1e) : const Color(0xfffafbfc),
+          fontFamily: 'Roboto',
+          visualDensity: VisualDensity.compact,
+          inputDecorationTheme: const InputDecorationTheme(
+              border: OutlineInputBorder(), isDense: true),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: orange,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(7))))),
+      home: Scaffold(
+          body: Column(children: [
+        _header(),
+        const Divider(height: 1),
+        Expanded(
+            child:
+                Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          SizedBox(
+              width: sidebarWidth,
+              child: SnowPanel(dark: dark, running: running, field: field)),
+          const VerticalDivider(width: 1),
+          Expanded(child: _workspace()),
+        ])),
+      ])));
+
+  Widget _header() => Builder(
+      builder: (context) => SizedBox(
+          height: 44,
+          child: Row(children: [
+            const SizedBox(width: 16),
+            const Icon(Icons.home_outlined, size: 19, color: orange),
+            const SizedBox(width: 8),
+            const Text('Главная'),
+            const SizedBox(width: 24),
+            const Icon(Icons.build_outlined, size: 17),
+            const SizedBox(width: 8),
+            const Text('Настройки'),
+            const Spacer(),
+            Text('Зимний стенд',
+                style: TextStyle(
+                    fontSize: 12, color: Theme.of(context).hintColor)),
+            const SizedBox(width: 18),
+            Icon(dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+                size: 18),
+            Switch(
+                value: dark,
+                activeColor: orange,
+                onChanged: (value) => setState(() => dark = value)),
+            Text(dark ? 'Тёмная тема' : 'Светлая тема',
+                style: const TextStyle(fontSize: 12)),
+            const SizedBox(width: 16),
+          ])));
+
+  Widget _workspace() => Builder(builder: (context) {
+        final muted = Theme.of(context).hintColor;
+        final surface =
+            dark ? const Color(0xff24262c) : const Color(0xfff0f2f6);
+        return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Column(children: [
+              Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                      border: Border.all(
+                          color:
+                              Theme.of(context).dividerColor.withOpacity(0.2)),
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Row(children: [
+                    const SizedBox(
+                        width: 240,
+                        child: TextField(
+                            style: TextStyle(fontSize: 19),
+                            decoration: InputDecoration(
+                                hintText: '197 914 227',
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 9)))),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                        onPressed: () {},
+                        child: const Text('Подключиться',
+                            style: TextStyle(fontSize: 15))),
+                    const Spacer(),
+                    const Icon(Icons.person_outline, size: 18),
+                    const SizedBox(width: 6),
+                    const Text('Ай нур'),
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                        onPressed: () {}, child: const Text('Войти в панель')),
+                  ])),
+              const SizedBox(height: 16),
+              SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: [
+                    for (final tab in [
+                      'Последние сеансы',
+                      'Избранное',
+                      'Организации',
+                      'Коллеги',
+                      'Найдено',
+                      'Доступные устройства',
+                      'Адресная книга'
+                    ])
+                      Container(
+                          padding: const EdgeInsets.fromLTRB(9, 10, 9, 12),
+                          decoration: tab == 'Организации'
+                              ? const BoxDecoration(
+                                  border: Border(
+                                      bottom:
+                                          BorderSide(color: orange, width: 2)))
+                              : null,
+                          child: Text(tab,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: tab == 'Организации' ? null : muted))),
+                  ])),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              Expanded(
+                  child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    SizedBox(
+                        width: 210,
+                        child: Column(children: [
+                          const TextField(
+                              decoration: InputDecoration(
+                                  prefixIcon: Icon(Icons.search, size: 19),
+                                  hintText: 'Поиск')),
+                          const SizedBox(height: 12),
+                          for (final group in [
+                            'Авангард-Сервис',
+                            'Антикор',
+                            'ГЭСК',
+                            'ИП Федоров',
+                            'Узорметалл',
+                            'Устройства ООО «Статус»'
+                          ])
+                            SizedBox(
+                                height: 40,
+                                child: Row(children: [
+                                  const Icon(Icons.business_outlined,
+                                      size: 17, color: orange),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                      child: Text(group,
+                                          style: const TextStyle(fontSize: 12),
+                                          overflow: TextOverflow.ellipsis)),
+                                ])),
+                        ])),
+                    const SizedBox(width: 14),
+                    Expanded(
+                        child: ListView(children: [
+                      for (final device in [
+                        ('Сервер', '151 401 475'),
+                        ('Ай нур домашний', '506 778 791'),
+                        ('Ай нур рабочий', '197 914 227'),
+                        ('Касса', '723 541 192'),
+                        ('Ноутбук', '347 829 116')
+                      ])
+                        Container(
+                            height: 52,
+                            margin: const EdgeInsets.only(bottom: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            decoration: BoxDecoration(
+                                color: surface,
+                                borderRadius: BorderRadius.circular(6)),
+                            child: Row(children: [
+                              Icon(Icons.desktop_windows_outlined,
+                                  color: muted, size: 24),
+                              const SizedBox(width: 13),
+                              const Icon(Icons.circle,
+                                  color: Color(0xff48b969), size: 6),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                  child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                    Text(device.$1,
+                                        style: const TextStyle(fontSize: 13)),
+                                    Text(device.$2,
+                                        style: TextStyle(
+                                            fontSize: 11, color: muted))
+                                  ])),
+                              const Icon(Icons.more_vert, size: 18),
+                            ])),
+                    ])),
+                  ])),
+              Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Text(
+                          'Зажмите ЛКМ на свободном месте слева и смахните снег с букв или сугроба.',
+                          style: TextStyle(fontSize: 12, color: muted)))),
+              Wrap(
+                  spacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    TextButton.icon(
+                        onPressed: () => setState(() => running = !running),
+                        icon: Icon(running ? Icons.pause : Icons.play_arrow,
+                            size: 17),
+                        label: Text(running ? 'Пауза снега' : 'Продолжить')),
+                    TextButton.icon(
+                        onPressed: field.reset,
+                        icon: const Icon(Icons.refresh, size: 17),
+                        label: const Text('Сбросить снег')),
+                    const Text('Все подключения и действия клиента — заглушки.',
+                        style: TextStyle(fontSize: 11)),
+                  ]),
+              Padding(
+                  padding: const EdgeInsets.only(top: 6, bottom: 9),
+                  child: ValueListenableBuilder<String>(
+                      valueListenable: stats,
+                      builder: (_, value, __) => Text(value,
+                          style: TextStyle(fontSize: 10, color: muted)))),
+            ]));
+      });
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    SchedulerBinding.instance.removeTimingsCallback(_timings);
+    stats.dispose();
+    field.dispose();
+    super.dispose();
+  }
+}
