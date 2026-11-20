@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'snow_field.dart';
 import 'snow_panel.dart';
+import 'client_layout.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 void main() => runApp(const WinterStand());
 
@@ -18,6 +20,7 @@ class _WinterStandState extends State<WinterStand> {
   final stats = ValueNotifier<String>('Подготовка карты снега…');
   final List<int> _buildTimes = [], _rasterTimes = [];
   late final Timer _timer;
+  int _lastFrames = 0;
 
   @override
   void initState() {
@@ -30,8 +33,10 @@ class _WinterStandState extends State<WinterStand> {
         return sorted[((sorted.length - 1) * 0.95).round()];
       }
 
+      final frames = field.renderedFrames - _lastFrames;
+      _lastFrames = field.renderedFrames;
       stats.value =
-          '${running ? '30 шагов/с' : 'Пауза'}  ·  Частицы: ${field.particles.length} / ${SnowField.fallingCount + SnowField.maxDebris}  ·  Расчёт: ${(field.lastStepMicros / 1000).toStringAsFixed(2)} мс  ·  Кадр p95: UI ${(percentile(_buildTimes) / 1000).toStringAsFixed(1)} / raster ${(percentile(_rasterTimes) / 1000).toStringAsFixed(1)} мс';
+          '${running ? 'Физика 30 Гц · Кадры: $frames/с' : 'Пауза'}  ·  Частицы: ${field.particles.length} / ${SnowField.fallingCount + SnowField.maxDebris}  ·  Расчёт: ${(field.lastStepMicros / 1000).toStringAsFixed(2)} мс  ·  Кадр p95: UI ${(percentile(_buildTimes) / 1000).toStringAsFixed(1)} / raster ${(percentile(_rasterTimes) / 1000).toStringAsFixed(1)} мс';
       _buildTimes.clear();
       _rasterTimes.clear();
     });
@@ -51,7 +56,7 @@ class _WinterStandState extends State<WinterStand> {
       debugShowCheckedModeBanner: false,
       title: 'StatusDesk — зимний стенд',
       theme: ThemeData(
-          useMaterial3: true,
+          useMaterial3: false,
           brightness: dark ? Brightness.dark : Brightness.light,
           colorSchemeSeed: orange,
           scaffoldBackgroundColor:
@@ -84,7 +89,7 @@ class _WinterStandState extends State<WinterStand> {
 
   Widget _header() => Builder(
       builder: (context) => SizedBox(
-          height: 44,
+          height: 28,
           child: Row(children: [
             const SizedBox(width: 16),
             const Icon(Icons.home_outlined, size: 19, color: orange),
@@ -115,10 +120,11 @@ class _WinterStandState extends State<WinterStand> {
         final surface =
             dark ? const Color(0xff24262c) : const Color(0xfff0f2f6);
         return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: Column(children: [
               Container(
-                  padding: const EdgeInsets.all(12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                       border: Border.all(
                           color:
@@ -126,19 +132,24 @@ class _WinterStandState extends State<WinterStand> {
                       borderRadius: BorderRadius.circular(12)),
                   child: Row(children: [
                     const SizedBox(
-                        width: 240,
+                        width: 280,
                         child: TextField(
-                            style: TextStyle(fontSize: 19),
+                            style: TextStyle(fontSize: 22),
                             decoration: InputDecoration(
                                 hintText: '197 914 227',
                                 contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 9)))),
+                                    horizontal: 15, vertical: 6)))),
                     const SizedBox(width: 12),
                     ElevatedButton(
                         onPressed: () {},
                         child: const Text('Подключиться',
                             style: TextStyle(fontSize: 15))),
                     const Spacer(),
+                    Container(
+                        width: 1,
+                        height: 24,
+                        color: Theme.of(context).dividerColor),
+                    const SizedBox(width: 12),
                     const Icon(Icons.person_outline, size: 18),
                     const SizedBox(width: 6),
                     const Text('Ай нур'),
@@ -179,7 +190,7 @@ class _WinterStandState extends State<WinterStand> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                     SizedBox(
-                        width: 210,
+                        width: 260,
                         child: Column(children: [
                           const TextField(
                               decoration: InputDecoration(
@@ -195,14 +206,17 @@ class _WinterStandState extends State<WinterStand> {
                             'Устройства ООО «Статус»'
                           ])
                             SizedBox(
-                                height: 40,
+                                height: 28,
                                 child: Row(children: [
-                                  const Icon(Icons.business_outlined,
-                                      size: 17, color: orange),
+                                  const Icon(
+                                      IconData(0xe623,
+                                          fontFamily: 'DeviceGroup'),
+                                      size: 19,
+                                      color: orange),
                                   const SizedBox(width: 8),
                                   Expanded(
                                       child: Text(group,
-                                          style: const TextStyle(fontSize: 12),
+                                          style: const TextStyle(fontSize: 14),
                                           overflow: TextOverflow.ellipsis)),
                                 ])),
                         ])),
@@ -217,16 +231,24 @@ class _WinterStandState extends State<WinterStand> {
                         ('Ноутбук', '347 829 116')
                       ])
                         Container(
-                            height: 52,
-                            margin: const EdgeInsets.only(bottom: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            height: 44,
+                            margin: const EdgeInsets.only(bottom: 4),
                             decoration: BoxDecoration(
                                 color: surface,
                                 borderRadius: BorderRadius.circular(6)),
                             child: Row(children: [
-                              Icon(Icons.desktop_windows_outlined,
-                                  color: muted, size: 24),
-                              const SizedBox(width: 13),
+                              Container(
+                                  width: 42,
+                                  height: 44,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                      color: clientPeerColor(device.$2),
+                                      borderRadius:
+                                          const BorderRadius.horizontal(
+                                              left: Radius.circular(5))),
+                                  child: SvgPicture.asset('assets/win.svg',
+                                      width: 30, height: 30)),
+                              const SizedBox(width: 8),
                               const Icon(Icons.circle,
                                   color: Color(0xff48b969), size: 6),
                               const SizedBox(width: 8),
@@ -238,12 +260,14 @@ class _WinterStandState extends State<WinterStand> {
                                           CrossAxisAlignment.start,
                                       children: [
                                     Text(device.$1,
-                                        style: const TextStyle(fontSize: 13)),
+                                        style: const TextStyle(fontSize: 14)),
                                     Text(device.$2,
                                         style: TextStyle(
                                             fontSize: 11, color: muted))
                                   ])),
-                              const Icon(Icons.more_vert, size: 18),
+                              const Padding(
+                                  padding: EdgeInsets.only(right: 8),
+                                  child: Icon(Icons.more_vert, size: 18)),
                             ])),
                     ])),
                   ])),

@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'snow_field.dart';
+import 'winter_tree.dart';
+import 'client_layout.dart';
 
-const sidebarWidth = 260.0;
+const sidebarWidth = ClientSidebarLayout.width;
 const orange = Color(0xffef7f1a);
 
 class SnowPanel extends StatefulWidget {
@@ -34,9 +36,7 @@ class _SnowPanelState extends State<SnowPanel>
   int _revision = 0;
   final _id = TextEditingController(text: '506 778 791');
   final _password = TextEditingController(text: 'z8f376');
-  static const idRect = Rect.fromLTWH(20, 252, 220, 47);
-  static const passwordRect = Rect.fromLTWH(20, 342, 220, 43);
-  static const settingsRect = Rect.fromLTWH(203, 224, 36, 28);
+  final _layout = ClientSidebarLayout();
 
   @override
   void initState() {
@@ -44,9 +44,8 @@ class _SnowPanelState extends State<SnowPanel>
     WidgetsBinding.instance.addObserver(this);
     _ticker = createTicker((elapsed) {
       final delta = elapsed - _lastFrame;
-      if (delta.inMicroseconds < 33000) return;
       _lastFrame = elapsed;
-      widget.field.tick(delta.inMicroseconds / 1000000);
+      widget.field.advance(delta.inMicroseconds / 1000000);
     });
     _syncTicker();
     _loadLogo();
@@ -116,37 +115,35 @@ class _SnowPanelState extends State<SnowPanel>
       canvas.drawImageRect(
           logo,
           Rect.fromLTWH(0, 0, logo.width.toDouble(), logo.height.toDouble()),
-          const Rect.fromLTWH(24, 27, 212, 101),
+          _layout.logo,
           Paint()..filterQuality = FilterQuality.medium);
     }
     final foreground =
         widget.dark ? const Color(0xfff4f4f6) : const Color(0xff262830);
     final muted =
         widget.dark ? const Color(0xffb0b3be) : const Color(0xff676c78);
-    void text(String value, Offset position, double size, Color color,
-        {FontWeight weight = FontWeight.w400}) {
+    for (var i = 0; i < _layout.labels.length; i++) {
+      final label = _layout.labels[i];
       final painter = TextPainter(
           text: TextSpan(
-              text: value,
-              style: TextStyle(
-                  fontFamily: 'Roboto',
-                  fontSize: size,
-                  height: 1.25,
-                  fontWeight: weight,
-                  color: mask ? Colors.white : color)),
-          textDirection: TextDirection.ltr,
-          textScaler: TextScaler.noScaling)
-        ..layout(maxWidth: 220);
-      painter.paint(canvas, position);
+              text: label.$1,
+              style: label.$3.copyWith(
+                  color: mask
+                      ? Colors.white
+                      : i == 0
+                          ? foreground
+                          : muted)),
+          textDirection: TextDirection.ltr)
+        ..layout(maxWidth: sidebarWidth - 36);
+      painter.paint(canvas, label.$2);
       painter.dispose();
     }
-
-    text('Ваш рабочий стол', const Offset(20, 155), 20, foreground,
-        weight: FontWeight.w500);
-    text('Ваш рабочий стол доступен\nс этим ID и паролем.',
-        const Offset(20, 192), 12, muted);
-    text('ID', const Offset(24, 231), 12, muted);
-    text('Одноразовый пароль', const Offset(24, 318), 12, muted);
+    if (!mask) {
+      final border = Paint()..color = orange;
+      canvas.drawRect(Rect.fromLTWH(20, _layout.idTop + 5, 2, 52), border);
+      canvas.drawRect(Rect.fromLTWH(20, _layout.passwordTop, 2, 52), border);
+      WinterTree(_size).paint(canvas, widget.dark);
+    }
     return recorder.endRecording();
   }
 
@@ -157,7 +154,8 @@ class _SnowPanelState extends State<SnowPanel>
     List<List<SnowLedge>>? columns;
     if (!keepSnow || !widget.field.ready) {
       final mask = _scene(mask: true);
-      final raster = await mask.toImage(size.width.ceil(), 360);
+      final raster = await mask.toImage(
+          size.width.ceil(), (_layout.passwordTop + 22).ceil());
       mask.dispose();
       final bytes = await raster.toByteData(format: ui.ImageByteFormat.rawRgba);
       if (bytes != null) {
@@ -173,15 +171,7 @@ class _SnowPanelState extends State<SnowPanel>
         columns = List.generate((size.width / SnowField.step).ceil(), (bin) {
           final x = (bin * SnowField.step).round();
           final ledges = <SnowLedge>[];
-          const bands = [
-            (27, 76),
-            (76, 130),
-            (155, 184),
-            (192, 207),
-            (207, 225),
-            (231, 248),
-            (318, 336)
-          ];
+          final bands = _layout.bands;
           for (var band = 0; band < bands.length; band++) {
             for (var y = bands[band].$1; y < bands[band].$2; y++) {
               final solid = (opaque(x, y) ? 1 : 0) +
@@ -190,10 +180,10 @@ class _SnowPanelState extends State<SnowPanel>
                   2;
               if (solid && opaque(x, y + 1)) {
                 final limit = band < 2
-                    ? 9.5
-                    : band == 2
-                        ? 3.2
-                        : 0.8;
+                    ? 4.0
+                    : band < 4
+                        ? 2.0
+                        : 0.65;
                 ledges.add(SnowLedge(
                     bin * SnowField.step, y.toDouble(), limit, 0,
                     band: band));
@@ -205,6 +195,7 @@ class _SnowPanelState extends State<SnowPanel>
         });
       }
       raster.dispose();
+      if (columns != null) WinterTree(size).addSurfaces(columns);
     }
     if (!mounted || revision != _revision) {
       picture.dispose();
@@ -213,8 +204,7 @@ class _SnowPanelState extends State<SnowPanel>
     final old = _picture;
     _picture = picture;
     if (columns != null) {
-      widget.field
-          .configure(size, columns, [idRect, passwordRect, settingsRect]);
+      widget.field.configure(size, columns, _layout.protectedAreas);
     }
     setState(() {});
     // The previous display list can still be referenced by the current frame.
@@ -273,26 +263,38 @@ class _SnowPanelState extends State<SnowPanel>
             },
             child: ColoredBox(
                 color: widget.dark
-                    ? const Color(0xff24262c)
-                    : const Color(0xffeef0f4),
+                    ? const Color(0xff24252b)
+                    : const Color(0xfff1f0f4),
                 child: Stack(children: [
                   Positioned.fill(
                       child: RepaintBoundary(
                           child:
                               CustomPaint(painter: _ScenePainter(_picture)))),
                   Positioned.fromRect(
-                      rect: settingsRect,
+                      rect: _layout.settings,
                       child: IconButton(
                           padding: EdgeInsets.zero,
                           tooltip: 'Настройки — макет',
                           onPressed: () {},
                           icon: const Icon(Icons.build_outlined, size: 17))),
                   Positioned.fromRect(
-                      rect: idRect,
-                      child: _field(_id, 'ID', 23, Icons.copy_outlined)),
+                      rect: _layout.id,
+                      child: _field(_id, 'ID', 22, Icons.content_copy)),
                   Positioned.fromRect(
-                      rect: passwordRect,
-                      child: _field(_password, 'Пароль', 17, Icons.refresh)),
+                      rect: _layout.password,
+                      child: _field(_password, 'Пароль', 15, null)),
+                  Positioned.fromRect(
+                      rect: _layout.refresh,
+                      child: IconButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () {},
+                          icon: const Icon(Icons.refresh, size: 22))),
+                  Positioned.fromRect(
+                      rect: _layout.edit,
+                      child: IconButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () {},
+                          icon: const Icon(Icons.edit, size: 22))),
                   Positioned.fill(
                       child: IgnorePointer(
                           child: RepaintBoundary(
@@ -303,24 +305,25 @@ class _SnowPanelState extends State<SnowPanel>
       });
 
   Widget _field(TextEditingController controller, String label, double size,
-          IconData icon) =>
-      Container(
-          decoration: const BoxDecoration(
-              border: Border(left: BorderSide(color: orange, width: 2))),
-          padding: const EdgeInsets.only(left: 9),
-          child: TextField(
-              controller: controller,
-              style: TextStyle(fontSize: size),
-              decoration: InputDecoration(
-                  isDense: true,
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 9),
-                  suffixIcon: IconButton(
+          IconData? icon) =>
+      TextField(
+          controller: controller,
+          style: TextStyle(fontSize: size),
+          decoration: InputDecoration(
+              isDense: true,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 6),
+              suffixIconConstraints:
+                  const BoxConstraints.tightFor(width: 28, height: 28),
+              suffixIcon: icon == null
+                  ? null
+                  : IconButton(
+                      padding: EdgeInsets.zero,
                       tooltip: '$label — макет',
                       onPressed: () {},
-                      icon: Icon(icon, size: 18)))));
+                      icon: Icon(icon, size: 18))));
 
   @override
   void dispose() {
