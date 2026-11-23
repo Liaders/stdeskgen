@@ -17,6 +17,8 @@ class SnowPanel extends StatefulWidget {
   final int framesPerSecond;
   final bool batched;
   final bool lightweight;
+  final Color lightBackground;
+  final ValueChanged<BuildContext>? onSettings;
   const SnowPanel(
       {super.key,
       required this.dark,
@@ -24,6 +26,8 @@ class SnowPanel extends StatefulWidget {
       this.framesPerSecond = 30,
       this.batched = false,
       this.lightweight = true,
+      this.lightBackground = const Color(0xfff1f0f4),
+      this.onSettings,
       required this.field});
   @override
   State<SnowPanel> createState() => _SnowPanelState();
@@ -40,6 +44,7 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
   bool _sweeping = false;
   Duration _previousTime = Duration.zero;
   bool _foreground = true;
+  bool _visible = true;
   int _revision = 0;
   final _id = TextEditingController(text: '506 778 791');
   final _password = TextEditingController(text: 'z8f376');
@@ -103,11 +108,17 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = state == AppLifecycleState.resumed;
+    _visible = state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive;
+    _frameTimer?.cancel();
+    _frameTimer = null;
+    widget.field.interactive = _foreground;
     _syncTicker();
+    setState(() {});
   }
 
   void _syncTicker() {
-    final active = widget.running && _foreground;
+    final active = widget.running && _visible;
     widget.field.enabled = active;
     if (active && _frameTimer == null) {
       _lastFrame = Duration.zero;
@@ -115,8 +126,10 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
         ..reset()
         ..start();
       _frameTimer = Timer.periodic(
-          Duration(microseconds: (1000000 / widget.framesPerSecond).round()),
-          (_) {
+          Duration(
+              microseconds:
+                  (1000000 / (_foreground ? widget.framesPerSecond : 15))
+                      .round()), (_) {
         final elapsed = _clock.elapsed;
         final delta = elapsed - _lastFrame;
         _lastFrame = elapsed;
@@ -206,7 +219,7 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
                     ? 4.0
                     : band < 4
                         ? 2.0
-                        : 0.65;
+                        : 1.6;
                 ledges.add(SnowLedge(
                     bin * SnowField.step, y.toDouble(), limit, 0,
                     band: band));
@@ -288,7 +301,7 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
             child: ColoredBox(
                 color: widget.dark
                     ? const Color(0xff24252b)
-                    : const Color(0xfff1f0f4),
+                    : widget.lightBackground,
                 child: Stack(children: [
                   Positioned.fill(
                       child: RepaintBoundary(
@@ -298,8 +311,8 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
                       rect: _layout.settings,
                       child: IconButton(
                           padding: EdgeInsets.zero,
-                          tooltip: 'Настройки — макет',
-                          onPressed: () {},
+                          tooltip: 'Настройки стенда',
+                          onPressed: () => widget.onSettings?.call(context),
                           icon: const Icon(Icons.build_outlined, size: 17))),
                   Positioned.fromRect(
                       rect: _layout.id,
@@ -329,7 +342,7 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
                   Positioned.fill(
                       child: IgnorePointer(
                           child: RepaintBoundary(
-                              child: widget.lightweight
+                              child: widget.lightweight || !_foreground
                                   ? SnowfallSprites(
                                       field: widget.field, dark: widget.dark)
                                   : CustomPaint(

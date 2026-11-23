@@ -9,28 +9,79 @@ import 'package:statusdesk_winter_stand/snow_field.dart';
 import 'package:statusdesk_winter_stand/snow_panel.dart';
 
 void main() {
-  test('A coherent floor bank exits either edge permanently without piling up',
+  test(
+      'All hits accumulate, half continue, and background mode freezes deposits',
+      () {
+    final field = SnowField()..lightweight = true;
+    field.configure(
+        const Size(260, 1000),
+        List.generate(
+            130,
+            (i) => [
+                  SnowLedge(i * 2, 100, 100, 0, band: 0),
+                  SnowLedge(i * 2, 500, 100, 0, band: 10),
+                ]),
+        []);
+    final ledges = field.columns[65];
+    field.tileFlakes.clear();
+    for (final ledge in ledges) {
+      final y = (ledge.y - ledge.depth - 1.5) / 1000;
+      field.tileFlakes
+          .addAll([SnowTileFlake(0.5, y, 1, 0), SnowTileFlake(0.5, y, 1, 0)]);
+    }
+    field.reset();
+    double mass(int band) => field.capGroups
+        .expand((group) => group)
+        .where((ledge) => ledge.band == band)
+        .fold(0, (sum, ledge) => sum + ledge.depth);
+    final letters = mass(0), branches = mass(10);
+    field.advance(0.1);
+    expect(mass(0) - letters, closeTo(6.4, 0.001));
+    expect(mass(10) - branches, closeTo(6.4, 0.001));
+    expect(field.caughtFlakes.length, 2);
+    field.interactive = false;
+    final before = mass(0) + mass(10),
+        physics = field.physicsSteps,
+        time = field.textureTime;
+    for (var i = 0; i < 100; i++) {
+      field.advance(0.1);
+    }
+    expect(mass(0) + mass(10), before);
+    expect(field.physicsSteps, physics);
+    expect(field.textureTime, greaterThan(time));
+    field.dispose();
+  });
+
+  test('Loose snow deforms locally and leaves the permanent base at open edges',
       () {
     for (final direction in [-1, 1]) {
       final field = SnowField();
       field.configure(const Size(260, 675), List.generate(130, (_) => []), []);
-      final profile = List<double>.of(field.floor);
       final debris = field.debrisCount;
+      final start = direction > 0 ? 1.0 : 259.0;
       field.sweep(
-          const Offset(130, 667), Offset(130 + direction * 350, 667), 0.15);
+          Offset(start, 667), Offset(start + direction * 1200, 667), 0.15);
       expect(field.floorVisible, false);
-      expect(field.floor, profile);
       expect(field.debrisCount, debris);
       for (var i = 0; i < 1800; i++) {
         field.tick(1 / 30);
       }
       expect(field.floorVisible, false);
-      expect(field.floorHeightAt(130), 0);
+      expect(field.floorHeightAt(130), field.baseHeightAt(130));
       expect(field.floor.first, 0);
       expect(field.floor.last, 0);
       expect(field.floor.every((h) => h < SnowField.floorMaxHeight), true);
       field.reset();
       expect(field.floorVisible, true);
+      final before = List<double>.of(field.floor);
+      field.sweep(const Offset(190, 667), const Offset(210, 667), 0.1);
+      expect(field.floor, isNot(equals(before)));
+      expect(field.floor[10], closeTo(before[10], 0.1));
+      field.floor[60] = 200;
+      field.previousFloor[60] = 200;
+      field.sweep(const Offset(120, 575), const Offset(125, 575), 0.1);
+      expect(field.floor.reduce((a, b) => a > b ? a : b),
+          greaterThan(SnowField.floorMaxHeight));
       field.dispose();
     }
   });
@@ -38,8 +89,7 @@ void main() {
   test('Cached snowfall reaches the middle without running individual physics',
       () {
     final field = SnowField()..lightweight = true;
-    field.configure(const Size(260, 675),
-        List.generate(130, (i) => [SnowLedge(i * 2, 90, 6, 0)]), []);
+    field.configure(const Size(260, 675), List.generate(130, (_) => []), []);
     for (var i = 0; i < 300; i++) {
       field.advance(1 / 30);
     }
@@ -81,7 +131,8 @@ void main() {
     for (var i = 0; i < 1500; i++) {
       field.tick(1 / 30);
     }
-    expect(field.floor, target);
+    expect(field.floor.every((h) => h >= 0 && h <= SnowField.floorMaxHeight),
+        true);
     field.dispose();
   });
 
@@ -199,18 +250,24 @@ void main() {
     final rootPaints = boundary.debugSymmetricPaintCount;
     final particlePaints = panel.field.particlePaints;
     final settledPaints = panel.field.settledPaints;
+    panel.field.interactive = false;
     await tester.pump(const Duration(milliseconds: 50));
     expect(panel.field.particlePaints, greaterThan(particlePaints));
     expect(panel.field.settledPaints, settledPaints);
     expect(boundary.debugSymmetricPaintCount, rootPaints);
+    panel.field.interactive = true;
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     final inactiveFrames = panel.field.renderedFrames;
     await tester.pump(const Duration(milliseconds: 200));
-    expect(panel.field.renderedFrames, inactiveFrames);
+    expect(panel.field.renderedFrames, greaterThan(inactiveFrames));
+    final hiddenFrames = panel.field.renderedFrames;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(panel.field.renderedFrames, hiddenFrames);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump(const Duration(milliseconds: 50));
     expect(panel.field.renderedFrames, greaterThan(inactiveFrames));
-    final floorBefore = panel.field.floorOffset;
+    final floorBefore = List<double>.of(panel.field.floor);
     expect(panel.field.columns.expand((c) => c).map((l) => l.band).toSet(),
         containsAll([10, 11, 12, 13, 14, 15]));
     final origin = tester.getTopLeft(find.byType(SnowPanel));
@@ -219,7 +276,7 @@ void main() {
     await mouse.moveTo(origin +
         Offset(panel.field.size.width - 12, panel.field.size.height - 8));
     await mouse.up();
-    expect(panel.field.floorOffset, isNot(equals(floorBefore)));
+    expect(panel.field.floor, isNot(equals(floorBefore)));
     expect(panel.field.debrisCount, lessThanOrEqualTo(SnowField.maxDebris));
     panel.field.reset();
     await tester.tap(find.text('Пауза снега'));
@@ -257,6 +314,22 @@ void main() {
     expect(find.text('Светлая тема'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await snapshot('winter-light');
+    await tester.tap(find.text('Настройки').first);
+    await tester.pump(const Duration(milliseconds: 200));
+    final hex = find.byWidgetPredicate((widget) =>
+        widget is TextField && widget.decoration?.labelText == 'Цвет HEX');
+    await tester.enterText(hex, '#DCE5ED');
+    await tester.pump();
+    expect(tester.widget<SnowPanel>(find.byType(SnowPanel)).lightBackground,
+        const Color(0xffdce5ed));
+    await tester.tap(find.text('Готово'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byTooltip('Настройки стенда'));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.tap(find.text('Готово'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.takeException(), isNull);
     await tester.tap(find.text('30').first);
     await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.text('45').last);

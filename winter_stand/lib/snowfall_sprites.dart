@@ -93,6 +93,11 @@ class SnowSpritePainter extends CustomPainter {
     ];
     for (var i = 0; i < field.tileFlakes.length; i++) {
       final flake = field.tileFlakes[i];
+      if (field.interactive && field.caughtFlakes.contains(flake)) {
+        _transforms[i * 4 + 2] = -10000;
+        _transforms[i * 4 + 3] = -10000;
+        continue;
+      }
       final inset = 6 * _transforms[i * 4];
       _transforms[i * 4 + 2] = flake.x * size.width + sway[flake.layer] - inset;
       _transforms[i * 4 + 3] =
@@ -101,7 +106,7 @@ class SnowSpritePainter extends CustomPainter {
     canvas.drawRawAtlas(
         image, _transforms, _rects, null, BlendMode.srcOver, null, _paint);
     canvas.restore();
-    if (field.debrisCount > 0) {
+    if (field.interactive && field.debrisCount > 0) {
       interactive.paint(canvas, size);
     } else {
       field.particlePaints++;
