@@ -10,6 +10,101 @@ import test_slim_ui
 
 class OrganizationsTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which('dart'), 'Dart SDK is available on CI')
+    def test_saved_lists_restore_before_network_and_keep_server_scope(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            test_slim_ui.SlimUiTests.fixture(self, root)
+            apply(root, '1.5.1', {'schema_version': 1, 'organizations': True, 'device_names': True})
+            model = (root/'flutter/lib/models/group_model.dart').read_text(encoding='utf-8')
+            save = model[model.index('  void _saveCache()'):model.index('  Future<void>? _rdgenCacheLoading;')]
+            load = model[model.index('  Future<void>? _rdgenCacheLoading;'):model.index('  reset() async {')]
+            user = (root/'flutter/lib/models/user_model.dart').read_text(encoding='utf-8')
+            start = user.index('    _updateLocalUserInfo();')
+            startup = user[start:user.index('    final url =', start)]
+            harness = """import 'dart:async';
+import 'dart:convert';
+void check(bool value) { if (!value) throw StateError('Early cached lists'); }
+void debugPrint(Object? value) {}
+const isDesktop = true;
+class Flag { bool value = false; }
+class Row {
+  final String name, id, alias, loginName;
+  Row(this.name, {this.id = '123', this.alias = 'Server alias', this.loginName = 'operator'});
+  Row.fromJson(Map<String,dynamic> value) : name = value['name'] ?? '',
+    id = value['id'] ?? '', alias = value['alias'] ?? '', loginName = value['loginName'] ?? '';
+  Map<String,dynamic> toGroupCacheJson() => {'name':name,'id':id};
+}
+typedef DeviceGroupPayload = Row;
+typedef UserPayload = Row;
+typedef Peer = Row;
+class Organizations {
+  dynamic cachedGroups;
+  void restoreCachedGroups(dynamic value, String token) { cachedGroups = value; }
+}
+class Bind {
+  final options = <String,String>{'access_token':'account-a'};
+  String server = 'https://console.test';
+  String mainGetLocalOption({required String key}) => options[key] ?? '';
+  Future<void> mainSetLocalOption({required String key, required String value}) async { options[key] = value; }
+  Future<String> mainGetApiServer() async => server;
+  void mainSaveGroup({required String json}) { throw StateError('Lossy native cache'); }
+  Future<String> mainLoadGroup() async => throw StateError('Lossy native cache');
+}
+final bind = Bind();
+class LoadEvent { static const group = 'group'; }
+class Platform { int updates = 0; void tryHandle(Map<String,dynamic> event) { updates++; } }
+final platformFFI = Platform();
+class User {
+  bool isLogin = false;
+  final network = Completer<void>();
+  void _updateLocalUserInfo() { isLogin = true; }
+  Future<void> refresh() async {
+""" + startup + """
+    await network.future;
+  }
+}
+class FFI { final userModel = User(); late Model groupModel; }
+final gFFI = FFI();
+class Model {
+  bool initialized = false, _cacheLoadOnceFlag = false;
+  final groupLoading = Flag();
+  final deviceGroups = <Row>[], users = <Row>[], peers = <Row>[];
+  final rdgenOrganizations = Organizations();
+  String _rdgenServer = 'https://console.test';
+  void _callbackPeerUpdate() {}
+  Future<void> loadDeviceUserNames(Iterable<Row> rows) async {}
+""" + save + load + """
+}
+Future<void> main() async {
+  final old = Model();
+  old.deviceGroups.add(Row('A')); old.users.add(Row('operator')); old.peers.add(Row('PC'));
+  old.rdgenOrganizations.cachedGroups = [
+    {'id':1,'name':'A','peer_ids':['123']}, {'id':2,'name':'B','peer_ids':['123']}];
+  old._saveCache();
+  await Future<void>.delayed(Duration.zero);
+  final restored = Model(); gFFI.groupModel = restored;
+  await restored.loadCache(); // Same early call as main.dart, before the account exists.
+  final pending = gFFI.userModel.refresh();
+  await Future<void>.delayed(Duration.zero);
+  check(!gFFI.userModel.network.isCompleted);
+  check(restored.deviceGroups.single.name == 'A' && restored.users.single.name == 'operator');
+  check(restored.peers.single.alias == 'Server alias' && restored.peers.single.loginName == 'operator');
+  check(restored.rdgenOrganizations.cachedGroups.length == 2);
+  check(platformFFI.updates == 1);
+  bind.options['access_token'] = 'account-b';
+  final otherAccount = Model(); await otherAccount.loadCache(); check(otherAccount.peers.isEmpty);
+  bind.options['access_token'] = 'account-a'; bind.server = 'https://other.test';
+  final otherServer = Model(); await otherServer.loadCache(); check(otherServer.peers.isEmpty);
+  gFFI.userModel.network.complete(); await pending;
+}
+"""
+            path = root/'early_cache_test.dart'
+            path.write_text(harness, encoding='utf-8')
+            result = subprocess.run([shutil.which('dart'), str(path)],
+                                    capture_output=True, text=True, timeout=60)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    @unittest.skipUnless(shutil.which('dart'), 'Dart SDK is available on CI')
     def test_parallel_lists_preserve_failure_and_auth_handling(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

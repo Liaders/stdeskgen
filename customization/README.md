@@ -190,14 +190,25 @@ authorization and account/server guards; a concurrent success cannot overwrite
 an HTTP 401 from another request. Failed required lists do not replace the last
 displayed device list. Android and Windows x86 keep their existing paths.
 
-The native group cache now also stores display-only organization memberships,
-including devices belonging to several organizations. The enclosing cache must
+Desktop local option `rdgen-accessible-cache-v1` stores display-only group,
+user and device snapshots, including server aliases and memberships in several
+organizations. The snapshot must
 match both the API server and access token before anything is restored. Cached
 rows appear before network refresh, remain visible while it runs, and do not
 grant permission to connect or assign an organization. Restoring a snapshot does
-not mark it fresh: the first refresh still verifies it with the server. Older
-caches without this field fall back to the native primary-group data until the
-first successful organization response. No new background timer is added.
+not mark it fresh: the first refresh still verifies it with the server. Existing
+clients need one successful refresh to populate this new cache. No new
+background timer is added.
+
+Startup restoration runs immediately after `_updateLocalUserInfo`, before the
+current-user HTTP request completes. The earlier pre-login call from `main.dart`
+does not consume the cache's one-shot read. Restoring peers emits the existing
+group-load event so already mounted device views update without waiting for
+network responses. Native `Group::load()` discards unknown fields (including
+the server marker and organization memberships), which is why the desktop
+snapshot uses local options instead. Logout clears it. Mobile keeps native
+storage. The local options file is readable by the operating-system user, like
+the existing organization search cache; passwords are not copied into the snapshot.
 
 Read-only HTTP measurements at page size 500: 967 groups, 6 users, 41 devices
 and 20 organizations took about 3.56 seconds sequentially versus 1.62 seconds
@@ -206,7 +217,8 @@ The generated client is checked against RustDesk 1.5.1; installed-client timing
 and cache display still need a manual check in the next client build.
 
 Regression surface: generated `models/group_model.dart` changes desktop refresh
-scheduling and extends the existing cache payload. Feature modules
+scheduling and cache storage. `models/user_model.dart` adds a desktop-only
+cache-load hook after restoring the local account. Feature modules
 `rdgen_organization_data.dart` and `rdgen_organization_catalog.dart` restore that
 display snapshot and build fallback memberships in one pass over devices. No
 session, transport, server API, or snow-animation code changes are involved.
