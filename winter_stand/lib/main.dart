@@ -16,6 +16,9 @@ class WinterStand extends StatefulWidget {
 
 class _WinterStandState extends State<WinterStand> {
   bool dark = true, running = true;
+  bool emptyWindow = false, showStatistics = true;
+  int framesPerSecond = 30;
+  bool batched = false;
   final field = SnowField();
   final stats = ValueNotifier<String>('Подготовка карты снега…');
   final List<int> _buildTimes = [], _rasterTimes = [];
@@ -27,22 +30,24 @@ class _WinterStandState extends State<WinterStand> {
     super.initState();
     SchedulerBinding.instance.addTimingsCallback(_timings);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!showStatistics || emptyWindow) return;
       int percentile(List<int> times) {
         if (times.isEmpty) return 0;
         final sorted = List<int>.of(times)..sort();
         return sorted[((sorted.length - 1) * 0.95).round()];
       }
 
-      final frames = field.renderedFrames - _lastFrames;
-      _lastFrames = field.renderedFrames;
+      final frames = field.particlePaints - _lastFrames;
+      _lastFrames = field.particlePaints;
       stats.value =
-          '${running ? 'Физика 30 Гц · Кадры: $frames/с' : 'Пауза'}  ·  Частицы: ${field.particles.length} / ${SnowField.fallingCount + SnowField.maxDebris}  ·  Расчёт: ${(field.lastStepMicros / 1000).toStringAsFixed(2)} мс  ·  Кадр p95: UI ${(percentile(_buildTimes) / 1000).toStringAsFixed(1)} / raster ${(percentile(_rasterTimes) / 1000).toStringAsFixed(1)} мс';
+          '${running ? 'Физика 30 Гц · Кадры снега: $frames/с · Лимит $framesPerSecond' : 'Пауза'}  ·  Частицы: ${field.particles.length} / ${SnowField.fallingCount + SnowField.maxDebris}  ·  Расчёт: ${(field.lastStepMicros / 1000).toStringAsFixed(2)} мс  ·  Кадр p95: UI ${(percentile(_buildTimes) / 1000).toStringAsFixed(1)} / raster ${(percentile(_rasterTimes) / 1000).toStringAsFixed(1)} мс';
       _buildTimes.clear();
       _rasterTimes.clear();
     });
   }
 
   void _timings(List<FrameTiming> frames) {
+    if (!showStatistics || emptyWindow) return;
     for (final f in frames) {
       if (_buildTimes.length < 120) {
         _buildTimes.add(f.buildDuration.inMicroseconds);
@@ -77,14 +82,22 @@ class _WinterStandState extends State<WinterStand> {
         _header(),
         const Divider(height: 1),
         Expanded(
-            child:
-                Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          SizedBox(
-              width: sidebarWidth,
-              child: SnowPanel(dark: dark, running: running, field: field)),
-          const VerticalDivider(width: 1),
-          Expanded(child: _workspace()),
-        ])),
+            child: emptyWindow
+                ? const SizedBox.expand()
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                        SizedBox(
+                            width: sidebarWidth,
+                            child: SnowPanel(
+                                dark: dark,
+                                running: running,
+                                field: field,
+                                framesPerSecond: framesPerSecond,
+                                batched: batched)),
+                        const VerticalDivider(width: 1),
+                        Expanded(child: _workspace()),
+                      ])),
       ])));
 
   Widget _header() => Builder(
@@ -99,6 +112,22 @@ class _WinterStandState extends State<WinterStand> {
             const Icon(Icons.build_outlined, size: 17),
             const SizedBox(width: 8),
             const Text('Настройки'),
+            const SizedBox(width: 16),
+            const Text('Кадры/с: ', style: TextStyle(fontSize: 12)),
+            DropdownButton<int>(
+                value: framesPerSecond,
+                underline: const SizedBox.shrink(),
+                items: [
+                  for (final fps in [30, 45, 60])
+                    DropdownMenuItem(value: fps, child: Text('$fps'))
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => framesPerSecond = value);
+                }),
+            const SizedBox(width: 12),
+            TextButton(
+                onPressed: () => setState(() => emptyWindow = !emptyWindow),
+                child: Text(emptyWindow ? 'Вернуть стенд' : 'Пустое окно')),
             const Spacer(),
             Text('Зимний стенд',
                 style: TextStyle(
@@ -291,15 +320,30 @@ class _WinterStandState extends State<WinterStand> {
                         onPressed: field.reset,
                         icon: const Icon(Icons.refresh, size: 17),
                         label: const Text('Сбросить снег')),
+                    FilterChip(
+                        label: const Text('Пакетные снежинки'),
+                        selected: batched,
+                        onSelected: (value) => setState(() => batched = value)),
+                    TextButton(
+                        onPressed: () => setState(() {
+                              showStatistics = !showStatistics;
+                              _buildTimes.clear();
+                              _rasterTimes.clear();
+                              _lastFrames = field.particlePaints;
+                            }),
+                        child: Text(showStatistics
+                            ? 'Скрыть статистику'
+                            : 'Показать статистику')),
                     const Text('Все подключения и действия клиента — заглушки.',
                         style: TextStyle(fontSize: 11)),
                   ]),
-              Padding(
-                  padding: const EdgeInsets.only(top: 6, bottom: 9),
-                  child: ValueListenableBuilder<String>(
-                      valueListenable: stats,
-                      builder: (_, value, __) => Text(value,
-                          style: TextStyle(fontSize: 10, color: muted)))),
+              if (showStatistics)
+                Padding(
+                    padding: const EdgeInsets.only(top: 6, bottom: 9),
+                    child: ValueListenableBuilder<String>(
+                        valueListenable: stats,
+                        builder: (_, value, __) => Text(value,
+                            style: TextStyle(fontSize: 10, color: muted)))),
             ]));
       });
 

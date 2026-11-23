@@ -22,9 +22,32 @@ class SnowParticle {
         previousY = y;
 }
 
-/// Fixed physics at 30Hz, interpolated presentation at display vsync.
+/// Fixed physics at 30Hz, interpolated presentation at the selected frame limit.
 /// Buffers and debris objects are reused; the static letter paths are cached.
 class SnowField extends ChangeNotifier {
+  final settled = ChangeNotifier();
+  double _settledElapsed = 0;
+  bool _floorWasMoving = false;
+
+  void _notifyFrame(double seconds, {bool immediate = false}) {
+    _settledElapsed += seconds;
+    if (immediate ||
+        floorMoving ||
+        _floorWasMoving ||
+        (_capsDirty && _settledElapsed >= 0.15)) {
+      settled.notifyListeners();
+      _settledElapsed = 0;
+    }
+    _floorWasMoving = floorMoving;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    settled.dispose();
+    super.dispose();
+  }
+
   static const step = 2.0, physicsStep = 1 / 30, floorMaxHeight = 42.0;
   static const fallingCount = 66, maxDebris = 80;
   final math.Random _random = math.Random(24);
@@ -44,6 +67,7 @@ class SnowField extends ChangeNotifier {
   double _phase = 0, _accumulator = 0, renderAlpha = 1;
   bool enabled = true;
   int lastStepMicros = 0, physicsSteps = 0, renderedFrames = 0;
+  int particlePaints = 0, settledPaints = 0;
   final Stopwatch _watch = Stopwatch();
   SnowField() {
     for (var i = 0; i < maxDebris; i++) {
@@ -137,7 +161,7 @@ class SnowField extends ChangeNotifier {
     _accumulator = 0;
     renderAlpha = 1;
     _capsDirty = true;
-    notifyListeners();
+    _notifyFrame(0, immediate: true);
   }
 
   void _recycle(SnowParticle p, {bool randomHeight = false}) {
@@ -193,7 +217,7 @@ class SnowField extends ChangeNotifier {
     if (steps > 0) lastStepMicros = _watch.elapsedMicroseconds;
     renderAlpha = (_accumulator / physicsStep).clamp(0.0, 1.0);
     renderedFrames++;
-    notifyListeners();
+    _notifyFrame(seconds);
   }
 
   /// Deterministic simulation entry point for the long-run regression checks.
@@ -201,7 +225,7 @@ class SnowField extends ChangeNotifier {
     if (!enabled || !ready) return;
     _simulate(dt.clamp(0.0, 0.05));
     renderAlpha = 1;
-    notifyListeners();
+    _notifyFrame(0, immediate: true);
   }
 
   void _deposit(SnowLedge ledge, double amount) {
@@ -442,7 +466,7 @@ class SnowField extends ChangeNotifier {
         previousFloor[i] = floor[i];
       }
     }
-    notifyListeners();
+    _notifyFrame(0, immediate: true);
   }
 
   List<Path> get capPaths {
@@ -474,9 +498,23 @@ class SnowField extends ChangeNotifier {
   }
 }
 
+enum SnowLayer { all, settled, particles }
+
 class SnowPainter extends CustomPainter {
   final SnowField field;
   final bool dark;
+  final SnowLayer layer;
+  final bool batched;
+  late final List<Float32List> _points = List.generate(60,
+      (_) => Float32List((SnowField.fallingCount + SnowField.maxDebris) * 2));
+  late final List<int> _pointCounts = List.filled(60, 0);
+  late final List<Paint> _pointPaints = List.generate(
+      60,
+      (i) => Paint()
+        ..color = (dark ? const Color(0xfff2f6ff) : const Color(0xffafc5da))
+            .withOpacity((i ~/ 5) / 12)
+        ..strokeWidth = 2 * (0.8 + (i % 5) * 0.6)
+        ..strokeCap = StrokeCap.round);
   late final Paint _cap = Paint()
     ..color = dark ? const Color(0xfff1f6fc) : const Color(0xffe2ebf4);
   final Paint _shadow = Paint()..color = const Color(0x388fa4ba);
@@ -489,30 +527,67 @@ class SnowPainter extends CustomPainter {
   Path? _floorPath;
   List<double>? _floorSource;
   Size? _shaderSize;
-  SnowPainter(this.field, this.dark) : super(repaint: field);
+  SnowPainter(this.field, this.dark,
+      {this.layer = SnowLayer.all, this.batched = false})
+      : super(repaint: layer == SnowLayer.settled ? field.settled : field);
   @override
   void paint(Canvas canvas, Size size) {
     if (!field.ready) return;
+    if (layer != SnowLayer.settled) field.particlePaints++;
+    if (layer != SnowLayer.particles) field.settledPaints++;
     canvas.save();
     canvas.clipRect(Offset.zero & size);
-    for (final path in field.capPaths) {
-      canvas.save();
-      canvas.translate(0, 0.4);
-      canvas.drawPath(path, _shadow);
-      canvas.restore();
-      canvas.drawPath(path, _cap);
+    if (layer != SnowLayer.particles) {
+      for (final path in field.capPaths) {
+        canvas.save();
+        canvas.translate(0, 0.4);
+        canvas.drawPath(path, _shadow);
+        canvas.restore();
+        canvas.drawPath(path, _cap);
+      }
     }
     final alpha = field.renderAlpha;
-    for (final p in field.particles) {
-      final opacity =
-          p.debris ? (1 - p.age / 5).clamp(0.0, 0.9) : 0.55 + p.radius * 0.15;
-      final paint = _flakes[(opacity * 11).round().clamp(0, 11)];
-      // Interactive rectangles affect gesture hit testing, never snow visibility.
-      canvas.drawCircle(
-          Offset(p.previousX + (p.x - p.previousX) * alpha,
-              p.previousY + (p.y - p.previousY) * alpha),
-          p.radius,
-          paint);
+    if (layer != SnowLayer.settled) {
+      if (batched) {
+        _pointCounts.fillRange(0, _pointCounts.length, 0);
+        for (final p in field.particles) {
+          final opacity = p.debris
+              ? (1 - p.age / 5).clamp(0.0, 0.9)
+              : 0.55 + p.radius * 0.15;
+          final bucket = (opacity * 11).round().clamp(0, 11) * 5 +
+              ((p.radius - 0.8) / 0.6).round().clamp(0, 4);
+          final index = _pointCounts[bucket];
+          _points[bucket][index] = p.previousX + (p.x - p.previousX) * alpha;
+          _points[bucket][index + 1] =
+              p.previousY + (p.y - p.previousY) * alpha;
+          _pointCounts[bucket] += 2;
+        }
+        for (var i = 0; i < _pointCounts.length; i++) {
+          if (_pointCounts[i] > 0) {
+            canvas.drawRawPoints(
+                PointMode.points,
+                Float32List.sublistView(_points[i], 0, _pointCounts[i]),
+                _pointPaints[i]);
+          }
+        }
+      } else {
+        for (final p in field.particles) {
+          final opacity = p.debris
+              ? (1 - p.age / 5).clamp(0.0, 0.9)
+              : 0.55 + p.radius * 0.15;
+          final paint = _flakes[(opacity * 11).round().clamp(0, 11)];
+          // Interactive rectangles affect gesture hit testing, never snow visibility.
+          canvas.drawCircle(
+              Offset(p.previousX + (p.x - p.previousX) * alpha,
+                  p.previousY + (p.y - p.previousY) * alpha),
+              p.radius,
+              paint);
+        }
+      }
+    }
+    if (layer == SnowLayer.particles) {
+      canvas.restore();
+      return;
     }
     if (field.floorMoving ||
         _floorPath == null ||
@@ -547,5 +622,8 @@ class SnowPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(SnowPainter oldDelegate) =>
-      oldDelegate.dark != dark || oldDelegate.field != field;
+      oldDelegate.dark != dark ||
+      oldDelegate.field != field ||
+      oldDelegate.layer != layer ||
+      oldDelegate.batched != batched;
 }

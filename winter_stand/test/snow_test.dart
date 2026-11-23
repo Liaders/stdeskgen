@@ -149,6 +149,22 @@ void main() {
     expect(tester.takeException(), isNull);
     final panel = tester.widget<SnowPanel>(find.byType(SnowPanel));
     expect(panel.field.ready, true);
+    final boundary = boundaryKey.currentContext!.findRenderObject()!
+        as RenderRepaintBoundary;
+    final rootPaints = boundary.debugSymmetricPaintCount;
+    final particlePaints = panel.field.particlePaints;
+    final settledPaints = panel.field.settledPaints;
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(panel.field.particlePaints, greaterThan(particlePaints));
+    expect(panel.field.settledPaints, settledPaints);
+    expect(boundary.debugSymmetricPaintCount, rootPaints);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    final inactiveFrames = panel.field.renderedFrames;
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(panel.field.renderedFrames, inactiveFrames);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(panel.field.renderedFrames, greaterThan(inactiveFrames));
     final floorBefore = List<double>.of(panel.field.floor);
     expect(panel.field.columns.expand((c) => c).map((l) => l.band).toSet(),
         containsAll([10, 11, 12, 13, 14, 15]));
@@ -197,6 +213,29 @@ void main() {
     expect(find.text('Светлая тема'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await snapshot('winter-light');
+    await tester.tap(find.text('30').first);
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('45').last);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(
+        tester.widget<SnowPanel>(find.byType(SnowPanel)).framesPerSecond, 45);
+    await tester.tap(find.text('Пакетные снежинки'));
+    await tester.pump();
+    expect(tester.widget<SnowPanel>(find.byType(SnowPanel)).batched, true);
+    await tester.tap(find.text('45').first);
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('60').last);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(
+        tester.widget<SnowPanel>(find.byType(SnowPanel)).framesPerSecond, 60);
+    await tester.tap(find.text('Продолжить'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Пустое окно'));
+    await tester.pump();
+    expect(find.byType(SnowPanel), findsNothing);
+    final framesBefore = panel.field.renderedFrames;
+    await tester.pump(const Duration(seconds: 2));
+    expect(panel.field.renderedFrames, framesBefore);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

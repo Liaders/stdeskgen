@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
+import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'snow_field.dart';
 import 'winter_tree.dart';
@@ -13,18 +13,22 @@ const orange = Color(0xffef7f1a);
 class SnowPanel extends StatefulWidget {
   final bool dark, running;
   final SnowField field;
+  final int framesPerSecond;
+  final bool batched;
   const SnowPanel(
       {super.key,
       required this.dark,
       required this.running,
+      this.framesPerSecond = 30,
+      this.batched = false,
       required this.field});
   @override
   State<SnowPanel> createState() => _SnowPanelState();
 }
 
-class _SnowPanelState extends State<SnowPanel>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  late final Ticker _ticker;
+class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
+  Timer? _frameTimer;
+  final _clock = Stopwatch();
   ui.Image? _logo, _lightLogo;
   ui.Picture? _picture;
   Size _size = Size.zero;
@@ -42,11 +46,6 @@ class _SnowPanelState extends State<SnowPanel>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _ticker = createTicker((elapsed) {
-      final delta = elapsed - _lastFrame;
-      _lastFrame = elapsed;
-      widget.field.advance(delta.inMicroseconds / 1000000);
-    });
     _syncTicker();
     _loadLogo();
   }
@@ -88,7 +87,12 @@ class _SnowPanelState extends State<SnowPanel>
   void didUpdateWidget(SnowPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.dark != widget.dark) _prepare(_size, keepSnow: true);
-    if (oldWidget.running != widget.running) _syncTicker();
+    if (oldWidget.running != widget.running ||
+        oldWidget.framesPerSecond != widget.framesPerSecond) {
+      _frameTimer?.cancel();
+      _frameTimer = null;
+      _syncTicker();
+    }
   }
 
   @override
@@ -100,11 +104,25 @@ class _SnowPanelState extends State<SnowPanel>
   void _syncTicker() {
     final active = widget.running && _foreground;
     widget.field.enabled = active;
-    if (active && !_ticker.isActive) {
+    if (active && _frameTimer == null) {
       _lastFrame = Duration.zero;
-      _ticker.start();
+      _clock
+        ..reset()
+        ..start();
+      _frameTimer = Timer.periodic(
+          Duration(microseconds: (1000000 / widget.framesPerSecond).round()),
+          (_) {
+        final elapsed = _clock.elapsed;
+        final delta = elapsed - _lastFrame;
+        _lastFrame = elapsed;
+        widget.field.advance(delta.inMicroseconds / 1000000);
+      });
     }
-    if (!active && _ticker.isActive) _ticker.stop();
+    if (!active) {
+      _frameTimer?.cancel();
+      _frameTimer = null;
+      _clock.stop();
+    }
   }
 
   ui.Picture _scene({bool mask = false}) {
@@ -300,7 +318,16 @@ class _SnowPanelState extends State<SnowPanel>
                           child: RepaintBoundary(
                               child: CustomPaint(
                                   painter: SnowPainter(
-                                      widget.field, widget.dark))))),
+                                      widget.field, widget.dark,
+                                      layer: SnowLayer.settled))))),
+                  Positioned.fill(
+                      child: IgnorePointer(
+                          child: RepaintBoundary(
+                              child: CustomPaint(
+                                  painter: SnowPainter(
+                                      widget.field, widget.dark,
+                                      layer: SnowLayer.particles,
+                                      batched: widget.batched))))),
                 ])));
       });
 
@@ -329,7 +356,8 @@ class _SnowPanelState extends State<SnowPanel>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _revision++;
-    _ticker.dispose();
+    _frameTimer?.cancel();
+    _clock.stop();
     _picture?.dispose();
     _logo?.dispose();
     _lightLogo?.dispose();
