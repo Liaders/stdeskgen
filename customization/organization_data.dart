@@ -36,13 +36,32 @@ class RdgenOrganizationData {
   List<WorkOrganization> get groups {
     final rows = _rows.toList();
     if (_supported.value && _token == bind.mainGetLocalOption(key: 'access_token')) return rows;
-    return gFFI.groupModel.deviceGroups.map((group) => WorkOrganization(null, group.name,
-        gFFI.groupModel.peers.where((peer) => peer.device_group_name == group.name)
-            .map((peer) => peer.id).toSet())).toList();
+    final peersByGroup = <String, Set<String>>{};
+    for (final peer in gFFI.groupModel.peers) {
+      (peersByGroup[peer.device_group_name] ??= <String>{}).add(peer.id);
+    }
+    return gFFI.groupModel.deviceGroups.map((group) => WorkOrganization(
+        null, group.name, peersByGroup[group.name] ?? <String>{})).toList();
   }
 
   bool _authorized(String token) => gFFI.userModel.isLogin &&
       token == bind.mainGetLocalOption(key: 'access_token');
+
+  List<Map<String, dynamic>>? get cachedGroups =>
+      _supported.value && _token == bind.mainGetLocalOption(key: 'access_token')
+      ? _rows.map((row) => <String, dynamic>{'id': row.id, 'name': row.name,
+          'peer_ids': row.peerIds.toList()}).toList() : null;
+
+  // The caller verifies the enclosing native cache's server and account.
+  void restoreCachedGroups(Object? value, String token) {
+    if (!_authorized(token) || (_supported.value && _token == token)) return;
+    final rows = readWorkOrganizationCache(value);
+    if (rows == null) return;
+    _token = token;
+    _rows.assignAll(rows);
+    _supported.value = true;
+    // Deliberately leave freshness unset: refresh the snapshot in the background.
+  }
 
   Future<void> reload({bool force = false}) async {
     if (!gFFI.userModel.isLogin) return;
@@ -69,8 +88,6 @@ class RdgenOrganizationData {
       } catch (_) {
         // Keep the last confirmed view for transient network failures.
         if (_authorized(token)) {
-          _token = token;
-          _supported.value = true;
           error.value = translate('Failed to load organizations');
         }
       } finally { loading.value = false; }

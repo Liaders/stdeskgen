@@ -9,6 +9,74 @@ import test_slim_ui
 
 
 class OrganizationsTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which('dart'), 'Dart SDK is available on CI')
+    def test_parallel_lists_preserve_failure_and_auth_handling(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            test_slim_ui.SlimUiTests.fixture(self, root)
+            apply(root, '1.5.1', {'schema_version': 1, 'organizations': True})
+            model = (root/'flutter/lib/models/group_model.dart').read_text(encoding='utf-8')
+            start = model.index('    List<DeviceGroupPayload> tmpDeviceGroups =')
+            fetch = model[start:model.index('    if (isDesktop && (_rdgenToken', start)]
+            status = next(line for line in model.splitlines()
+                          if 'if (!isDesktop || _statusCode != 401)' in line)
+            harness = """import 'dart:async';
+void check(bool value) { if (!value) throw StateError('Accessible list refresh'); }
+class Row { final String name; Row(this.name); }
+typedef DeviceGroupPayload = Row;
+typedef UserPayload = Row;
+typedef Peer = Row;
+class Response { final int statusCode; Response(this.statusCode); }
+class Model {
+  bool isDesktop = true, published = false;
+  int _statusCode = 200, started = 0;
+  final deviceGroups = <Row>[Row('cached')];
+  final groups = Completer<bool>(), users = Completer<bool>(), peers = Completer<bool>();
+  Future<bool> load(List<Row> rows, Completer<bool> reply) {
+    started++; rows.add(Row('new')); return reply.future;
+  }
+  Future<bool> _getDeviceGroups(List<Row> rows) => load(rows, groups);
+  Future<bool> _getUsers(List<Row> rows) => load(rows, users);
+  Future<bool> _getPeers(List<Row> rows) => load(rows, peers);
+  void status(int code) { final resp = Response(code);
+""" + status + """
+  }
+  Future<void> pull() async {
+""" + fetch + """
+    published = tmpUsers.single.name == 'new' && tmpPeers.single.name == 'new';
+  }
+}
+Future<void> main() async {
+  for (final failure in ['none', 'users', 'auth']) {
+    final model = Model();
+    final pending = model.pull();
+    check(model.started == 3); // Devices can load while the group directory is pending.
+    if (failure == 'auth') { model.status(401); model.status(200); }
+    model.peers.complete(true);
+    model.users.complete(failure != 'users');
+    model.groups.complete(true);
+    await pending;
+    check(model.published == (failure == 'none'));
+    if (failure == 'auth') check(model._statusCode == 401);
+  }
+  final mobile = Model()..isDesktop = false;
+  final pending = mobile.pull();
+  check(mobile.started == 1);
+  mobile.groups.complete(true);
+  await Future<void>.delayed(Duration.zero);
+  check(mobile.started == 2);
+  mobile.users.complete(true);
+  await Future<void>.delayed(Duration.zero);
+  mobile.peers.complete(true);
+  await pending;
+  check(mobile.published);
+}
+"""
+            path = root/'parallel_refresh_test.dart'
+            path.write_text(harness, encoding='utf-8')
+            subprocess.run([shutil.which('dart'), str(path)], check=True,
+                           capture_output=True, timeout=60)
+
     def test_groups_only_with_independent_filters_and_preserved_tab_preferences(self):
         for colleagues in (False, True):
             with self.subTest(colleagues=colleagues), tempfile.TemporaryDirectory() as directory:

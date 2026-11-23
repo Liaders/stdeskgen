@@ -77,6 +77,14 @@ Future<void> main() async {
   }, () => true);
   check(catalog!.length == 2 && catalog.every((g) => g.peerIds.contains('123')));
   check(catalog.first.peerIds.length == 1);
+  final snapshot = jsonDecode(jsonEncode(catalog.map((row) => {
+    'id': row.id, 'name': row.name, 'peer_ids': row.peerIds.toList(),
+  }).toList()));
+  final restored = readWorkOrganizationCache(snapshot)!;
+  check(restored.length == 2 && restored.every((row) => row.peerIds.contains('123')));
+  check(readWorkOrganizationCache(null) == null);
+  check(readWorkOrganizationCache([{'id':7,'name':'A','peer_ids':[123]}]) == null);
+  check(readWorkOrganizationCache([snapshot.first, snapshot.first]) == null);
   check(await loadWorkOrganizations(Uri.parse('https://console.test'), 'operator',
       (_, uri, token, body) async => WorkGroupReply(404, '{}'), () => true) == null);
   for (final code in [401, 403, 500, 200]) {

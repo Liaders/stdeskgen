@@ -180,3 +180,33 @@ Regression checks cover bound/new selection, confirmation, alias prefilling,
 catalog reuse/expiry and fresh bindings, native toolbar rendering in both themes,
 and preservation of RustDesk's theme extensions. A real reconnection and OS
 foreground activation still need verification in the next test client build.
+
+## Desktop list loading — 23 November 2026
+
+The existing desktop `GroupModel` adapter starts the accessible group directory,
+users and devices concurrently. Organization memberships refresh independently
+of those three lists. Requests retain their existing endpoints, pagination,
+authorization and account/server guards; a concurrent success cannot overwrite
+an HTTP 401 from another request. Failed required lists do not replace the last
+displayed device list. Android and Windows x86 keep their existing paths.
+
+The native group cache now also stores display-only organization memberships,
+including devices belonging to several organizations. The enclosing cache must
+match both the API server and access token before anything is restored. Cached
+rows appear before network refresh, remain visible while it runs, and do not
+grant permission to connect or assign an organization. Restoring a snapshot does
+not mark it fresh: the first refresh still verifies it with the server. Older
+caches without this field fall back to the native primary-group data until the
+first successful organization response. No new background timer is added.
+
+Read-only HTTP measurements at page size 500: 967 groups, 6 users, 41 devices
+and 20 organizations took about 3.56 seconds sequentially versus 1.62 seconds
+concurrently. These are Python HTTP timings, not an end-to-end client benchmark.
+The generated client is checked against RustDesk 1.5.1; installed-client timing
+and cache display still need a manual check in the next client build.
+
+Regression surface: generated `models/group_model.dart` changes desktop refresh
+scheduling and extends the existing cache payload. Feature modules
+`rdgen_organization_data.dart` and `rdgen_organization_catalog.dart` restore that
+display snapshot and build fallback memberships in one pass over devices. No
+session, transport, server API, or snow-animation code changes are involved.

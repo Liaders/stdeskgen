@@ -24,11 +24,12 @@ import 'rdgen_device_refresh.dart';""")
       _rdgenToken = token;
       _rdgenServer = server;
       await loadCache();
-      await _rdgenOriginalPull(force: force || changed, quiet: quiet);
-      if (token == bind.mainGetLocalOption(key: 'access_token') &&
-          server == await bind.mainGetApiServer()) {
-        await rdgenOrganizations.reload(force: rdgenCatalog);
-      }
+      await Future.wait<void>([
+        _rdgenOriginalPull(force: force || changed, quiet: quiet),
+        rdgenOrganizations.reload(force: rdgenCatalog),
+      ]);
+      if (initialized && token == bind.mainGetLocalOption(key: 'access_token') &&
+          server == await bind.mainGetApiServer() && _statusCode != 401) _saveCache();
     }, catalog: rdgenCatalog);
   }
 
@@ -41,10 +42,6 @@ import 'rdgen_device_refresh.dart';""")
     });
   }
   Future<void> _rdgenOriginalLoadCache() async {""")
-    replace(model, '    if (!await _getDeviceGroups(tmpDeviceGroups)) {', """    if (!await _getDeviceGroups(tmpDeviceGroups)) {
-      if (isDesktop) {
-        tmpDeviceGroups..clear()..addAll(deviceGroups);
-      }""")
     replace(model, '    initialized = true;', """    if (isDesktop && (_rdgenToken != bind.mainGetLocalOption(key: 'access_token') ||
         _rdgenServer != await bind.mainGetApiServer())) return;
     initialized = true;""")
@@ -81,6 +78,38 @@ import 'rdgen_device_refresh.dart';""")
     if (isDesktop) rdgenOrganizations.reset();
     groupLoadError""", 1)
     edits[path] = source
+    # Keep the mobile sequence unchanged; desktop requests have independent URLs.
+    start = source.index('    List<DeviceGroupPayload> tmpDeviceGroups =')
+    end = source.index('    if (isDesktop && (_rdgenToken', start)
+    original_fetch = source[start:end]
+    declarations = '''    List<DeviceGroupPayload> tmpDeviceGroups = List.empty(growable: true);
+    List<UserPayload> tmpUsers = List.empty(growable: true);
+    List<Peer> tmpPeers = List.empty(growable: true);
+'''
+    mobile_fetch = original_fetch
+    for declaration in declarations.splitlines(keepends=True):
+        if mobile_fetch.count(declaration) != 1:
+            raise ValueError('Incompatible accessible-list declarations')
+        mobile_fetch = mobile_fetch.replace(declaration, '', 1)
+    edits[path] = source[:start] + declarations + '''    if (isDesktop) {
+      _statusCode = 200;
+      final results = await Future.wait<bool>([
+        _getDeviceGroups(tmpDeviceGroups),
+        _getUsers(tmpUsers),
+        _getPeers(tmpPeers),
+      ]);
+      if (_statusCode == 401 || !results[1] || !results[2]) return;
+      if (!results[0]) tmpDeviceGroups..clear()..addAll(deviceGroups);
+      tmpDeviceGroups.sort((a, b) => a.name.compareTo(b.name));
+    } else {
+''' + mobile_fetch + '''    }
+''' + source[end:]
+    source = edits[path]
+    if source.count('        _statusCode = resp.statusCode;') != 3:
+        raise ValueError('Incompatible accessible-list HTTP status anchors')
+    edits[path] = source.replace('        _statusCode = resp.statusCode;', '''        // An overlapping successful request must not erase an auth failure.
+        if (!isDesktop || _statusCode != 401) _statusCode = resp.statusCode;''')
+    replace(model, '      _saveCache();', '      if (!isDesktop) _saveCache();')
     replace(model, '    peersModel = Peers(', """    if (isDesktop) rdgenRefreshVisibleDevice = (id) async {
       final peer = peers.where((p) => p.id == id).toList();
       await rdgenOrganizations.refreshDevice(id);
@@ -96,10 +125,12 @@ import 'rdgen_device_refresh.dart';""")
     };
     peersModel = Peers(""")
     replace(model, '        "access_token": bind.mainGetLocalOption(key: \'access_token\'),', '''        "access_token": bind.mainGetLocalOption(key: 'access_token'),
-        'rdgen_server': _rdgenServer,''')
+        'rdgen_server': _rdgenServer,
+        'rdgen_organizations': isDesktop ? rdgenOrganizations.cachedGroups : null,''')
     replace(model, "      if (data == null || data['access_token'] != access_token) return;", """      if (data == null || data['access_token'] != access_token) return;
       if (isDesktop && (access_token != bind.mainGetLocalOption(key: 'access_token') ||
-          data['rdgen_server'] != await bind.mainGetApiServer())) return;""")
+          data['rdgen_server'] != await bind.mainGetApiServer())) return;
+      if (isDesktop) rdgenOrganizations.restoreCachedGroups(data['rdgen_organizations'], access_token);""")
     page = root/'flutter/lib/common/widgets/peer_tab_page.dart'
     text = edits.get(page, page.read_text(encoding='utf-8'))
     text = text.replace('groupModel.pull(force: hint == null)',

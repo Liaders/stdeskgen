@@ -9,7 +9,22 @@ class WorkOrganization {
   String get selectionKey => id?.toString() ?? name;
 }
 
-// Separate from access-control group models and their on-disk caches.
+// Display snapshots do not authorize connections or organization assignments.
+List<WorkOrganization>? readWorkOrganizationCache(Object? value) {
+  if (value is! List) return null;
+  final rows = <WorkOrganization>[];
+  final seen = <int>{};
+  for (final row in value) {
+    if (row is! Map || row['id'] is! int || row['id'] <= 0 ||
+        row['name'] is! String || row['peer_ids'] is! List ||
+        (row['peer_ids'] as List).any((id) => id is! String) ||
+        !seen.add(row['id'] as int)) return null;
+    rows.add(WorkOrganization(row['id'] as int, row['name'] as String,
+        (row['peer_ids'] as List).cast<String>().toSet()));
+  }
+  return rows;
+}
+
 Future<List<WorkOrganization>?> loadWorkOrganizations(Uri base, String token,
     WorkGroupRequest request, bool Function() authorized) async {
   if (!['http', 'https'].contains(base.scheme) || !base.hasAuthority ||
