@@ -9,6 +9,51 @@ import 'package:statusdesk_winter_stand/snow_field.dart';
 import 'package:statusdesk_winter_stand/snow_panel.dart';
 
 void main() {
+  test('A coherent floor bank exits either edge permanently without piling up',
+      () {
+    for (final direction in [-1, 1]) {
+      final field = SnowField();
+      field.configure(const Size(260, 675), List.generate(130, (_) => []), []);
+      final profile = List<double>.of(field.floor);
+      final debris = field.debrisCount;
+      field.sweep(
+          const Offset(130, 667), Offset(130 + direction * 350, 667), 0.15);
+      expect(field.floorVisible, false);
+      expect(field.floor, profile);
+      expect(field.debrisCount, debris);
+      for (var i = 0; i < 1800; i++) {
+        field.tick(1 / 30);
+      }
+      expect(field.floorVisible, false);
+      expect(field.floorHeightAt(130), 0);
+      expect(field.floor.first, 0);
+      expect(field.floor.last, 0);
+      expect(field.floor.every((h) => h < SnowField.floorMaxHeight), true);
+      field.reset();
+      expect(field.floorVisible, true);
+      field.dispose();
+    }
+  });
+
+  test('Cached snowfall reaches the middle without running individual physics',
+      () {
+    final field = SnowField()..lightweight = true;
+    field.configure(const Size(260, 675),
+        List.generate(130, (i) => [SnowLedge(i * 2, 90, 6, 0)]), []);
+    for (var i = 0; i < 300; i++) {
+      field.advance(1 / 30);
+    }
+    expect(field.physicsSteps, 0);
+    expect(field.textureTime, closeTo(10, 0.001));
+    expect(
+        field.tileFlakes.where((p) {
+          final y = field.tilePosition(p).dy;
+          return y > 250 && y < 500;
+        }).length,
+        greaterThan(10));
+    field.dispose();
+  });
+
   test(
       'Floor never grows and particle pool stays bounded after extended snowfall and swipes',
       () {
@@ -165,18 +210,17 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump(const Duration(milliseconds: 50));
     expect(panel.field.renderedFrames, greaterThan(inactiveFrames));
-    final floorBefore = List<double>.of(panel.field.floor);
+    final floorBefore = panel.field.floorOffset;
     expect(panel.field.columns.expand((c) => c).map((l) => l.band).toSet(),
         containsAll([10, 11, 12, 13, 14, 15]));
-    final debrisBefore = panel.field.debrisCount;
     final origin = tester.getTopLeft(find.byType(SnowPanel));
     final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
     await mouse.down(origin + Offset(20, panel.field.size.height - 8));
     await mouse.moveTo(origin +
         Offset(panel.field.size.width - 12, panel.field.size.height - 8));
     await mouse.up();
-    expect(panel.field.floor, isNot(equals(floorBefore)));
-    expect(panel.field.debrisCount, debrisBefore);
+    expect(panel.field.floorOffset, isNot(equals(floorBefore)));
+    expect(panel.field.debrisCount, lessThanOrEqualTo(SnowField.maxDebris));
     panel.field.reset();
     await tester.tap(find.text('Пауза снега'));
     await tester.pump(const Duration(milliseconds: 100));
@@ -219,6 +263,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     expect(
         tester.widget<SnowPanel>(find.byType(SnowPanel)).framesPerSecond, 45);
+    await tester.tap(find.text('Лёгкий снег'));
+    await tester.pump();
+    expect(tester.widget<SnowPanel>(find.byType(SnowPanel)).lightweight, false);
     await tester.tap(find.text('Пакетные снежинки'));
     await tester.pump();
     expect(tester.widget<SnowPanel>(find.byType(SnowPanel)).batched, true);

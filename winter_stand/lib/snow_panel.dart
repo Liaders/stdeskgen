@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'snow_field.dart';
 import 'winter_tree.dart';
 import 'client_layout.dart';
+import 'snowfall_sprites.dart';
 
 const sidebarWidth = ClientSidebarLayout.width;
 const orange = Color(0xffef7f1a);
@@ -15,12 +16,14 @@ class SnowPanel extends StatefulWidget {
   final SnowField field;
   final int framesPerSecond;
   final bool batched;
+  final bool lightweight;
   const SnowPanel(
       {super.key,
       required this.dark,
       required this.running,
       this.framesPerSecond = 30,
       this.batched = false,
+      this.lightweight = true,
       required this.field});
   @override
   State<SnowPanel> createState() => _SnowPanelState();
@@ -46,6 +49,7 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.field.lightweight = widget.lightweight;
     _syncTicker();
     _loadLogo();
   }
@@ -86,6 +90,7 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(SnowPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    widget.field.lightweight = widget.lightweight;
     if (oldWidget.dark != widget.dark) _prepare(_size, keepSnow: true);
     if (oldWidget.running != widget.running ||
         oldWidget.framesPerSecond != widget.framesPerSecond) {
@@ -235,7 +240,8 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
         event.buttons & kPrimaryMouseButton == 0 ||
         !widget.running) return;
     final point = event.localPosition;
-    if (!widget.field.canSweep(point)) {
+    if ((Offset.zero & _size).contains(point) &&
+        !widget.field.canSweep(point)) {
       _previousPointer = null;
       return;
     }
@@ -323,11 +329,14 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
                   Positioned.fill(
                       child: IgnorePointer(
                           child: RepaintBoundary(
-                              child: CustomPaint(
-                                  painter: SnowPainter(
-                                      widget.field, widget.dark,
-                                      layer: SnowLayer.particles,
-                                      batched: widget.batched))))),
+                              child: widget.lightweight
+                                  ? SnowfallSprites(
+                                      field: widget.field, dark: widget.dark)
+                                  : CustomPaint(
+                                      painter: SnowPainter(
+                                          widget.field, widget.dark,
+                                          layer: SnowLayer.particles,
+                                          batched: widget.batched))))),
                 ])));
       });
 

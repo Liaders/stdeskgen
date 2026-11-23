@@ -22,6 +22,12 @@ class SnowParticle {
         previousY = y;
 }
 
+class SnowTileFlake {
+  final double x, y, radius;
+  final int layer;
+  SnowTileFlake(this.x, this.y, this.radius, this.layer);
+}
+
 /// Fixed physics at 30Hz, interpolated presentation at the selected frame limit.
 /// Buffers and debris objects are reused; the static letter paths are cached.
 class SnowField extends ChangeNotifier {
@@ -51,17 +57,38 @@ class SnowField extends ChangeNotifier {
   static const step = 2.0, physicsStep = 1 / 30, floorMaxHeight = 42.0;
   static const fallingCount = 66, maxDebris = 80;
   final math.Random _random = math.Random(24);
+  bool lightweight = false;
+  double textureTime = 0, _ambientTime = 0, _holeTime = 0;
+  Rect? tileHole;
+  final Set<SnowTileFlake> _liftedFlakes = {};
+  late final List<SnowTileFlake> tileFlakes = (() {
+    final random = math.Random(71);
+    return List.generate(
+        fallingCount,
+        (i) => SnowTileFlake(random.nextDouble(), random.nextDouble(),
+            0.7 + random.nextDouble() * 1.25, i % 3));
+  })();
+  static const tileSpeeds = [18.0, 26.0, 34.0];
+  double tileSway(int layer) => math.sin(textureTime * 0.35 + layer * 2) * 5;
+  Offset tilePosition(SnowTileFlake flake) => Offset(
+      flake.x * size.width + tileSway(flake.layer),
+      (flake.y * size.height + textureTime * tileSpeeds[flake.layer]) %
+          size.height);
   final List<SnowParticle> particles = [], _spare = [];
   List<List<SnowLedge>> columns = [];
   final List<List<SnowLedge>> capGroups = [];
   final List<Path> _capPaths = [];
   bool _capsDirty = true, _floorMoving = false;
   bool get floorMoving => _floorMoving;
-  List<double> floor = [],
-      floorTarget = [],
-      previousFloor = [],
-      _floorBuffer = [],
-      _floorVelocity = [];
+  List<double> floor = [], floorTarget = [], previousFloor = [];
+  double floorOffset = 0, _floorSpeed = 0;
+  bool get floorVisible => floorOffset.abs() < size.width;
+  double floorHeightAt(double x) {
+    final local = x - floorOffset;
+    if (local < 0 || local >= size.width || floor.isEmpty) return 0;
+    return floor[(local / step).floor().clamp(0, floor.length - 1)];
+  }
+
   List<Rect> protectedAreas = [];
   Size size = Size.zero;
   double _phase = 0, _accumulator = 0, renderAlpha = 1;
@@ -121,16 +148,19 @@ class SnowField extends ChangeNotifier {
     }
     floorTarget = List.generate((next.width / step).ceil(), (i) {
       final u = i * step / next.width;
+      final edge = (math.min(i, (next.width / step).ceil() - 1 - i) * step / 18)
+          .clamp(0.0, 1.0);
       return (17 +
-              6 * math.sin(u * 7 + 0.8) +
-              4 * math.sin(u * 21 + 1.1) +
-              14 * math.pow((2 * u - 1).abs(), 3) +
-              0.7 * math.sin(u * 67))
-          .clamp(4.0, floorMaxHeight);
+                  6 * math.sin(u * 7 + 0.8) +
+                  4 * math.sin(u * 21 + 1.1) +
+                  14 * math.pow((2 * u - 1).abs(), 3) +
+                  0.7 * math.sin(u * 67))
+              .clamp(4.0, floorMaxHeight) *
+          edge *
+          edge *
+          (3 - 2 * edge);
     });
     previousFloor = List.filled(floorTarget.length, 0);
-    _floorBuffer = List.filled(floorTarget.length, 0);
-    _floorVelocity = List.filled(floorTarget.length, 0);
     reset();
   }
 
@@ -141,9 +171,10 @@ class SnowField extends ChangeNotifier {
     particles.clear();
     floor = List.of(floorTarget);
     _floorMoving = false;
+    floorOffset = 0;
+    _floorSpeed = 0;
     for (var i = 0; i < floor.length; i++) {
       previousFloor[i] = floor[i];
-      _floorVelocity[i] = 0;
     }
     for (final group in capGroups) {
       for (final ledge in group) {
@@ -159,6 +190,11 @@ class SnowField extends ChangeNotifier {
       }
     }
     _accumulator = 0;
+    textureTime = 0;
+    _ambientTime = 0;
+    tileHole = null;
+    _liftedFlakes.clear();
+    _holeTime = 0;
     renderAlpha = 1;
     _capsDirty = true;
     _notifyFrame(0, immediate: true);
@@ -203,13 +239,32 @@ class SnowField extends ChangeNotifier {
 
   void advance(double seconds) {
     if (!enabled || !ready) return;
+    if (lightweight) {
+      final dt = seconds.clamp(0.0, 0.1);
+      textureTime += dt;
+      _ambientTime += dt;
+      if (_holeTime > 0) {
+        _holeTime -= dt;
+        if (_holeTime <= 0) {
+          tileHole = null;
+          _liftedFlakes.clear();
+        }
+      }
+      if (_ambientTime >= 0.5 && capGroups.isNotEmpty) {
+        _ambientTime = 0;
+        final group = capGroups[_random.nextInt(capGroups.length)];
+        _deposit(group[_random.nextInt(group.length)], 0.18);
+      }
+    }
     _accumulator += seconds.clamp(0.0, 0.1);
     _watch
       ..reset()
       ..start();
     var steps = 0;
     while (_accumulator >= physicsStep && steps < 3) {
-      _simulate(physicsStep);
+      if (!lightweight || debrisCount > 0 || floorMoving) {
+        _simulate(physicsStep);
+      }
       _accumulator -= physicsStep;
       steps++;
     }
@@ -285,46 +340,17 @@ class SnowField extends ChangeNotifier {
     final decay = math.exp(-1.4 * dt), drag = math.exp(-0.8 * dt);
     final settleDrag = math.exp(-0.35 * dt);
     if (_floorMoving) {
-      // Cohesive snow mass: conservative lateral flow, no conversion into flakes.
-      for (var i = 0; i < floor.length; i++) {
-        previousFloor[i] = floor[i];
-        _floorBuffer[i] = floor[i];
-      }
-      for (var i = 0; i < floor.length; i++) {
-        final speed = _floorVelocity[i];
-        if (speed.abs() > 0.4) {
-          final target = i + (speed > 0 ? 1 : -1);
-          if (target >= 0 && target < floor.length) {
-            final moved = math.min(
-                _floorBuffer[i],
-                math.min(
-                    floorMaxHeight - _floorBuffer[target],
-                    floor[i] *
-                        (speed.abs() * dt / step * 0.4).clamp(0.0, 0.22)));
-            _floorBuffer[i] -= moved;
-            _floorBuffer[target] += moved;
-          }
-          _floorVelocity[i] *= math.exp(-4 * dt);
-        }
-      }
-      var moving = false;
-      for (var i = 0; i < floor.length; i++) {
-        final delta =
-            (floorTarget[i] - _floorBuffer[i]).clamp(-dt * 1.1, dt * 1.1);
-        floor[i] = (_floorBuffer[i] + delta).clamp(0.0, floorMaxHeight);
-        moving |= (floor[i] - floorTarget[i]).abs() > 0.001 ||
-            _floorVelocity[i].abs() > 0.4;
-      }
-      _floorMoving = moving;
-      if (!moving) {
-        for (var i = 0; i < floor.length; i++) {
-          previousFloor[i] = floor[i];
-        }
+      floorOffset += _floorSpeed * dt;
+      _floorSpeed *= math.exp(-2.8 * dt);
+      if (!floorVisible || _floorSpeed.abs() < 0.3) {
+        _floorMoving = false;
+        _floorSpeed = 0;
       }
     }
     final count = particles.length;
     for (var i = count - 1; i >= 0; i--) {
       final p = particles[i];
+      if (lightweight && !p.debris) continue;
       final previousY = p.y;
       p.previousX = p.x;
       p.previousY = p.y;
@@ -362,16 +388,17 @@ class SnowField extends ChangeNotifier {
       var landed = false;
       if (p.vy > 0 && (!p.debris || p.age > 0.35)) {
         for (final ledge in columns[bin]) {
-          if (ledge.y >= size.height - floor[bin]) break;
+          if (ledge.y >= size.height - floorHeightAt(p.x)) break;
           final top = ledge.y - ledge.depth;
           if (previousY + p.radius <= top && p.y + p.radius >= top) {
             _deposit(ledge, p.debris ? 0.7 : 0.8);
-            landed = true;
+            // Most background flakes continue below the logo instead of all recycling at the top.
+            landed = p.debris || _random.nextDouble() < 0.2;
             break;
           }
         }
       }
-      if (landed || p.y + p.radius >= size.height - floor[bin]) {
+      if (landed || p.y + p.radius >= size.height - floorHeightAt(p.x)) {
         if (p.debris) {
           _retire(i);
         } else {
@@ -382,7 +409,9 @@ class SnowField extends ChangeNotifier {
   }
 
   void sweep(Offset from, Offset to, double seconds) {
-    if (!ready || !canSweep(from) || !canSweep(to)) return;
+    if (!ready ||
+        !canSweep(from) ||
+        protectedAreas.any((area) => area.contains(to))) return;
     final delta = to - from, length2 = (to - from).distanceSquared;
     if (length2 < 0.5) return;
     final velocity = delta / math.max(seconds, 0.008);
@@ -395,6 +424,21 @@ class SnowField extends ChangeNotifier {
       final t = ((x - from.dx) * delta.dx + (y - from.dy) * delta.dy) / length2;
       final q = from + delta * t.clamp(0.0, 1.0);
       return math.sqrt((x - q.dx) * (x - q.dx) + (y - q.dy) * (y - q.dy));
+    }
+
+    if (lightweight) {
+      tileHole = Rect.fromCircle(center: to, radius: radius + 5);
+      _holeTime = 0.3;
+      for (final flake in tileFlakes) {
+        final point = tilePosition(flake);
+        if (distance(point.dx, point.dy) < radius &&
+            debrisCount < maxDebris &&
+            _liftedFlakes.add(flake)) {
+          _fragment(point.dx, point.dy, velocity.dx.clamp(-300.0, 300.0) * 0.5,
+              -20 + velocity.dy.clamp(-100.0, 100.0) * 0.2, 1);
+          particles.last.radius = flake.radius;
+        }
+      }
     }
 
     for (final p in particles) {
@@ -434,37 +478,15 @@ class SnowField extends ChangeNotifier {
         touchedCaps.add(ledge.group!);
         _capsDirty = true;
       }
-      final d = distance(i * step, size.height - floor[i] * 0.5);
-      if (d < radius + 5) {
-        _floorMoving = true;
-        _floorVelocity[i] =
-            (velocity.dx * 0.35).clamp(-140.0, 140.0) * (1 - d / (radius + 5));
-      }
     }
     for (final group in touchedCaps) {
       _level(group);
     }
-    // Advance the mass a fraction of the drag immediately, keeping presentation continuous.
-    for (var i = 0; i < floor.length; i++) {
-      _floorBuffer[i] = floor[i];
-    }
-    final direction = delta.dx >= 0 ? 1 : -1;
-    for (var i = first; i <= last; i++) {
-      if (_floorVelocity[i].abs() < 1) continue;
-      final target = (i + direction * 3).clamp(0, floor.length - 1);
-      if (target == i) continue;
-      final moved = math.min(
-          _floorBuffer[i] * 0.26, floorMaxHeight - _floorBuffer[target]);
-      if (moved <= 0) continue;
-      _floorBuffer[i] -= moved;
-      _floorBuffer[target] += moved;
-    }
-    // Buffer covers the destination fringe as well, so never read uninitialised cells.
-    for (var i = 0; i < floor.length; i++) {
-      if (i >= first && i <= last || i >= first - 3 && i <= last + 3) {
-        floor[i] = _floorBuffer[i].clamp(0.0, floorMaxHeight);
-        previousFloor[i] = floor[i];
-      }
+    if (floorVisible && sweepingFloor) {
+      // Translate a cohesive bank; never pile height columns against a hard ceiling.
+      floorOffset += delta.dx;
+      _floorSpeed = velocity.dx.clamp(-900.0, 900.0);
+      _floorMoving = floorVisible && _floorSpeed.abs() > 0.3;
     }
     _notifyFrame(0, immediate: true);
   }
@@ -551,6 +573,7 @@ class SnowPainter extends CustomPainter {
       if (batched) {
         _pointCounts.fillRange(0, _pointCounts.length, 0);
         for (final p in field.particles) {
+          if (field.lightweight && !p.debris) continue;
           final opacity = p.debris
               ? (1 - p.age / 5).clamp(0.0, 0.9)
               : 0.55 + p.radius * 0.15;
@@ -572,6 +595,7 @@ class SnowPainter extends CustomPainter {
         }
       } else {
         for (final p in field.particles) {
+          if (field.lightweight && !p.debris) continue;
           final opacity = p.debris
               ? (1 - p.age / 5).clamp(0.0, 0.9)
               : 0.55 + p.radius * 0.15;
@@ -589,9 +613,7 @@ class SnowPainter extends CustomPainter {
       canvas.restore();
       return;
     }
-    if (field.floorMoving ||
-        _floorPath == null ||
-        !identical(_floorSource, field.floor)) {
+    if (_floorPath == null || !identical(_floorSource, field.floor)) {
       final fresh = Path()..moveTo(0, size.height);
       for (var i = 0; i < field.floor.length; i++) {
         final h = field.previousFloor[i] +
@@ -615,8 +637,12 @@ class SnowPainter extends CustomPainter {
                 ? [const Color(0xfff9fcff), const Color(0xffbecddd)]
                 : [const Color(0xfff8fbff), const Color(0xffc0d0df)]);
     }
-    canvas.drawPath(_floorPath!, _floorPaint!);
-    if (field.floorMoving) _floorPath = null;
+    if (field.floorVisible) {
+      canvas.save();
+      canvas.translate(field.floorOffset, 0);
+      canvas.drawPath(_floorPath!, _floorPaint!);
+      canvas.restore();
+    }
     canvas.restore();
   }
 

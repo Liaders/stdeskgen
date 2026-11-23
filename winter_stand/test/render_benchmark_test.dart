@@ -2,10 +2,12 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:statusdesk_winter_stand/snow_field.dart';
+import 'package:statusdesk_winter_stand/snowfall_sprites.dart';
 
 // Command recording only: GPU/raster and Windows CPU require the release stand.
 void main() {
-  test('Compare particle batches, cap details and independent layers', () {
+  test('Compare particle batches, cap details and independent layers',
+      () async {
     final field = SnowField();
     const size = ui.Size(260, 675);
     field.configure(
@@ -103,6 +105,81 @@ void main() {
         }
       }),
     };
+    final images = <ui.Image>[];
+    for (var layer = 0; layer < 3; layer++) {
+      final recorder = ui.PictureRecorder();
+      final canvas = ui.Canvas(recorder);
+      for (final flake in field.tileFlakes.where((p) => p.layer == layer)) {
+        canvas.drawCircle(ui.Offset(flake.x * 260 + 12, flake.y * 675),
+            flake.radius, capPaint);
+      }
+      final picture = recorder.endRecording();
+      images.add(await picture.toImage(284, 675));
+      picture.dispose();
+    }
+    field.lightweight = true;
+    final imagePaint = ui.Paint()..filterQuality = ui.FilterQuality.low;
+    void drawTiles(ui.Canvas c) {
+      c.save();
+      c.clipRect(ui.Offset.zero & size);
+      for (var layer = 0; layer < 3; layer++) {
+        final y =
+            (field.textureTime * SnowField.tileSpeeds[layer]) % size.height;
+        final x = field.tileSway(layer) - 12;
+        final image = images[layer];
+        final src = ui.Rect.fromLTWH(
+            0, 0, image.width.toDouble(), image.height.toDouble());
+        c.drawImageRect(image, src,
+            ui.Rect.fromLTWH(x, y, size.width + 24, size.height), imagePaint);
+        c.drawImageRect(
+            image,
+            src,
+            ui.Rect.fromLTWH(x, y - size.height, size.width + 24, size.height),
+            imagePaint);
+      }
+      c.restore();
+    }
+
+    results['cached image layers (rejected)'] = measure(drawTiles);
+    final atlasRecorder = ui.PictureRecorder();
+    ui.Canvas(atlasRecorder).drawCircle(const ui.Offset(6, 6), 4,
+        ui.Paint()..color = const ui.Color(0xb3ffffff));
+    final atlasPicture = atlasRecorder.endRecording();
+    final atlas = await atlasPicture.toImage(12, 12);
+    atlasPicture.dispose();
+    final sprites = SnowSpritePainter(field, true, atlas);
+    results['tiny atlas sprites'] = measure((c) => sprites.paint(c, size));
+    Future<double> raster(void Function(ui.Canvas) draw) async {
+      final samples = <int>[];
+      for (var run = 0; run < 4; run++) {
+        final watch = Stopwatch()..start();
+        for (var frame = 0; frame < 30; frame++) {
+          final recorder = ui.PictureRecorder();
+          draw(ui.Canvas(recorder));
+          final picture = recorder.endRecording();
+          final image = await picture.toImage(260, 675);
+          image.dispose();
+          picture.dispose();
+        }
+        watch.stop();
+        if (run > 0) samples.add(watch.elapsedMicroseconds);
+      }
+      samples.sort();
+      return samples[1] / 1000;
+    }
+
+    field.lightweight = false;
+    final circleRaster = await raster((c) => circles.paint(c, size));
+    field.lightweight = true;
+    final tileRaster = await raster(drawTiles);
+    final spriteRaster = await raster((c) => sprites.paint(c, size));
+    // ignore: avoid_print
+    print(
+        'Headless toImage median ms / 30 frames (not Windows CPU/GPU): circles=$circleRaster tiles=$tileRaster sprites=$spriteRaster');
+    atlas.dispose();
+    for (final image in images) {
+      image.dispose();
+    }
     // ignore: avoid_print
     print('Median ms / 1000 recorded frames (not GPU or CPU %): $results');
     field.dispose();

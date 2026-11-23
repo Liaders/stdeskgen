@@ -19,6 +19,7 @@ class _WinterStandState extends State<WinterStand> {
   bool emptyWindow = false, showStatistics = true;
   int framesPerSecond = 30;
   bool batched = false;
+  bool lightweight = true;
   final field = SnowField();
   final stats = ValueNotifier<String>('Подготовка карты снега…');
   final List<int> _buildTimes = [], _rasterTimes = [];
@@ -39,8 +40,9 @@ class _WinterStandState extends State<WinterStand> {
 
       final frames = field.particlePaints - _lastFrames;
       _lastFrames = field.particlePaints;
+      final mode = lightweight ? 'Лёгкий режим' : 'Физика 30 Гц';
       stats.value =
-          '${running ? 'Физика 30 Гц · Кадры снега: $frames/с · Лимит $framesPerSecond' : 'Пауза'}  ·  Частицы: ${field.particles.length} / ${SnowField.fallingCount + SnowField.maxDebris}  ·  Расчёт: ${(field.lastStepMicros / 1000).toStringAsFixed(2)} мс  ·  Кадр p95: UI ${(percentile(_buildTimes) / 1000).toStringAsFixed(1)} / raster ${(percentile(_rasterTimes) / 1000).toStringAsFixed(1)} мс';
+          '${running ? '$mode · Кадры снега: $frames/с · Лимит $framesPerSecond' : 'Пауза'}  ·  Частицы: ${field.particles.length} / ${SnowField.fallingCount + SnowField.maxDebris}  ·  Расчёт: ${(field.lastStepMicros / 1000).toStringAsFixed(2)} мс  ·  Кадр p95: UI ${(percentile(_buildTimes) / 1000).toStringAsFixed(1)} / raster ${(percentile(_rasterTimes) / 1000).toStringAsFixed(1)} мс';
       _buildTimes.clear();
       _rasterTimes.clear();
     });
@@ -94,7 +96,8 @@ class _WinterStandState extends State<WinterStand> {
                                 running: running,
                                 field: field,
                                 framesPerSecond: framesPerSecond,
-                                batched: batched)),
+                                batched: batched,
+                                lightweight: lightweight)),
                         const VerticalDivider(width: 1),
                         Expanded(child: _workspace()),
                       ])),
@@ -321,9 +324,16 @@ class _WinterStandState extends State<WinterStand> {
                         icon: const Icon(Icons.refresh, size: 17),
                         label: const Text('Сбросить снег')),
                     FilterChip(
+                        label: const Text('Лёгкий снег'),
+                        selected: lightweight,
+                        onSelected: (value) =>
+                            setState(() => lightweight = value)),
+                    FilterChip(
                         label: const Text('Пакетные снежинки'),
                         selected: batched,
-                        onSelected: (value) => setState(() => batched = value)),
+                        onSelected: lightweight
+                            ? null
+                            : (value) => setState(() => batched = value)),
                     TextButton(
                         onPressed: () => setState(() {
                               showStatistics = !showStatistics;
