@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'snow_field.dart';
-import 'snow_panel.dart';
+import 'holiday_panel.dart';
 import 'client_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -17,9 +16,7 @@ class WinterStand extends StatefulWidget {
 class _WinterStandState extends State<WinterStand> {
   bool dark = true, running = true;
   bool emptyWindow = false, showStatistics = true;
-  int framesPerSecond = 30;
-  bool batched = false;
-  bool lightweight = true;
+  final int framesPerSecond = 60;
   Color lightBackground = const Color(0xfff1f0f4);
   final field = SnowField();
   final stats = ValueNotifier<String>('Подготовка карты снега…');
@@ -41,9 +38,9 @@ class _WinterStandState extends State<WinterStand> {
 
       final frames = field.particlePaints - _lastFrames;
       _lastFrames = field.particlePaints;
-      final mode = lightweight ? 'Лёгкий режим' : 'Физика 30 Гц';
+      const mode = 'Снег · 60 кадров/с';
       stats.value =
-          '${running ? '$mode · Кадры снега: $frames/с · Лимит $framesPerSecond' : 'Пауза'}  ·  Частицы: ${field.particles.length} / ${SnowField.fallingCount + SnowField.maxDebris}  ·  Расчёт: ${(field.lastStepMicros / 1000).toStringAsFixed(2)} мс  ·  Кадр p95: UI ${(percentile(_buildTimes) / 1000).toStringAsFixed(1)} / raster ${(percentile(_rasterTimes) / 1000).toStringAsFixed(1)} мс';
+          '${running ? '$mode · Кадры снега: $frames/с · Лимит $framesPerSecond' : 'Пауза'}  ·  Кадр p95: UI ${(percentile(_buildTimes) / 1000).toStringAsFixed(1)} / raster ${(percentile(_rasterTimes) / 1000).toStringAsFixed(1)} мс';
       _buildTimes.clear();
       _rasterTimes.clear();
     });
@@ -97,8 +94,6 @@ class _WinterStandState extends State<WinterStand> {
                                 running: running,
                                 field: field,
                                 framesPerSecond: framesPerSecond,
-                                batched: batched,
-                                lightweight: lightweight,
                                 lightBackground: lightBackground,
                                 onSettings: _showSettings)),
                         const VerticalDivider(width: 1),
@@ -121,16 +116,7 @@ class _WinterStandState extends State<WinterStand> {
                 label: const Text('Настройки')),
             const SizedBox(width: 16),
             const Text('Кадры/с: ', style: TextStyle(fontSize: 12)),
-            DropdownButton<int>(
-                value: framesPerSecond,
-                underline: const SizedBox.shrink(),
-                items: [
-                  for (final fps in [30, 45, 60])
-                    DropdownMenuItem(value: fps, child: Text('$fps'))
-                ],
-                onChanged: (value) {
-                  if (value != null) setState(() => framesPerSecond = value);
-                }),
+            const Text('60'),
             const SizedBox(width: 12),
             TextButton(
                 onPressed: () => setState(() => emptyWindow = !emptyWindow),
@@ -399,7 +385,7 @@ class _WinterStandState extends State<WinterStand> {
                   child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       child: Text(
-                          'Зажмите ЛКМ на свободном месте слева и смахните снег с букв или сугроба.',
+                          'Статичное новогоднее оформление. Только падающий снег, без физики и взаимодействия.',
                           style: TextStyle(fontSize: 12, color: muted)))),
               Wrap(
                   spacing: 12,
@@ -414,17 +400,6 @@ class _WinterStandState extends State<WinterStand> {
                         onPressed: field.reset,
                         icon: const Icon(Icons.refresh, size: 17),
                         label: const Text('Сбросить снег')),
-                    FilterChip(
-                        label: const Text('Лёгкий снег'),
-                        selected: lightweight,
-                        onSelected: (value) =>
-                            setState(() => lightweight = value)),
-                    FilterChip(
-                        label: const Text('Пакетные снежинки'),
-                        selected: batched,
-                        onSelected: lightweight
-                            ? null
-                            : (value) => setState(() => batched = value)),
                     TextButton(
                         onPressed: () => setState(() {
                               showStatistics = !showStatistics;
