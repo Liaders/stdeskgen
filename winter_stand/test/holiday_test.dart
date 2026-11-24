@@ -58,6 +58,11 @@ void main() {
         () => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pump();
     expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Показать статистику'));
+    await tester.pump();
+    await tester.tap(find.text('Скрыть статистику'));
+    await tester.pump();
     await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
   });
 }

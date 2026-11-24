@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 import 'dart:async';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'client_layout.dart';
 import 'holiday_tree.dart';
@@ -43,11 +43,10 @@ class SnowPanel extends StatefulWidget {
   State<SnowPanel> createState() => _SnowPanelState();
 }
 
-class _SnowPanelState extends State<SnowPanel>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  late final Ticker _ticker;
+class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
+  Timer? _timer;
+  final _clock = Stopwatch();
   Duration _last = Duration.zero;
-  int _nextFrame = 0;
   bool _visible = true;
   final _layout = ClientSidebarLayout();
   ui.Image? _scene;
@@ -57,25 +56,24 @@ class _SnowPanelState extends State<SnowPanel>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _ticker = createTicker((elapsed) {
-      final delta = elapsed - _last;
-      if (elapsed.inMicroseconds < _nextFrame) return;
-      _nextFrame = (((elapsed.inMicroseconds / (1000000 / 60)).floor() + 1) *
-              (1000000 / 60))
-          .round();
-      _last = elapsed;
-      widget.field.advance(delta.inMicroseconds.clamp(0, 100000) / 1000000);
-    });
     _sync();
   }
 
   void _sync() {
-    if (widget.running && _visible && !_ticker.isActive) {
+    if (widget.running && _visible && _timer == null) {
       _last = Duration.zero;
-      _nextFrame = 0;
-      _ticker.start();
-    } else if ((!widget.running || !_visible) && _ticker.isActive) {
-      _ticker.stop();
+      _clock
+        ..reset()
+        ..start();
+      _timer = Timer.periodic(const Duration(microseconds: 16667), (_) {
+        final elapsed = _clock.elapsed, delta = elapsed - _last;
+        _last = elapsed;
+        widget.field.advance(delta.inMicroseconds.clamp(0, 100000) / 1000000);
+      });
+    } else if (!widget.running || !_visible) {
+      _timer?.cancel();
+      _timer = null;
+      _clock.stop();
     }
   }
 
@@ -98,30 +96,13 @@ class _SnowPanelState extends State<SnowPanel>
 
   Future<void> _prepare(Size size) async {
     final revision = ++_revision;
-    final data = await rootBundle.load('assets/logo.png');
+    final data = await rootBundle.load(widget.dark
+        ? 'assets/logo-winter-dark.png'
+        : 'assets/logo-winter-light.png');
     final codec = await ui.instantiateImageCodec(data.buffer.asUint8List(),
         targetWidth: 440);
-    var logo = (await codec.getNextFrame()).image;
+    final logo = (await codec.getNextFrame()).image;
     codec.dispose();
-    if (!widget.dark) {
-      final bytes = await logo.toByteData(format: ui.ImageByteFormat.rawRgba);
-      if (bytes != null) {
-        final pixels = bytes.buffer.asUint8List();
-        for (var i = 0; i < pixels.length; i += 4) {
-          if (pixels[i] > 150 && pixels[i + 1] > 150 && pixels[i + 2] > 150) {
-            pixels[i] = 48;
-            pixels[i + 1] = 50;
-            pixels[i + 2] = 56;
-          }
-        }
-        final ready = Completer<ui.Image>();
-        ui.decodeImageFromPixels(pixels, logo.width, logo.height,
-            ui.PixelFormat.rgba8888, ready.complete);
-        final light = await ready.future;
-        logo.dispose();
-        logo = light;
-      }
-    }
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     final paint = Paint()..filterQuality = FilterQuality.medium;
@@ -147,31 +128,8 @@ class _SnowPanelState extends State<SnowPanel>
     final base = await picture.toImage(size.width.ceil(), size.height.ceil());
     picture.dispose();
     logo.dispose();
-    final bytes = await base.toByteData(format: ui.ImageByteFormat.rawRgba);
     final winter = ui.PictureRecorder();
     final c = Canvas(winter)..drawImage(base, Offset.zero, Paint());
-    if (bytes != null) {
-      final pixels = bytes.buffer.asUint8List();
-      final snow = Paint()
-        ..color = const Color(0xfff5f9ff)
-        ..strokeWidth = 2.4
-        ..strokeCap = StrokeCap.round;
-      for (var x = 1; x < base.width - 1; x += 2) {
-        for (final band in _layout.bands) {
-          snow.strokeWidth = band.$1 < 74 ? 2.1 : 0.9;
-          for (var y = math.max(1, band.$1);
-              y < math.min(base.height - 1, band.$2);
-              y++) {
-            if (pixels[(y * base.width + x) * 4 + 3] > 150 &&
-                pixels[((y - 1) * base.width + x) * 4 + 3] < 80) {
-              c.drawLine(
-                  Offset(x - 1.0, y - 0.8), Offset(x + 0.8, y - 0.8), snow);
-              break;
-            }
-          }
-        }
-      }
-    }
     _tree(c, size);
     final decorated = winter.endRecording();
     final image =
@@ -205,7 +163,8 @@ class _SnowPanelState extends State<SnowPanel>
             child: Stack(children: [
               Positioned.fill(
                   child: RepaintBoundary(
-                      child: CustomPaint(painter: _Scene(_scene)))),
+                      child: CustomPaint(
+                          isComplex: true, painter: _Scene(_scene)))),
               Positioned.fromRect(
                   rect: _layout.settings,
                   child: IconButton(
@@ -228,13 +187,15 @@ class _SnowPanelState extends State<SnowPanel>
                   child: IgnorePointer(
                       child: RepaintBoundary(
                           child: CustomPaint(
+                              willChange: true,
                               painter: _Falling(widget.field, widget.dark))))),
             ]));
       });
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _ticker.dispose();
+    _timer?.cancel();
+    _clock.stop();
     _revision++;
     _scene?.dispose();
     super.dispose();
@@ -266,20 +227,31 @@ class _Falling extends CustomPainter {
     ]);
   final SnowField field;
   final bool dark;
+  final List<Float32List> _points = List.generate(4, (_) => Float32List(24));
+  late final List<Paint> _paints = List.generate(
+      4,
+      (i) => Paint()
+        ..color =
+            (dark ? Colors.white : const Color(0xff829bac)).withOpacity(0.65)
+        ..strokeWidth = 2 * (0.7 + i * 0.25)
+        ..strokeCap = StrokeCap.round);
+  final Paint _core = Paint();
   _Falling(this.field, this.dark) : super(repaint: field);
   @override
   void paint(Canvas c, Size s) {
     field.particlePaints++;
-    final p = Paint()
-      ..color =
-          (dark ? Colors.white : const Color(0xff829bac)).withOpacity(0.65);
     c.save();
     c.clipRect(Offset.zero & s);
-    for (var i = 0; i < 48; i++) {
-      final x = ((i * 73.37) % s.width) + math.sin(field.time * 0.3 + i) * 3;
-      final y =
-          (i * 137.91 + field.time * (17 + i % 4 * 5)) % (s.height + 8) - 4;
-      c.drawCircle(Offset(x, y), 0.7 + (i % 4) * 0.25, p);
+    for (var group = 0; group < 4; group++) {
+      final drift = math.sin(field.time * 0.3 + group) * 3;
+      final fall = field.time * (17 + group * 5);
+      final points = _points[group];
+      for (var j = 0; j < 12; j++) {
+        final i = j * 4 + group;
+        points[j * 2] = (i * 73.37) % s.width + drift;
+        points[j * 2 + 1] = (i * 137.91 + fall) % (s.height + 8) - 4;
+      }
+      c.drawRawPoints(ui.PointMode.points, points, _paints[group]);
     }
     final glow = 0.94 + math.sin(field.time * 1.4) * 0.08;
     c.save();
@@ -289,7 +261,7 @@ class _Falling extends CustomPainter {
     c.drawCircle(
         Offset.zero,
         1.6,
-        Paint()
+        _core
           ..color = const Color(0xfffff1bb)
               .withOpacity(0.55 + math.sin(field.time * 1.4) * 0.12));
     c.restore();

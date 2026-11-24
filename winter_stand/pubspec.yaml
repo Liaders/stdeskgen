@@ -16,6 +16,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logo.png
+    - assets/logo-winter-dark.png
+    - assets/logo-winter-light.png
     - assets/win.svg
   fonts:
     - family: DeviceGroup

@@ -15,7 +15,7 @@ class WinterStand extends StatefulWidget {
 
 class _WinterStandState extends State<WinterStand> {
   bool dark = true, running = true;
-  bool emptyWindow = false, showStatistics = true;
+  bool emptyWindow = false, showStatistics = false;
   final int framesPerSecond = 60;
   Color lightBackground = const Color(0xfff1f0f4);
   final field = SnowField();
@@ -27,7 +27,7 @@ class _WinterStandState extends State<WinterStand> {
   @override
   void initState() {
     super.initState();
-    SchedulerBinding.instance.addTimingsCallback(_timings);
+    if (showStatistics) SchedulerBinding.instance.addTimingsCallback(_timings);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!showStatistics || emptyWindow || !field.interactive) return;
       int percentile(List<int> times) {
@@ -403,6 +403,13 @@ class _WinterStandState extends State<WinterStand> {
                     TextButton(
                         onPressed: () => setState(() {
                               showStatistics = !showStatistics;
+                              if (showStatistics) {
+                                SchedulerBinding.instance
+                                    .addTimingsCallback(_timings);
+                              } else {
+                                SchedulerBinding.instance
+                                    .removeTimingsCallback(_timings);
+                              }
                               _buildTimes.clear();
                               _rasterTimes.clear();
                               _lastFrames = field.particlePaints;
@@ -426,7 +433,9 @@ class _WinterStandState extends State<WinterStand> {
   @override
   void dispose() {
     _timer.cancel();
-    SchedulerBinding.instance.removeTimingsCallback(_timings);
+    if (showStatistics) {
+      SchedulerBinding.instance.removeTimingsCallback(_timings);
+    }
     stats.dispose();
     field.dispose();
     super.dispose();
