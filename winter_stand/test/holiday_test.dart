@@ -19,6 +19,20 @@ void main() {
     }
     expect(snow, 60);
     expect(glow, inInclusiveRange(14, 15));
+    snow = 0;
+    glow = 0;
+    for (var i = 0; i < 30; i++) {
+      field.advance(1 / 30);
+    }
+    expect(snow, 30);
+    expect(glow, inInclusiveRange(14, 16));
+    final flake = field.flakes.first;
+    flake.x = -1;
+    flake.y = 2;
+    field.advance(0.1);
+    expect(flake.x, inInclusiveRange(0, 1));
+    expect(flake.y, lessThan(0));
+    expect(flake.speed, inInclusiveRange(16, 38));
     field.dispose();
   });
   testWidgets(
@@ -52,6 +66,26 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(
         tester.widget<SnowPanel>(find.byType(SnowPanel)).framesPerSecond, 60);
+    final model = tester.widget<SnowPanel>(find.byType(SnowPanel)).field;
+    var updates = 0;
+    void count() {
+      updates++;
+    }
+
+    model.addListener(count);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(updates, inInclusiveRange(5, 6));
+    updates = 0;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(updates, inInclusiveRange(11, 12));
+    updates = 0;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(updates, 0);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    model.removeListener(count);
     final output = Platform.environment['RDGEN_WINTER_PREVIEW'];
     if (output != null) {
       await tester.runAsync(() async {

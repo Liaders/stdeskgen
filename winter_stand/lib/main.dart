@@ -119,7 +119,7 @@ class _WinterStandState extends State<WinterStand> {
                 label: const Text('Настройки')),
             const SizedBox(width: 16),
             const Text('Кадры/с: ', style: TextStyle(fontSize: 12)),
-            const Text('60'),
+            const Text('60 / 30'),
             const SizedBox(width: 12),
             TextButton(
                 onPressed: () => setState(() => emptyWindow = !emptyWindow),

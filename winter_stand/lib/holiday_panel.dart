@@ -5,14 +5,31 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'client_layout.dart';
-import 'holiday_tree.dart';
 
 const sidebarWidth = ClientSidebarLayout.width;
 const orange = Color(0xffef7f1a);
 
 enum SnowEffectMode { all, snow, star, empty }
 
+class FallingFlake {
+  double x, y, speed;
+  FallingFlake(this.x, this.y, this.speed);
+}
+
 class SnowField extends ChangeNotifier {
+  final _random = math.Random();
+  final flakes = <FallingFlake>[];
+  double viewportHeight = 768;
+  SnowField() {
+    reset();
+  }
+  void _spawn(FallingFlake flake, {bool initial = false}) {
+    flake.x = _random.nextDouble();
+    flake.y =
+        initial ? _random.nextDouble() : -0.02 - _random.nextDouble() * 0.04;
+    flake.speed = 16 + _random.nextDouble() * 22;
+  }
+
   final glow = ChangeNotifier();
   double _glowElapsed = 0;
   @override
@@ -26,12 +43,24 @@ class SnowField extends ChangeNotifier {
   bool interactive = true;
   void reset() {
     time = 0;
+    _glowElapsed = 0;
+    if (flakes.isEmpty) {
+      flakes.addAll(List.generate(48, (_) => FallingFlake(0, 0, 0)));
+    }
+    for (final flake in flakes) {
+      _spawn(flake, initial: true);
+    }
     notifyListeners();
     glow.notifyListeners();
   }
 
   void advance(double dt) {
     time += dt;
+    final travel = dt / viewportHeight;
+    for (final flake in flakes) {
+      flake.y += flake.speed * travel;
+      if (flake.y > 1.02) _spawn(flake);
+    }
     notifyListeners();
     _glowElapsed += dt;
     if (_glowElapsed >= 1 / 15) {
@@ -66,6 +95,7 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
   final _clock = Stopwatch();
   Duration _last = Duration.zero;
   bool _visible = true;
+  int? _timerFps;
   final _layout = ClientSidebarLayout();
   ui.Image? _scene;
   Size _size = Size.zero;
@@ -74,16 +104,28 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    final state = WidgetsBinding.instance.lifecycleState;
+    _visible = state == null ||
+        state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive;
+    widget.field.interactive = state != AppLifecycleState.inactive;
     _sync();
   }
 
   void _sync() {
+    final fps = widget.field.interactive ? widget.framesPerSecond : 30;
+    if (_timer != null && _timerFps != fps) {
+      _timer!.cancel();
+      _timer = null;
+    }
     if (widget.running && _visible && _timer == null) {
       _last = Duration.zero;
       _clock
         ..reset()
         ..start();
-      _timer = Timer.periodic(const Duration(microseconds: 16667), (_) {
+      _timerFps = fps;
+      _timer =
+          Timer.periodic(Duration(microseconds: (1000000 / fps).round()), (_) {
         final elapsed = _clock.elapsed, delta = elapsed - _last;
         _last = elapsed;
         widget.field.advance(delta.inMicroseconds.clamp(0, 100000) / 1000000);
@@ -148,11 +190,21 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
     logo.dispose();
     final winter = ui.PictureRecorder();
     final c = Canvas(winter)..drawImage(base, Offset.zero, Paint());
-    _tree(c, size);
+    final treeData = await rootBundle.load('assets/holiday-tree.png');
+    final treeCodec =
+        await ui.instantiateImageCodec(treeData.buffer.asUint8List());
+    final tree = (await treeCodec.getNextFrame()).image;
+    treeCodec.dispose();
+    c.drawImageRect(
+        tree,
+        Rect.fromLTWH(0, 0, tree.width.toDouble(), tree.height.toDouble()),
+        Rect.fromLTWH(0, size.height - 240, size.width, 240),
+        Paint()..filterQuality = FilterQuality.low);
     final decorated = winter.endRecording();
     final image =
         await decorated.toImage(size.width.ceil(), size.height.ceil());
     decorated.dispose();
+    tree.dispose();
     base.dispose();
     if (!mounted || revision != _revision) {
       image.dispose();
@@ -163,12 +215,11 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) => old?.dispose());
   }
 
-  void _tree(Canvas c, Size size) => paintHolidayTree(c, size);
-
   @override
   Widget build(BuildContext context) =>
       LayoutBuilder(builder: (context, constraints) {
         final size = constraints.biggest;
+        widget.field.viewportHeight = size.height + 8;
         if (size != _size) {
           _size = size;
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -248,10 +299,6 @@ class _Scene extends CustomPainter {
 }
 
 class _Falling extends CustomPainter {
-  static final List<double> _random = (() {
-    final random = math.Random(7341);
-    return List.generate(48 * 3, (_) => random.nextDouble());
-  })();
   final SnowField field;
   final bool dark;
   final List<Float32List> _points = List.generate(4, (_) => Float32List(24));
@@ -271,16 +318,12 @@ class _Falling extends CustomPainter {
     c.save();
     c.clipRect(Offset.zero & s);
     for (var group = 0; group < 4; group++) {
-      final drift = math.sin(field.time * 0.3 + group) * 3;
-      final fall = field.time * (17 + group * 5);
       final points = _points[group];
       for (var j = 0; j < 12; j++) {
         final i = j * 4 + group;
-        points[j * 2] = _random[i * 3] * s.width + drift;
-        points[j * 2 + 1] = (_random[i * 3 + 1] * (s.height + 8) +
-                    fall * (0.8 + _random[i * 3 + 2] * 0.4)) %
-                (s.height + 8) -
-            4;
+        final flake = field.flakes[i];
+        points[j * 2] = flake.x * s.width;
+        points[j * 2 + 1] = flake.y * (s.height + 8) - 4;
       }
       c.drawRawPoints(ui.PointMode.points, points, _paints[group]);
     }

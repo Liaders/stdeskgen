@@ -18,6 +18,7 @@ flutter:
     - assets/logo.png
     - assets/logo-winter-dark.png
     - assets/logo-winter-light.png
+    - assets/holiday-tree.png
     - assets/win.svg
   fonts:
     - family: DeviceGroup
