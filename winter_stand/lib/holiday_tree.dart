@@ -32,82 +32,78 @@ void paintHolidayTree(Canvas c, Size size) {
       Paint()
         ..shader = ui.Gradient.linear(Offset(x - 5, 0), Offset(x + 5, 0),
             [const Color(0xff9b744d), const Color(0xff483326)]));
+  Offset project(double px, double height, double depth) => Offset(
+      x + px * 0.82 - depth * 0.57,
+      ground - height * 0.94 + (px * 0.57 + depth * 0.82) * 0.45);
   for (var tier = 5; tier >= 0; tier--) {
-    final y = ground - 158 + tier * 23, half = 12 + tier * 6.9;
-    final left = x - half, right = x + half;
-    final body = Path()
-      ..moveTo(x - 2, y - 24)
-      ..cubicTo(x - half * 0.38, y - 8, left + 8, y + 7, left, y + 13)
-      ..cubicTo(left + half * 0.40, y + 29, right - half * 0.38, y + 33, right,
-          y + 12)
-      ..cubicTo(right - 10, y + 7, x + half * 0.36, y - 9, x - 2, y - 24)
-      ..close();
-    c.drawPath(
-        body,
-        Paint()
-          ..shader =
-              ui.Gradient.linear(Offset(left, y), Offset(right, y + 17), [
-            const Color(0xff175642),
-            const Color(0xff3e9672),
-            const Color(0xff1d7152),
-            const Color(0xff0b3d30)
-          ], [
-            0,
-            0.35,
-            0.68,
-            1
-          ]));
-    final underside = Path()
-      ..moveTo(left, y + 13)
-      ..cubicTo(x - half * 0.45, y + 22, x + half * 0.50, y + 29, right, y + 12)
-      ..cubicTo(x + half * 0.45, y + 35, x - half * 0.45, y + 30, left, y + 13)
-      ..close();
-    c.drawPath(underside, Paint()..color = const Color(0xff103f32));
-    final ridge = Path()
-      ..moveTo(left + 2, y + 12)
-      ..cubicTo(
-          x - half * 0.60, y + 15, x + half * 0.25, y + 28, right - 3, y + 12);
-    c.drawPath(
-        ridge,
-        Paint()
-          ..color = const Color(0xffe6f3f3)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.7
-          ..strokeCap = StrokeCap.round);
-    final garland = Path()
-      ..moveTo(left + half * 0.30, y + 4)
-      ..cubicTo(x - half * 0.3, y + 14, x + half * 0.2, y + 20,
-          right - half * 0.20, y + 7);
-    c.drawPath(
-        garland,
-        Paint()
-          ..color = const Color(0xffd9bc6a)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.9);
-    for (var j = 0; j < 3; j++) {
-      final ox = x + (j - 1.1) * half * 0.55, oy = y + 8 + j * 2.5;
-      final color = [
-        const Color(0xffd44e43),
-        const Color(0xffefc76a),
-        const Color(0xff69a5b3)
-      ][(tier + j) % 3];
-      c.drawCircle(Offset(ox + 1, oy + 1), 3.6,
-          Paint()..color = const Color(0x55102620));
-      c.drawCircle(
-          Offset(ox, oy),
-          3.2,
+    final height = 190.0 - tier * 24, radius = 13.0 + tier * 8.0;
+    final angles = List.generate(7, (i) => i * math.pi * 2 / 7 + tier * 0.29);
+    angles.sort((a, b) => (math.cos(a) * 0.57 + math.sin(a) * 0.82)
+        .compareTo(math.cos(b) * 0.57 + math.sin(b) * 0.82));
+    for (var j = 0; j < angles.length; j++) {
+      final angle = angles[j], dx = math.cos(angle), dz = math.sin(angle);
+      final reach = radius * (0.92 + 0.10 * math.sin(tier * 2 + j));
+      final root = project(dx * 2, height, dz * 2);
+      final tip = project(dx * reach, height - 28, dz * reach);
+      final left = project(dx * reach * 0.55 - dz * reach * 0.64, height - 15,
+          dz * reach * 0.55 + dx * reach * 0.64);
+      final right = project(dx * reach * 0.55 + dz * reach * 0.64, height - 17,
+          dz * reach * 0.55 - dx * reach * 0.64);
+      final branch = Path()
+        ..moveTo(root.dx, root.dy)
+        ..quadraticBezierTo(left.dx, left.dy, tip.dx, tip.dy)
+        ..quadraticBezierTo(right.dx, right.dy, root.dx, root.dy)
+        ..close();
+      c.save();
+      c.translate(0, 3.2);
+      c.drawPath(branch, Paint()..color = const Color(0xff103e30));
+      c.restore();
+      c.drawPath(
+          branch,
           Paint()
-            ..shader = ui.Gradient.radial(Offset(ox - 1, oy - 1), 5, [
-              Color.lerp(color, const Color(0xffffffff), 0.4)!,
-              color,
-              const Color(0xff543a2b)
+            ..shader = ui.Gradient.linear(left, right, [
+              const Color(0xff51a17b),
+              const Color(0xff267555),
+              const Color(0xff134b38)
             ], [
               0,
-              0.55,
+              0.5,
               1
             ]));
-      c.drawCircle(Offset(ox - 1, oy - 1), 0.9,
-          Paint()..color = const Color(0xfffff7de));
+      c.drawPath(
+          Path()
+            ..moveTo(root.dx * 0.35 + left.dx * 0.65,
+                root.dy * 0.35 + left.dy * 0.65)
+            ..quadraticBezierTo(
+                left.dx, left.dy - 1, tip.dx - 0.5, tip.dy - 0.6),
+          Paint()
+            ..color = const Color(0xffedf8f5)
+            ..strokeWidth = 1.4
+            ..style = PaintingStyle.stroke
+            ..strokeCap = StrokeCap.round);
+      final ridge = Offset.lerp(root, tip, 0.72)!;
+      if (j % 2 == 0) {
+        final color = (tier + j) % 3 == 0
+            ? const Color(0xffd55042)
+            : const Color(0xffe8bd62);
+        c.drawLine(
+            ridge,
+            ridge + const Offset(0, 4),
+            Paint()
+              ..color = const Color(0xffb39e63)
+              ..strokeWidth = 0.7);
+        c.drawCircle(ridge + const Offset(0.6, 5), 3.1,
+            Paint()..color = const Color(0x5510241d));
+        c.drawCircle(
+            ridge + const Offset(0, 4),
+            2.7,
+            Paint()
+              ..shader = ui.Gradient.radial(
+                  ridge + const Offset(-1, 3),
+                  4,
+                  [Color.lerp(color, const Color(0xffffffff), 0.5)!, color],
+                  [0, 1]));
+      }
     }
   }
   final center = Offset(x, size.height - 206), star = Path();
@@ -135,7 +131,7 @@ void paintHolidayTree(Canvas c, Size size) {
         ]));
   for (var i = 0; i < 3; i++) {
     final left = x - 50 + i * 31,
-        top = ground - 11 - (i % 2) * 11,
+        top = ground - 11 - (i % 2) * 11 - i * 1.5,
         height = 23.0 + (i % 2) * 11;
     final color = [
       const Color(0xffb94449),
@@ -153,16 +149,16 @@ void paintHolidayTree(Canvas c, Size size) {
     c.drawPath(
         Path()
           ..moveTo(left + 25, top)
-          ..lineTo(left + 32, top - 5)
-          ..lineTo(left + 32, top + height - 5)
+          ..lineTo(left + 31 + i * 1.5, top - 8 - i * 1.5)
+          ..lineTo(left + 31 + i * 1.5, top + height - 5)
           ..lineTo(left + 25, top + height)
           ..close(),
         Paint()..color = Color.lerp(color, const Color(0xff152d37), 0.3)!);
     c.drawPath(
         Path()
           ..moveTo(left, top)
-          ..lineTo(left + 7, top - 5)
-          ..lineTo(left + 32, top - 5)
+          ..lineTo(left + 7, top - 8 - i * 1.5)
+          ..lineTo(left + 31 + i * 1.5, top - 8 - i * 1.5)
           ..lineTo(left + 25, top)
           ..close(),
         Paint()..color = Color.lerp(color, const Color(0xffffffff), 0.3)!);
@@ -174,7 +170,7 @@ void paintHolidayTree(Canvas c, Size size) {
     c.drawPath(
         Path()
           ..moveTo(left + 12, top)
-          ..lineTo(left + 19, top - 5),
+          ..lineTo(left + 19, top - 8 - i * 1.5),
         ribbon);
     ribbon
       ..style = PaintingStyle.stroke
