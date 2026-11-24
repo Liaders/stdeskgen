@@ -10,18 +10,34 @@ import 'holiday_tree.dart';
 const sidebarWidth = ClientSidebarLayout.width;
 const orange = Color(0xffef7f1a);
 
+enum SnowEffectMode { all, snow, star, empty }
+
 class SnowField extends ChangeNotifier {
+  final glow = ChangeNotifier();
+  double _glowElapsed = 0;
+  @override
+  void dispose() {
+    glow.dispose();
+    super.dispose();
+  }
+
   double time = 0;
   int particlePaints = 0;
   bool interactive = true;
   void reset() {
     time = 0;
     notifyListeners();
+    glow.notifyListeners();
   }
 
   void advance(double dt) {
     time += dt;
     notifyListeners();
+    _glowElapsed += dt;
+    if (_glowElapsed >= 1 / 15) {
+      _glowElapsed %= 1 / 15;
+      glow.notifyListeners();
+    }
   }
 }
 
@@ -29,6 +45,7 @@ class SnowPanel extends StatefulWidget {
   final bool dark, running;
   final SnowField field;
   final int framesPerSecond;
+  final SnowEffectMode effectMode;
   final Color lightBackground;
   final ValueChanged<BuildContext>? onSettings;
   const SnowPanel(
@@ -37,6 +54,7 @@ class SnowPanel extends StatefulWidget {
       required this.running,
       required this.field,
       this.framesPerSecond = 60,
+      this.effectMode = SnowEffectMode.all,
       this.lightBackground = const Color(0xfff1f0f4),
       this.onSettings});
   @override
@@ -183,12 +201,27 @@ class _SnowPanelState extends State<SnowPanel> with WidgetsBindingObserver {
               Positioned.fromRect(
                   rect: _layout.password,
                   child: const Text('z8f376', style: TextStyle(fontSize: 15))),
-              Positioned.fill(
-                  child: IgnorePointer(
-                      child: RepaintBoundary(
-                          child: CustomPaint(
-                              willChange: true,
-                              painter: _Falling(widget.field, widget.dark))))),
+              if (widget.effectMode != SnowEffectMode.star)
+                Positioned.fill(
+                    child: IgnorePointer(
+                        child: RepaintBoundary(
+                            child: CustomPaint(
+                                willChange: true,
+                                painter: _Falling(widget.field, widget.dark,
+                                    empty: widget.effectMode ==
+                                        SnowEffectMode.empty))))),
+              if (widget.effectMode == SnowEffectMode.all ||
+                  widget.effectMode == SnowEffectMode.star)
+                Positioned(
+                    left: size.width - 75,
+                    top: size.height - 224,
+                    width: 36,
+                    height: 36,
+                    child: IgnorePointer(
+                        child: RepaintBoundary(
+                            child: CustomPaint(
+                                willChange: true,
+                                painter: _Glow(widget.field))))),
             ]));
       });
   @override
@@ -215,16 +248,10 @@ class _Scene extends CustomPainter {
 }
 
 class _Falling extends CustomPainter {
-  final Paint _halo = Paint()
-    ..shader = ui.Gradient.radial(Offset.zero, 18, [
-      const Color(0x66ffd773),
-      const Color(0x22ffd773),
-      const Color(0x00ffd773)
-    ], [
-      0,
-      0.4,
-      1
-    ]);
+  static final List<double> _random = (() {
+    final random = math.Random(7341);
+    return List.generate(48 * 3, (_) => random.nextDouble());
+  })();
   final SnowField field;
   final bool dark;
   final List<Float32List> _points = List.generate(4, (_) => Float32List(24));
@@ -235,11 +262,12 @@ class _Falling extends CustomPainter {
             (dark ? Colors.white : const Color(0xff829bac)).withOpacity(0.65)
         ..strokeWidth = 2 * (0.7 + i * 0.25)
         ..strokeCap = StrokeCap.round);
-  final Paint _core = Paint();
-  _Falling(this.field, this.dark) : super(repaint: field);
+  final bool empty;
+  _Falling(this.field, this.dark, {this.empty = false}) : super(repaint: field);
   @override
   void paint(Canvas c, Size s) {
     field.particlePaints++;
+    if (empty) return;
     c.save();
     c.clipRect(Offset.zero & s);
     for (var group = 0; group < 4; group++) {
@@ -248,14 +276,41 @@ class _Falling extends CustomPainter {
       final points = _points[group];
       for (var j = 0; j < 12; j++) {
         final i = j * 4 + group;
-        points[j * 2] = (i * 73.37) % s.width + drift;
-        points[j * 2 + 1] = (i * 137.91 + fall) % (s.height + 8) - 4;
+        points[j * 2] = _random[i * 3] * s.width + drift;
+        points[j * 2 + 1] = (_random[i * 3 + 1] * (s.height + 8) +
+                    fall * (0.8 + _random[i * 3 + 2] * 0.4)) %
+                (s.height + 8) -
+            4;
       }
       c.drawRawPoints(ui.PointMode.points, points, _paints[group]);
     }
+    c.restore();
+  }
+
+  @override
+  bool shouldRepaint(_Falling old) =>
+      old.dark != dark || old.field != field || old.empty != empty;
+}
+
+class _Glow extends CustomPainter {
+  final SnowField field;
+  final Paint _halo = Paint()
+    ..shader = ui.Gradient.radial(Offset.zero, 18, [
+      const Color(0x66ffd773),
+      const Color(0x22ffd773),
+      const Color(0x00ffd773)
+    ], [
+      0,
+      0.4,
+      1
+    ]);
+  final Paint _core = Paint();
+  _Glow(this.field) : super(repaint: field.glow);
+  @override
+  void paint(Canvas c, Size s) {
     final glow = 0.94 + math.sin(field.time * 1.4) * 0.08;
     c.save();
-    c.translate(s.width - 57, s.height - 206);
+    c.translate(18, 18);
     c.scale(glow);
     c.drawCircle(Offset.zero, 18, _halo);
     c.drawCircle(
@@ -265,9 +320,8 @@ class _Falling extends CustomPainter {
           ..color = const Color(0xfffff1bb)
               .withOpacity(0.55 + math.sin(field.time * 1.4) * 0.12));
     c.restore();
-    c.restore();
   }
 
   @override
-  bool shouldRepaint(_Falling old) => old.dark != dark || old.field != field;
+  bool shouldRepaint(_Glow old) => old.field != field;
 }

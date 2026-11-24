@@ -8,6 +8,19 @@ import 'package:statusdesk_winter_stand/main.dart';
 import 'package:statusdesk_winter_stand/holiday_panel.dart';
 
 void main() {
+  test('Snow updates at 60 Hz while glow notifications are limited to 15 Hz',
+      () {
+    final field = SnowField();
+    var snow = 0, glow = 0;
+    field.addListener(() => snow++);
+    field.glow.addListener(() => glow++);
+    for (var i = 0; i < 60; i++) {
+      field.advance(1 / 60);
+    }
+    expect(snow, 60);
+    expect(glow, inInclusiveRange(14, 15));
+    field.dispose();
+  });
   testWidgets(
       'Decorated static scene and falling-only animation in both themes',
       (tester) async {
@@ -62,6 +75,20 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Скрыть статистику'));
     await tester.pump();
+    await tester.tap(find.text('Настройки'));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.text('Снег и звезда').last);
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.text('Пустые кадры — без эффектов').last);
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(tester.widget<SnowPanel>(find.byType(SnowPanel)).effectMode,
+        SnowEffectMode.empty);
+    await tester.tap(find.text('Готово'));
+    await tester.pump(const Duration(milliseconds: 300));
+    final scene = tester.widget<SnowPanel>(find.byType(SnowPanel)).field;
+    final frames = scene.particlePaints;
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(scene.particlePaints, greaterThan(frames));
     await tester.pumpWidget(const SizedBox.shrink());
     expect(tester.takeException(), isNull);
   });

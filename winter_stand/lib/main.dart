@@ -17,8 +17,10 @@ class _WinterStandState extends State<WinterStand> {
   bool dark = true, running = true;
   bool emptyWindow = false, showStatistics = false;
   final int framesPerSecond = 60;
+  SnowEffectMode effectMode = SnowEffectMode.all;
   Color lightBackground = const Color(0xfff1f0f4);
   final field = SnowField();
+  final _hexController = TextEditingController();
   final stats = ValueNotifier<String>('Подготовка карты снега…');
   final List<int> _buildTimes = [], _rasterTimes = [];
   late final Timer _timer;
@@ -94,6 +96,7 @@ class _WinterStandState extends State<WinterStand> {
                                 running: running,
                                 field: field,
                                 framesPerSecond: framesPerSecond,
+                                effectMode: effectMode,
                                 lightBackground: lightBackground,
                                 onSettings: _showSettings)),
                         const VerticalDivider(width: 1),
@@ -138,90 +141,111 @@ class _WinterStandState extends State<WinterStand> {
           ])));
 
   Future<void> _showSettings(BuildContext context) async {
-    final controller = TextEditingController(
-        text:
-            '#${(lightBackground.value & 0xffffff).toRadixString(16).padLeft(6, '0').toUpperCase()}');
-    try {
-      await showDialog<void>(
-          context: context,
-          builder: (context) => StatefulBuilder(builder: (context, refresh) {
-                final valid = RegExp(r'^#?[0-9a-fA-F]{6}$')
-                    .hasMatch(controller.text.trim());
-                void applyColor(Color color) {
-                  setState(() => lightBackground = color);
-                  controller.text =
-                      '#${(color.value & 0xffffff).toRadixString(16).padLeft(6, '0').toUpperCase()}';
-                  refresh(() {});
-                }
+    final controller = _hexController;
+    controller.text =
+        '#${(lightBackground.value & 0xffffff).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+    await showDialog<void>(
+        context: context,
+        builder: (context) => StatefulBuilder(builder: (context, refresh) {
+              final valid = RegExp(r'^#?[0-9a-fA-F]{6}$')
+                  .hasMatch(controller.text.trim());
+              void applyColor(Color color) {
+                setState(() => lightBackground = color);
+                controller.text =
+                    '#${(color.value & 0xffffff).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+                refresh(() {});
+              }
 
-                return AlertDialog(
-                    title: const Text('Настройки снежного стенда'),
-                    content: SizedBox(
-                        width: 360,
-                        child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Фон левой панели в светлой теме'),
-                              const SizedBox(height: 12),
-                              Wrap(spacing: 8, children: [
-                                for (final color in [
-                                  const Color(0xfff1f0f4),
-                                  const Color(0xffdce5ed),
-                                  const Color(0xffc5d6df),
-                                  const Color(0xffe8e0d5),
-                                  const Color(0xffd8e3d7),
-                                  const Color(0xffb9c9d4)
-                                ])
-                                  InkWell(
-                                      onTap: () => applyColor(color),
-                                      child: Container(
-                                          width: 42,
-                                          height: 36,
-                                          decoration: BoxDecoration(
-                                              color: color,
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                              border: Border.all(
-                                                  color:
-                                                      color == lightBackground
-                                                          ? orange
-                                                          : Colors.grey))))
-                              ]),
-                              const SizedBox(height: 16),
-                              TextField(
-                                  controller: controller,
-                                  decoration: InputDecoration(
-                                      labelText: 'Цвет HEX',
-                                      hintText: '#DCE5ED',
-                                      errorText: valid
-                                          ? null
-                                          : 'Введите шесть цифр HEX'),
-                                  onChanged: (value) {
-                                    final clean =
-                                        value.trim().replaceFirst('#', '');
-                                    if (RegExp(r'^[0-9a-fA-F]{6}$')
-                                        .hasMatch(clean)) {
-                                      setState(() => lightBackground = Color(
-                                          0xff000000 |
-                                              int.parse(clean, radix: 16)));
-                                    }
+              return AlertDialog(
+                  title: const Text('Настройки снежного стенда'),
+                  content: SizedBox(
+                      width: 360,
+                      child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            DropdownButtonFormField<SnowEffectMode>(
+                                value: effectMode,
+                                decoration: const InputDecoration(
+                                    labelText: 'Диагностика анимации'),
+                                items: const [
+                                  DropdownMenuItem(
+                                      value: SnowEffectMode.all,
+                                      child: Text('Снег и звезда')),
+                                  DropdownMenuItem(
+                                      value: SnowEffectMode.snow,
+                                      child: Text('Только снег')),
+                                  DropdownMenuItem(
+                                      value: SnowEffectMode.star,
+                                      child: Text('Только свечение звезды')),
+                                  DropdownMenuItem(
+                                      value: SnowEffectMode.empty,
+                                      child:
+                                          Text('Пустые кадры — без эффектов')),
+                                ],
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setState(() => effectMode = value);
                                     refresh(() {});
-                                  }),
-                              const SizedBox(height: 10),
-                              const Text(
-                                  'Цвет применяется сразу. Для сравнения включите светлую тему.',
-                                  style: TextStyle(fontSize: 12)),
-                            ])),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Готово'))
-                    ]);
-              }));
-    } finally {
-      controller.dispose();
-    }
+                                  }
+                                }),
+                            const SizedBox(height: 16),
+                            const Text('Фон левой панели в светлой теме'),
+                            const SizedBox(height: 12),
+                            Wrap(spacing: 8, children: [
+                              for (final color in [
+                                const Color(0xfff1f0f4),
+                                const Color(0xffdce5ed),
+                                const Color(0xffc5d6df),
+                                const Color(0xffe8e0d5),
+                                const Color(0xffd8e3d7),
+                                const Color(0xffb9c9d4)
+                              ])
+                                InkWell(
+                                    onTap: () => applyColor(color),
+                                    child: Container(
+                                        width: 42,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                            color: color,
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                            border: Border.all(
+                                                color: color == lightBackground
+                                                    ? orange
+                                                    : Colors.grey))))
+                            ]),
+                            const SizedBox(height: 16),
+                            TextField(
+                                controller: controller,
+                                decoration: InputDecoration(
+                                    labelText: 'Цвет HEX',
+                                    hintText: '#DCE5ED',
+                                    errorText: valid
+                                        ? null
+                                        : 'Введите шесть цифр HEX'),
+                                onChanged: (value) {
+                                  final clean =
+                                      value.trim().replaceFirst('#', '');
+                                  if (RegExp(r'^[0-9a-fA-F]{6}$')
+                                      .hasMatch(clean)) {
+                                    setState(() => lightBackground = Color(
+                                        0xff000000 |
+                                            int.parse(clean, radix: 16)));
+                                  }
+                                  refresh(() {});
+                                }),
+                            const SizedBox(height: 10),
+                            const Text(
+                                'Цвет применяется сразу. Для сравнения включите светлую тему.',
+                                style: TextStyle(fontSize: 12)),
+                          ])),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Готово'))
+                  ]);
+            }));
   }
 
   Widget _workspace() => Builder(builder: (context) {
@@ -436,6 +460,7 @@ class _WinterStandState extends State<WinterStand> {
     if (showStatistics) {
       SchedulerBinding.instance.removeTimingsCallback(_timings);
     }
+    _hexController.dispose();
     stats.dispose();
     field.dispose();
     super.dispose();

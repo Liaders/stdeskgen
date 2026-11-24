@@ -4,6 +4,7 @@ import 'package:flutter/painting.dart';
 
 /// Static illustration: bowed tiers, contact shadows and perspective gift boxes.
 void paintHolidayTree(Canvas c, Size size) {
+  final random = math.Random(2187);
   final x = size.width - 57, ground = size.height - 18;
   final snow = Path()
     ..moveTo(0, size.height)
@@ -37,18 +38,27 @@ void paintHolidayTree(Canvas c, Size size) {
       ground - height * 0.94 + (px * 0.57 + depth * 0.82) * 0.45);
   for (var tier = 5; tier >= 0; tier--) {
     final height = 190.0 - tier * 24, radius = 13.0 + tier * 8.0;
-    final angles = List.generate(7, (i) => i * math.pi * 2 / 7 + tier * 0.29);
+    final count = 6 + random.nextInt(3);
+    final angles = List.generate(
+        count,
+        (i) =>
+            i * math.pi * 2 / count +
+            tier * 0.41 +
+            (random.nextDouble() - 0.5) * 0.42);
     angles.sort((a, b) => (math.cos(a) * 0.57 + math.sin(a) * 0.82)
         .compareTo(math.cos(b) * 0.57 + math.sin(b) * 0.82));
     for (var j = 0; j < angles.length; j++) {
       final angle = angles[j], dx = math.cos(angle), dz = math.sin(angle);
-      final reach = radius * (0.92 + 0.10 * math.sin(tier * 2 + j));
-      final root = project(dx * 2, height, dz * 2);
-      final tip = project(dx * reach, height - 28, dz * reach);
-      final left = project(dx * reach * 0.55 - dz * reach * 0.64, height - 15,
-          dz * reach * 0.55 + dx * reach * 0.64);
-      final right = project(dx * reach * 0.55 + dz * reach * 0.64, height - 17,
-          dz * reach * 0.55 - dx * reach * 0.64);
+      final reach = radius * (0.78 + random.nextDouble() * 0.4);
+      final sag = 20 + random.nextDouble() * 15;
+      final spread = 0.42 + random.nextDouble() * 0.33;
+      final heightShift = random.nextDouble() * 7 - 3.5;
+      final root = project(dx * 2, height + heightShift, dz * 2);
+      final tip = project(dx * reach, height - sag, dz * reach);
+      final left = project(dx * reach * 0.55 - dz * reach * spread,
+          height - sag * 0.45, dz * reach * 0.55 + dx * reach * spread);
+      final right = project(dx * reach * 0.55 + dz * reach * spread,
+          height - sag * 0.65, dz * reach * 0.55 - dx * reach * spread);
       final branch = Path()
         ..moveTo(root.dx, root.dy)
         ..quadraticBezierTo(left.dx, left.dy, tip.dx, tip.dy)
@@ -70,19 +80,21 @@ void paintHolidayTree(Canvas c, Size size) {
               0.5,
               1
             ]));
-      c.drawPath(
-          Path()
-            ..moveTo(root.dx * 0.35 + left.dx * 0.65,
-                root.dy * 0.35 + left.dy * 0.65)
-            ..quadraticBezierTo(
-                left.dx, left.dy - 1, tip.dx - 0.5, tip.dy - 0.6),
-          Paint()
-            ..color = const Color(0xffedf8f5)
-            ..strokeWidth = 1.4
-            ..style = PaintingStyle.stroke
-            ..strokeCap = StrokeCap.round);
-      final ridge = Offset.lerp(root, tip, 0.72)!;
-      if (j % 2 == 0) {
+      if (random.nextDouble() > 0.18) {
+        c.drawPath(
+            Path()
+              ..moveTo(root.dx * 0.35 + left.dx * 0.65,
+                  root.dy * 0.35 + left.dy * 0.65)
+              ..quadraticBezierTo(
+                  left.dx, left.dy - 1, tip.dx - 0.5, tip.dy - 0.6),
+            Paint()
+              ..color = const Color(0xffedf8f5)
+              ..strokeWidth = 0.8 + random.nextDouble() * 1.1
+              ..style = PaintingStyle.stroke
+              ..strokeCap = StrokeCap.round);
+      }
+      final ridge = Offset.lerp(root, tip, 0.55 + random.nextDouble() * 0.3)!;
+      if (random.nextDouble() < 0.43) {
         final color = (tier + j) % 3 == 0
             ? const Color(0xffd55042)
             : const Color(0xffe8bd62);
