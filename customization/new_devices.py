@@ -19,7 +19,7 @@ def add_new_devices(root, edits, replace):
     order = [0, 3, 1, count-1] + ([5] if count == 7 else []) + [index, 2, 4]
     visible = [True] * (count+1)
     visible[2] = visible[4] = False
-    marker = 'rdgen-peer-tabs-new-devices-v2'
+    marker = 'rdgen-peer-tabs-new-devices-v3'
     replace(model, '    // init currentTab', f'''    if (bind.getLocalFlutterOption(k: '{marker}') != 'Y') {{
       orders.setAll(0, {order});
       _isVisible.setAll(0, {json.dumps(visible)});
@@ -30,6 +30,7 @@ def add_new_devices(root, edits, replace):
     try {{
       await bind.setLocalFlutterOption(k: kOptionPeerTabOrder, v: jsonEncode(orders));
       await bind.setLocalFlutterOption(k: kOptionPeerTabVisible, v: jsonEncode(_isVisible));
+      await bind.setLocalFlutterOption(k: kOptionPeerCardUiType, v: '2');
       await bind.setLocalFlutterOption(k: '{marker}', v: 'Y');
     }} catch (e) {{ debugPrint('Failed to save new device tab preferences: $e'); }}
   }}
@@ -57,7 +58,15 @@ def add_new_devices(root, edits, replace):
     for height in (140, 42):
         text = text.replace(f'height: {height}, child: visibilityChild', f'height: {height} + widget.rdgenCardFooterHeight, child: visibilityChild')
     edits[path] = text
+    card = 'flutter/lib/common/widgets/peer_card.dart'
+    replace(card, "import 'package:flutter/material.dart';", "import 'package:flutter/material.dart';\nimport 'rdgen_new_device_row_metadata.dart';")
+    replace(card, '                isPortrait\n                    ? checkBoxOrActionMorePortrait(peer)', '''                if (RdgenNewDeviceRowMetadata.of(context) != null)
+                  RdgenNewDeviceRowMetadata.of(context)!,
+                isPortrait
+                    ? checkBoxOrActionMorePortrait(peer)''')
     page = 'flutter/lib/common/widgets/peer_tab_page.dart'
+    replace(page, '    final uiType = bind.getLocalFlutterOption(k: kOptionPeerCardUiType);', f'''    final uiType = bind.getLocalFlutterOption(k: '{marker}') != 'Y'
+        ? '2' : bind.getLocalFlutterOption(k: kOptionPeerCardUiType);''')
     replace(page, "import 'rdgen_organizations.dart';", "import 'rdgen_organizations.dart';\nimport 'rdgen_new_devices.dart';")
     replace(page, '  ];\n  RelativeRect?', '''    _TabEntry(RdgenNewDevices(menuPadding: _menuPadding()),
       ({dynamic hint}) => gFFI.groupModel.pull(force: hint == null, rdgenCatalog: hint == null)),
@@ -83,7 +92,7 @@ def add_new_devices(root, edits, replace):
                           if (t == {index} && newCount > 0)
                             Padding(padding: const EdgeInsets.only(left: 4),
                               child: Transform.translate(offset: Offset(0, _rdgenTextTabs ? 5 : 0),
-                                child: Text('$newCount', style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)))),
+                                child: RdgenNewDeviceCount(count: newCount, selected: selected))),
                         ])''' + text[end:]
     text, n = re.subn(r'(offstage: model.currentTab != index.index && )(.+),',
         lambda m: m[1] + f'!(index == PeerTabIndex.group && model.currentTab == {index}) && ' + m[2] + ',', text)
@@ -92,6 +101,7 @@ def add_new_devices(root, edits, replace):
     text = text.replace('if (model.currentTab != PeerTabIndex.recent.index) PeerSortDropdown(),', f'if (model.currentTab != PeerTabIndex.recent.index && model.currentTab != {index}) PeerSortDropdown(),')
     edits[path] = text
     edits[root/'flutter/lib/common/widgets/rdgen_new_devices.dart'] = Path(__file__).with_name('new_devices.dart').read_text(encoding='utf-8')
+    edits[root/'flutter/lib/common/widgets/rdgen_new_device_row_metadata.dart'] = Path(__file__).with_name('new_device_row_metadata.dart').read_text(encoding='utf-8')
     translations = {'New devices': 'Новые', 'Just now': 'Только что', 'Minutes ago': 'минут назад', 'Hours ago': 'часов назад', 'No organization': 'Без организации'}
     for path in (root/'src/lang').glob('*.rs'):
         if path.name == 'en.rs': continue

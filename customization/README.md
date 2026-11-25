@@ -113,12 +113,15 @@ the new order and then `rdgen-peer-tab-order-v1-7` (or `-6` without Colleagues).
 Later launches use the normal saved user order; the same migration is not applied
 again on future updates. A failed write leaves the marker unset for a later retry.
 
-The newer `rdgen-peer-tabs-new-devices-v2` rollout supersedes this initial order
+The newer `rdgen-peer-tabs-new-devices-v3` rollout supersedes this initial order
 once: Recent sessions, Address book, Favorites, Organizations, Colleagues, New
 devices; Discovered and Accessible devices are unchecked. Subsequent launches
 and updates preserve the user's changes. Text/icon preference is never reset.
-The v2 marker intentionally applies to clients that received the earlier v1
-New devices rollout as well; it is constant across subsequent releases.
+The v3 marker intentionally applies to clients that received the earlier v1/v2
+New devices rollouts as well; it is constant across subsequent releases. It
+also sets the saved device view to list (`peer-card-ui-type = 2`) once. The
+first page render uses list while the asynchronous preferences write completes.
+Later changes to either device view or tab layout are preserved.
 
 ## New devices (desktop)
 
@@ -131,10 +134,13 @@ than 24 hours are always sorted newest first; future dates are excluded.
 A lightweight 30-second UI tick refreshes relative ages and expiry without
 network requests. A nonzero count and tab label/icon use `#D29922` in both text
 and icon navigation modes. Windows x32/Sciter and Android are unchanged.
-The selected New devices tab uses `#EAB84B`, a bold count and the native sparkle
-icon. Sorting controls are hidden on this fixed-order tab. Tile/grid layouts
-reserve a 38px metadata footer; list layout reserves a separate right column,
-so age and confirmed missing organization never overlay the native name/ID.
+The selected New devices tab uses `#EAB84B`, a bold count in a rounded bordered
+badge with translucent fill, and the native sparkle icon. The zero count is
+hidden. Sorting controls are hidden on this fixed-order tab. Tile/grid layouts
+reserve a 38px integrated metadata strip with time and organization icons;
+at enlarged text scales its contents wrap to two lines. List layout reserves
+a separate right region before the original device menu, without changing row
+height. Metadata never overlays the native name/ID.
 
 Successful assignments refresh one device's organization memberships. If that
 device is absent from the authorized peers snapshot, refresh peers through the

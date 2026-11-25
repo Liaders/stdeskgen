@@ -16,15 +16,15 @@ class NewDevicesTests(unittest.TestCase):
             apply(root, '1.5.1', {'schema_version': 1, 'organizations': True,
                                  'colleagues': True, 'navigation': 'icons'})
             model = (root/'flutter/lib/models/peer_tab_model.dart').read_text(encoding='utf-8')
-            start = model.index("    if (bind.getLocalFlutterOption(k: 'rdgen-peer-tabs-new-devices-v2')")
+            start = model.index("    if (bind.getLocalFlutterOption(k: 'rdgen-peer-tabs-new-devices-v3')")
             constructor = model[start:model.index('    // init currentTab', start)]
             start = model.index('  Future<void> _rdgenSaveNewDeviceTabs()')
             method = model[start:model.index('  setCurrentTab(int index)', start)]
             harness = """import 'dart:convert';
-const kOptionPeerTabOrder = 'order', kOptionPeerTabVisible = 'visible';
+const kOptionPeerTabOrder = 'order', kOptionPeerTabVisible = 'visible', kOptionPeerCardUiType = 'view';
 void debugPrint(Object? x) {}
 class Bind {
- final values = <String,String>{'rdgen-navigation-style-v1':'icons', 'rdgen-peer-tabs-new-devices-v1':'Y'};
+ final values = <String,String>{'rdgen-navigation-style-v1':'icons', 'rdgen-peer-tabs-new-devices-v1':'Y', 'rdgen-peer-tabs-new-devices-v2':'Y'};
  String getLocalFlutterOption({required String k}) => values[k] ?? '';
  Future<void> setLocalFlutterOption({required String k, required String v}) async { values[k]=v; }
 }
@@ -40,18 +40,22 @@ Future<void> main() async {
  if(m.orders.join(',')!='0,3,1,6,5,7,2,4') throw StateError('order');
  if(m._isVisible[2] || m._isVisible[4]) throw StateError('visibility');
  if(bind.values['rdgen-navigation-style-v1']!='icons') throw StateError('icons lost');
+ if(bind.values['view']!='2') throw StateError('list view missing');
+ bind.values['view']='0';
  final next=Model();
  if(next.orders.join(',')!='0,1,2,3,4,5,6,7') throw StateError('migration repeated');
+ await Future<void>.delayed(Duration.zero);
+ if(bind.values['view']!='0') throw StateError('view preference reset again');
 }
 """
             path=root/'rollout.dart'; path.write_text(harness,encoding='utf-8')
             subprocess.run([shutil.which('dart'),str(path)],check=True,capture_output=True,timeout=60)
             page=(root/'flutter/lib/common/widgets/peer_tab_page.dart').read_text(encoding='utf-8')
             self.assertIn('Icons.auto_awesome',model)
-            self.assertIn("Text('$newCount'",page)
+            self.assertIn('RdgenNewDeviceCount(count: newCount, selected: selected)',page)
             self.assertIn('Color(0xFFD29922)',page)
             self.assertIn('Color(0xFFEAB84B)',page)
-            self.assertIn('fontWeight: FontWeight.w700',page)
+            self.assertIn('fontWeight: FontWeight.w700',(root/'flutter/lib/common/widgets/rdgen_new_devices.dart').read_text(encoding='utf-8'))
             self.assertIn('model.currentTab == PeerTabIndex.recent.index || model.currentTab == 7',page)
             view=(root/'flutter/lib/common/widgets/peers_view.dart').read_text(encoding='utf-8')
             self.assertIn('height: 140 + widget.rdgenCardFooterHeight',view)

@@ -6,6 +6,7 @@ import '../../models/peer_model.dart';
 import '../../models/peer_tab_model.dart';
 import 'peers_view.dart';
 import 'peer_card.dart';
+import 'rdgen_new_device_row_metadata.dart';
 import '../../models/rdgen_device_organization_origin.dart';
 
 bool rdgenIsNewDevice(Peer peer, DateTime now) {
@@ -90,20 +91,18 @@ class _RdgenNewDeviceCard extends StatelessWidget {
         .isConfirmedUngrouped(peer.id, peer.device_group_name);
     final card = RdgenDeviceOrganizationOrigin(
         child: MyGroupPeerCard(peer: peer, menuPadding: menuPadding));
-    final details = RdgenNewDeviceDetails(
-        age: rdgenDeviceAge(peer.rdgenCreatedAt!, now), ungrouped: ungrouped);
+    final age = rdgenDeviceAge(peer.rdgenCreatedAt!, now);
     // Reserve real layout space for metadata; never paint it over native cards.
-    if (list) return Row(children: [
-      Expanded(child: card),
-      SizedBox(width: 158, child: details),
-    ]);
+    if (list) return RdgenNewDeviceRowMetadata(
+      details: SizedBox(width: 260, child: RdgenNewDeviceDetails(
+        age: age, ungrouped: ungrouped, inline: true)), child: card);
     return LayoutBuilder(builder: (context, constraints) => Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (constraints.hasBoundedHeight) Expanded(child: card)
         else SizedBox(height: peerCardUiType.value == PeerUiType.grid ? 140 : 42, child: card),
-        SizedBox(height: 38, child: details),
+        SizedBox(height: 38, child: RdgenNewDeviceDetails(age: age, ungrouped: ungrouped)),
       ]));
   });
 }
@@ -111,20 +110,66 @@ class _RdgenNewDeviceCard extends StatelessWidget {
 class RdgenNewDeviceDetails extends StatelessWidget {
   final String age;
   final bool ungrouped;
-  const RdgenNewDeviceDetails({Key? key, required this.age, required this.ungrouped}) : super(key: key);
+  final bool inline;
+  const RdgenNewDeviceDetails({Key? key, required this.age, required this.ungrouped, this.inline = false}) : super(key: key);
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 6),
-    child: Column(mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(age, maxLines: 1, overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 11, height: 1.1, color: Theme.of(context).textTheme.bodySmall?.color)),
-        if (ungrouped) Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-          decoration: BoxDecoration(color: const Color(0x22D29922),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: const Color(0xFFD29922))),
-          child: Text(translate('No organization'), maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 10, height: 1.1, color: Color(0xFFEAB84B)))),
-      ]));
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).textTheme.bodySmall?.color;
+    final amber = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFEAB84B) : const Color(0xFF936310);
+    Widget item(IconData icon, String text, Color? color) => Row(
+      mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 13, color: color), const SizedBox(width: 4),
+        Flexible(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 11, height: 1.1, color: color))),
+      ]);
+    final time = item(Icons.schedule_outlined, age, muted);
+    final organization = item(Icons.apartment_outlined, translate('No organization'), amber);
+    final divider = Container(width: 1, height: 14, color: Theme.of(context).dividerColor.withOpacity(0.3));
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: inline ? null : BoxDecoration(
+        color: Theme.of(context).colorScheme.background,
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.2))),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(6))),
+      child: LayoutBuilder(builder: (context, constraints) {
+        if (inline) return Row(children: [
+          if (ungrouped) Expanded(child: organization) else const Spacer(),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: divider),
+          Expanded(child: time),
+        ]);
+        if (!ungrouped) return Align(alignment: Alignment.centerLeft, child: time);
+        if (constraints.maxWidth >= 204 * MediaQuery.textScalerOf(context).scale(11) / 11) return Row(children: [
+          Expanded(flex: 11, child: time),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: divider),
+          Expanded(flex: 12, child: organization),
+        ]);
+        // At increased text scale, wrap within the same strip rather than
+        // overlap or shrink the text on native 220px tiles.
+        return Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Align(alignment: Alignment.centerLeft, child: time),
+          const SizedBox(height: 3),
+          Align(alignment: Alignment.centerRight, child: organization),
+        ]);
+      }));
+  }
+}
+
+class RdgenNewDeviceCount extends StatelessWidget {
+  final int count;
+  final bool selected;
+  const RdgenNewDeviceCount({Key? key, required this.count, required this.selected}) : super(key: key);
+  @override
+  Widget build(BuildContext context) {
+    if (count <= 0) return const SizedBox.shrink();
+    final color = selected ? const Color(0xFFEAB84B) : const Color(0xFFD29922);
+    return Container(
+      constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(color: color.withOpacity(selected ? 0.22 : 0.12),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: color.withOpacity(selected ? 0.55 : 0.35))),
+      child: Text('$count', textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 12, height: 1.15, fontWeight: FontWeight.w700, color: color)));
+  }
 }
