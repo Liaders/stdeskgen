@@ -210,6 +210,8 @@ def _local_status(build_id, download):
         except LocalBuildError as exc:
             record.update(download_status='error', download_error=str(exc))
     _save(record)
+    from .build_downloads import checked_download_status
+    record = checked_download_status(record)
     return {key: record.get(key) for key in ('id', 'status', 'conclusion', 'log_url', 'cleaned', 'cleanup_pending', 'download_status', 'download_error', 'download_directory')}
 
 

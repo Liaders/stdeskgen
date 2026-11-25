@@ -13,7 +13,7 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
 
-from .build_downloads import library, library_root, find_installer, detect_platform
+from .build_downloads import library, library_root, find_installer, detect_platform, checked_download_status
 from .build_monitor import start
 from .local_build import recent_local_builds, get_local_record, _save
 from .constructor_version import revision
@@ -38,7 +38,7 @@ def builds(request):
     if not local(request): return HttpResponseForbidden('Local only')
     start()
     records = [{k: r.get(k) for k in ('id', 'filename', 'platform', 'app_version', 'version', 'run_id', 'status', 'conclusion', 'log_url', 'download_status', 'download_error', 'download_directory', 'started_at', 'finished_at')} for r in recent_local_builds(limit=None)]
-    return JsonResponse({'builds': records})
+    return JsonResponse({'builds': [checked_download_status(r) for r in records]})
 
 
 def installers(request):

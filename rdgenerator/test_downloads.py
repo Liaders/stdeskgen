@@ -14,6 +14,22 @@ from .build_downloads import library
 
 
 class DownloadsTests(SimpleTestCase):
+    def test_deleted_installer_is_not_reported_downloaded_or_skipped_on_retry(self):
+        from .build_downloads import checked_download_status, download_build
+        from .local_build import LocalBuildError
+        with tempfile.TemporaryDirectory() as directory, override_settings(BASE_DIR=Path(directory)):
+            folder = Path(directory)/'downloads'/'build-one'
+            folder.mkdir(parents=True)
+            installer = folder/'StatusDesk.exe'
+            installer.write_bytes(b'installer')
+            (folder/'library.json').write_text(json.dumps([{'relative_path':'build-one/StatusDesk.exe','size':9}]))
+            record = {'id':'build-one','run_id':1,'download_status':'completed'}
+            self.assertEqual(checked_download_status(record)['download_status'],'completed')
+            installer.unlink()
+            self.assertEqual(checked_download_status(record)['download_status'],'error')
+            with self.assertRaises(LocalBuildError):
+                download_build(record, None, lambda *args, **kwargs: {'artifacts':[]})
+
     def archive(self, bad=False):
         buffer = io.BytesIO()
         binary = bytearray(256)

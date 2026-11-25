@@ -16,6 +16,27 @@ def library_root():
     return Path(settings.BASE_DIR) / 'downloads'
 
 
+def downloaded_files_exist(build_id):
+    root = library_root().resolve()
+    try:
+        entries = json.loads((root / build_id / 'library.json').read_text(encoding='utf-8'))
+        if not isinstance(entries, list) or not entries: return False
+        for entry in entries:
+            path = (root / entry['relative_path']).resolve()
+            if not path.is_relative_to(root) or not path.is_file() or path.stat().st_size != entry['size']:
+                return False
+        return True
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
+def checked_download_status(record):
+    record = dict(record)
+    if record.get('download_status') == 'completed' and not downloaded_files_exist(record['id']):
+        record.update(download_status='error', download_error='Файлы сборки удалены или отсутствуют. Повторите скачивание.')
+    return record
+
+
 def detect_platform(path, artifact=''):
     if path.suffix in ('.exe', '.msi'):
         if path.suffix == '.exe':
@@ -49,7 +70,7 @@ def download_build(record, session, request):
     with _lock:
         destination = library_root() / record['id']
         marker = destination / 'library.json'
-        if marker.exists():
+        if downloaded_files_exist(record['id']):
             record.update(download_status='completed', download_directory=str(destination))
             return
         artifacts = request(session, 'GET', f"/actions/runs/{record['run_id']}/artifacts", params={'per_page': 100})['artifacts']
