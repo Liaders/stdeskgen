@@ -164,14 +164,14 @@ class RdgenNewDeviceCount extends StatelessWidget {
     if (count <= 0) return const SizedBox.shrink();
     final color = selected ? const Color(0xFFEAB84B) : const Color(0xFFD29922);
     return Padding(padding: const EdgeInsets.only(top: 1), child: Container(
-      height: MediaQuery.textScalerOf(context).scale(11) + 2,
-      constraints: const BoxConstraints(minWidth: 14),
-      padding: const EdgeInsets.symmetric(horizontal: 3),
+      height: MediaQuery.textScalerOf(context).scale(13) + 2,
+      constraints: const BoxConstraints(minWidth: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(color: color.withOpacity(selected ? 0.22 : 0.12),
-        borderRadius: BorderRadius.circular(3),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withOpacity(selected ? 0.55 : 0.35))),
       child: Center(widthFactor: 1, child: Transform.translate(
         offset: const Offset(0, 0.5), child: Text('$count', textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 11, height: 1, fontWeight: FontWeight.w700, color: color))))));
+        style: TextStyle(fontSize: 13, height: 1, fontWeight: FontWeight.w700, color: color))))));
   }
 }
