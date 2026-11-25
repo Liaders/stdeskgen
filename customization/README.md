@@ -142,6 +142,12 @@ at enlarged text scales its contents wrap to two lines. List layout reserves
 a separate right region before the original device menu, without changing row
 height. Metadata never overlays the native name/ID.
 
+Selecting New devices always refreshes the authorized device snapshot in the
+background, even when GroupModel is already initialized. Existing cached rows
+remain visible. Ordinary entry retains the twelve-hour dictionary cache; the
+manual refresh button still forces dictionary refresh. Concurrent loads share
+the existing refresh gate rather than starting duplicate requests.
+
 Successful assignments refresh one device's organization memberships. If that
 device is absent from the authorized peers snapshot, refresh peers through the
 existing API while retaining the cached dictionaries. Notify peer views and save

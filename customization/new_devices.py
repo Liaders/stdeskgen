@@ -69,7 +69,7 @@ def add_new_devices(root, edits, replace):
         ? '2' : bind.getLocalFlutterOption(k: kOptionPeerCardUiType);''')
     replace(page, "import 'rdgen_organizations.dart';", "import 'rdgen_organizations.dart';\nimport 'rdgen_new_devices.dart';")
     replace(page, '  ];\n  RelativeRect?', '''    _TabEntry(RdgenNewDevices(menuPadding: _menuPadding()),
-      ({dynamic hint}) => gFFI.groupModel.pull(force: hint == null, rdgenCatalog: hint == null)),
+      ({dynamic hint}) => gFFI.groupModel.pull(force: true, rdgenCatalog: hint == null)),
   ];
   RelativeRect?''')
     # Wrap switch bar in one reactive clock: count/colour work in both modes.

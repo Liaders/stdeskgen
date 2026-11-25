@@ -1,5 +1,6 @@
 from pathlib import Path
 import shutil
+import re
 import subprocess
 import tempfile
 import unittest
@@ -51,6 +52,25 @@ Future<void> main() async {
             path=root/'rollout.dart'; path.write_text(harness,encoding='utf-8')
             subprocess.run([shutil.which('dart'),str(path)],check=True,capture_output=True,timeout=60)
             page=(root/'flutter/lib/common/widgets/peer_tab_page.dart').read_text(encoding='utf-8')
+            callback=re.search(r'_TabEntry\(RdgenNewDevices\(menuPadding: _menuPadding\(\)\),\s*(\(\{dynamic hint\}\) => .*?)\),',page).group(1)
+            refresh_test='''class Group {
+ bool refreshed=false, catalog=false;
+ Future<void> pull({bool force=false, bool rdgenCatalog=false}) async {
+  refreshed=force; catalog=rdgenCatalog;
+ }
+}
+class FFI { final groupModel=Group(); }
+final gFFI=FFI();
+Future<void> main() async {
+ final load=CALLBACK;
+ await load(hint:false);
+ if(!gFFI.groupModel.refreshed || gFFI.groupModel.catalog) throw StateError('tab entry must refresh devices without forcing dictionaries');
+ await load();
+ if(!gFFI.groupModel.refreshed || !gFFI.groupModel.catalog) throw StateError('manual refresh must include dictionaries');
+}
+'''.replace('CALLBACK',callback)
+            refresh_path=root/'refresh_on_entry.dart'; refresh_path.write_text(refresh_test,encoding='utf-8')
+            subprocess.run([shutil.which('dart'),str(refresh_path)],check=True,capture_output=True,timeout=60)
             self.assertIn('Icons.auto_awesome',model)
             self.assertIn('RdgenNewDeviceCount(count: newCount, selected: selected)',page)
             self.assertIn('Color(0xFFD29922)',page)
