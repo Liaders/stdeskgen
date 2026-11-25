@@ -16,7 +16,7 @@ class NewDevicesTests(unittest.TestCase):
             apply(root, '1.5.1', {'schema_version': 1, 'organizations': True,
                                  'colleagues': True, 'navigation': 'icons'})
             model = (root/'flutter/lib/models/peer_tab_model.dart').read_text(encoding='utf-8')
-            start = model.index("    if (bind.getLocalFlutterOption(k: 'rdgen-peer-tabs-new-devices-v1')")
+            start = model.index("    if (bind.getLocalFlutterOption(k: 'rdgen-peer-tabs-new-devices-v2')")
             constructor = model[start:model.index('    // init currentTab', start)]
             start = model.index('  Future<void> _rdgenSaveNewDeviceTabs()')
             method = model[start:model.index('  setCurrentTab(int index)', start)]
@@ -24,7 +24,7 @@ class NewDevicesTests(unittest.TestCase):
 const kOptionPeerTabOrder = 'order', kOptionPeerTabVisible = 'visible';
 void debugPrint(Object? x) {}
 class Bind {
- final values = <String,String>{'rdgen-navigation-style-v1':'icons'};
+ final values = <String,String>{'rdgen-navigation-style-v1':'icons', 'rdgen-peer-tabs-new-devices-v1':'Y'};
  String getLocalFlutterOption({required String k}) => values[k] ?? '';
  Future<void> setLocalFlutterOption({required String k, required String v}) async { values[k]=v; }
 }
@@ -47,9 +47,18 @@ Future<void> main() async {
             path=root/'rollout.dart'; path.write_text(harness,encoding='utf-8')
             subprocess.run([shutil.which('dart'),str(path)],check=True,capture_output=True,timeout=60)
             page=(root/'flutter/lib/common/widgets/peer_tab_page.dart').read_text(encoding='utf-8')
-            self.assertIn('Icons.fiber_new_outlined',model)
+            self.assertIn('Icons.auto_awesome',model)
             self.assertIn("Text('$newCount'",page)
             self.assertIn('Color(0xFFD29922)',page)
+            self.assertIn('Color(0xFFEAB84B)',page)
+            self.assertIn('fontWeight: FontWeight.w700',page)
+            self.assertIn('model.currentTab == PeerTabIndex.recent.index || model.currentTab == 7',page)
+            view=(root/'flutter/lib/common/widgets/peers_view.dart').read_text(encoding='utf-8')
+            self.assertIn('height: 140 + widget.rdgenCardFooterHeight',view)
+            self.assertIn('height: 42 + widget.rdgenCardFooterHeight',view)
+            card=(root/'flutter/lib/common/widgets/rdgen_new_devices.dart').read_text(encoding='utf-8')
+            self.assertNotIn('Positioned(',card)
+            self.assertIn('isConfirmedUngrouped',card)
             for name in ['common/widgets/peer_tab_page.dart','common/widgets/peers_view.dart','common/widgets/rdgen_new_devices.dart','models/peer_model.dart']:
                 subprocess.run([shutil.which('dart'),'format','--output=none',str(root/'flutter/lib'/name)],check=True,capture_output=True,timeout=60)
 

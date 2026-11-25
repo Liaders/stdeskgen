@@ -44,6 +44,10 @@ class RdgenOrganizationData {
         null, group.name, peersByGroup[group.name] ?? <String>{})).toList();
   }
 
+  bool isConfirmedUngrouped(String id, String primaryGroup) =>
+      _supported.value && _token == bind.mainGetLocalOption(key: 'access_token') &&
+      primaryGroup.trim().isEmpty && !_rows.any((group) => group.peerIds.contains(id));
+
   bool _authorized(String token) => gFFI.userModel.isLogin &&
       token == bind.mainGetLocalOption(key: 'access_token');
 

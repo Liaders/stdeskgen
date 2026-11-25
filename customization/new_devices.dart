@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../../common.dart';
 import '../../models/peer_model.dart';
 import '../../models/peer_tab_model.dart';
@@ -67,15 +68,63 @@ class RdgenNewDevices extends StatelessWidget {
 class _RdgenNewPeers extends BasePeersView {
   _RdgenNewPeers({required DateTime now, EdgeInsets? menuPadding}) : super(
     peerTabIndex: PeerTabIndex.group,
+    rdgenCardFooterHeight: 38,
     peerFilter: (peer) => rdgenIsNewDevice(peer, now),
     rdgenComparator: (a, b) {
       final date = b.rdgenCreatedAt!.compareTo(a.rdgenCreatedAt!);
       return date != 0 ? date : a.id.compareTo(b.id);
     },
-    peerCardBuilder: (peer) => Stack(children: [
-      RdgenDeviceOrganizationOrigin(child: MyGroupPeerCard(peer: peer, menuPadding: menuPadding)),
-      Positioned(right: 38, bottom: 4, child: IgnorePointer(child: Text(
-        rdgenDeviceAge(peer.rdgenCreatedAt!, now),
-        style: TextStyle(fontSize: 11, color: Colors.grey)))),
-    ]));
+    peerCardBuilder: (peer) => _RdgenNewDeviceCard(peer: peer, now: now, menuPadding: menuPadding));
+}
+
+class _RdgenNewDeviceCard extends StatelessWidget {
+  final Peer peer;
+  final DateTime now;
+  final EdgeInsets? menuPadding;
+  const _RdgenNewDeviceCard({required this.peer, required this.now, this.menuPadding});
+
+  @override
+  Widget build(BuildContext context) => Obx(() {
+    final list = peerCardUiType.value == PeerUiType.list;
+    final ungrouped = gFFI.groupModel.rdgenOrganizations
+        .isConfirmedUngrouped(peer.id, peer.device_group_name);
+    final card = RdgenDeviceOrganizationOrigin(
+        child: MyGroupPeerCard(peer: peer, menuPadding: menuPadding));
+    final details = RdgenNewDeviceDetails(
+        age: rdgenDeviceAge(peer.rdgenCreatedAt!, now), ungrouped: ungrouped);
+    // Reserve real layout space for metadata; never paint it over native cards.
+    if (list) return Row(children: [
+      Expanded(child: card),
+      SizedBox(width: 158, child: details),
+    ]);
+    return LayoutBuilder(builder: (context, constraints) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (constraints.hasBoundedHeight) Expanded(child: card)
+        else SizedBox(height: peerCardUiType.value == PeerUiType.grid ? 140 : 42, child: card),
+        SizedBox(height: 38, child: details),
+      ]));
+  });
+}
+
+class RdgenNewDeviceDetails extends StatelessWidget {
+  final String age;
+  final bool ungrouped;
+  const RdgenNewDeviceDetails({Key? key, required this.age, required this.ungrouped}) : super(key: key);
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 6),
+    child: Column(mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(age, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 11, height: 1.1, color: Theme.of(context).textTheme.bodySmall?.color)),
+        if (ungrouped) Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+          decoration: BoxDecoration(color: const Color(0x22D29922),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: const Color(0xFFD29922))),
+          child: Text(translate('No organization'), maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 10, height: 1.1, color: Color(0xFFEAB84B)))),
+      ]));
 }

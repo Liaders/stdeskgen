@@ -11,7 +11,7 @@ def add_new_devices(root, edits, replace):
     index = count
     replace(model, f'maxTabCount = {count};', f'maxTabCount = {count+1};')
     replace(model, "    'Organizations',", "    'Organizations',\n    'New devices',")
-    replace(model, '    Icons.apartment_outlined,', '    Icons.apartment_outlined,\n    Icons.fiber_new_outlined,')
+    replace(model, '    Icons.apartment_outlined,', '    Icons.apartment_outlined,\n    Icons.auto_awesome,')
     replace(model, '  ]);\n  final List<bool> _isVisible',
             '    !(bind.isDisableGroupPanel() || bind.isDisableAccount()),\n  ]);\n  final List<bool> _isVisible')
     # Deliberately reset visibility AND order once for this rollout. Do not touch
@@ -19,7 +19,7 @@ def add_new_devices(root, edits, replace):
     order = [0, 3, 1, count-1] + ([5] if count == 7 else []) + [index, 2, 4]
     visible = [True] * (count+1)
     visible[2] = visible[4] = False
-    marker = 'rdgen-peer-tabs-new-devices-v1'
+    marker = 'rdgen-peer-tabs-new-devices-v2'
     replace(model, '    // init currentTab', f'''    if (bind.getLocalFlutterOption(k: '{marker}') != 'Y') {{
       orders.setAll(0, {order});
       _isVisible.setAll(0, {json.dumps(visible)});
@@ -51,6 +51,11 @@ def add_new_devices(root, edits, replace):
     text = text.replace('        peerFilter: peerFilter,', '        peerFilter: peerFilter,\n        rdgenComparator: rdgenComparator,')
     text = text.replace('    if (widget.peers.loadEvent != LoadEvent.recent) {',
         '    if (widget.rdgenComparator != null) {\n      peers.sort(widget.rdgenComparator);\n    } else if (widget.peers.loadEvent != LoadEvent.recent) {')
+    text = text.replace('  final Comparator<Peer>? rdgenComparator;', '  final Comparator<Peer>? rdgenComparator;\n  final double rdgenCardFooterHeight;')
+    text = re.sub(r'(?m)^(\s*)this.rdgenComparator,$', r'\1this.rdgenComparator,\n\1this.rdgenCardFooterHeight = 0,', text)
+    text = text.replace('        rdgenComparator: rdgenComparator,', '        rdgenComparator: rdgenComparator,\n        rdgenCardFooterHeight: rdgenCardFooterHeight,')
+    for height in (140, 42):
+        text = text.replace(f'height: {height}, child: visibilityChild', f'height: {height} + widget.rdgenCardFooterHeight, child: visibilityChild')
     edits[path] = text
     page = 'flutter/lib/common/widgets/peer_tab_page.dart'
     replace(page, "import 'rdgen_organizations.dart';", "import 'rdgen_organizations.dart';\nimport 'rdgen_new_devices.dart';")
@@ -64,7 +69,7 @@ def add_new_devices(root, edits, replace):
       gFFI.groupModel.peers.where((p) => rdgenIsNewDevice(p, now)).length)));
 
   Widget _rdgenSwitchBar(BuildContext context, DateTime now, int newCount) {''')
-    replace(page, '          final color = selected', f'          final color = t == {index} && newCount > 0 ? const Color(0xFFD29922) : selected')
+    replace(page, '          final color = selected', f'          final color = t == {index} && newCount > 0 ? (selected ? const Color(0xFFEAB84B) : const Color(0xFFD29922)) : selected')
     path = root/page
     text = edits[path]
     anchor = 'child: (isDesktop && _rdgenTextTabs'
@@ -78,14 +83,16 @@ def add_new_devices(root, edits, replace):
                           if (t == {index} && newCount > 0)
                             Padding(padding: const EdgeInsets.only(left: 4),
                               child: Transform.translate(offset: Offset(0, _rdgenTextTabs ? 5 : 0),
-                                child: Text('$newCount', style: TextStyle(color: color, fontSize: 12)))),
+                                child: Text('$newCount', style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)))),
                         ])''' + text[end:]
     text, n = re.subn(r'(offstage: model.currentTab != index.index && )(.+),',
         lambda m: m[1] + f'!(index == PeerTabIndex.group && model.currentTab == {index}) && ' + m[2] + ',', text)
     if n != 1: raise ValueError('Incompatible new devices refresh control')
+    text = text.replace('offstage: model.currentTab == PeerTabIndex.recent.index,', f'offstage: model.currentTab == PeerTabIndex.recent.index || model.currentTab == {index},')
+    text = text.replace('if (model.currentTab != PeerTabIndex.recent.index) PeerSortDropdown(),', f'if (model.currentTab != PeerTabIndex.recent.index && model.currentTab != {index}) PeerSortDropdown(),')
     edits[path] = text
     edits[root/'flutter/lib/common/widgets/rdgen_new_devices.dart'] = Path(__file__).with_name('new_devices.dart').read_text(encoding='utf-8')
-    translations = {'New devices': 'Новые', 'Just now': 'Только что', 'Minutes ago': 'минут назад', 'Hours ago': 'часов назад'}
+    translations = {'New devices': 'Новые', 'Just now': 'Только что', 'Minutes ago': 'минут назад', 'Hours ago': 'часов назад', 'No organization': 'Без организации'}
     for path in (root/'src/lang').glob('*.rs'):
         if path.name == 'en.rs': continue
         text = edits.get(path, path.read_text(encoding='utf-8'))
