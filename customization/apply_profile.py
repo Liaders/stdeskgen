@@ -197,6 +197,9 @@ def apply(root, version, profile, check=False, desktop_navigation=True):
     if desktop_navigation:
         from navigation import add_navigation
         add_navigation(root, edits, replace, navigation)
+    if desktop_navigation and profile.get('organizations', False):
+        from new_devices import add_new_devices
+        add_new_devices(root, edits, replace)
     if desktop_navigation and profile.get("device_names", False):
         path = root/"flutter/lib/models/rdgen_device_display_name.dart"
         edits[path] = edits[path].replace("  if (localAlias.trim().isNotEmpty) return localAlias.trim();\n", "")

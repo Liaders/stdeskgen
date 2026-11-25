@@ -133,16 +133,21 @@ import 'rdgen_device_refresh.dart';""")
             ? {...e.toGroupCacheJson(), 'loginName': e.loginName, 'alias': e.alias}
             : (""" + peer_cache + ")).toList()")
     replace(model, '    peersModel = Peers(', """    if (isDesktop) rdgenRefreshVisibleDevice = (id) async {
-      final peer = peers.where((p) => p.id == id).toList();
       await rdgenOrganizations.refreshDevice(id);
-      if (peer.isNotEmpty) {
-        final alias = await rdgenOrganizations.readAlias(id);
-        if (alias != null) {
-          peer.single.alias = alias;
-          peers.refresh();
-          _callbackPeerUpdate();
-          _saveCache();
+      // Assignment can make a previously inaccessible device visible. Reload
+      // the authorized peers only in that case; keep the organization catalog.
+      if (!peers.any((p) => p.id == id)) await pull(force: true);
+      final peer = peers.where((p) => p.id == id).toList();
+      try {
+        if (peer.isNotEmpty) {
+          final alias = await rdgenOrganizations.readAlias(id);
+          if (alias != null) peer.single.alias = alias;
         }
+      } finally {
+        peers.refresh();
+        _callbackPeerUpdate();
+        _saveCache();
+        platformFFI.tryHandle({'name': LoadEvent.group});
       }
     };
     peersModel = Peers(""")

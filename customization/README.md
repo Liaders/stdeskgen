@@ -113,6 +113,29 @@ the new order and then `rdgen-peer-tab-order-v1-7` (or `-6` without Colleagues).
 Later launches use the normal saved user order; the same migration is not applied
 again on future updates. A failed write leaves the marker unset for a later retry.
 
+The newer `rdgen-peer-tabs-new-devices-v1` rollout supersedes this initial order
+once: Recent sessions, Address book, Favorites, Organizations, Colleagues, New
+devices; Discovered and Accessible devices are unchecked. Subsequent launches
+and updates preserve the user's changes. Text/icon preference is never reset.
+
+## New devices (desktop)
+
+The Organizations profile includes a groups-free New devices view over the same
+authorized group peers, with identical device cards and organization actions.
+It requires `created_at` (ISO 8601 with timezone) in GET `/api/peers`; missing or
+invalid dates are excluded rather than inferred from the local first-seen time.
+Dates survive the existing account/server-scoped display cache. Devices younger
+than 24 hours are always sorted newest first; future dates are excluded.
+A lightweight 30-second UI tick refreshes relative ages and expiry without
+network requests. A nonzero count and tab label/icon use `#D29922` in both text
+and icon navigation modes. Windows x32/Sciter and Android are unchanged.
+
+Successful assignments refresh one device's organization memberships. If that
+device is absent from the authorized peers snapshot, refresh peers through the
+existing API while retaining the cached dictionaries. Notify peer views and save
+the snapshot even when no alias changed. Server implementation/deployment is a
+separate task; see `NEW_DEVICES_API_RU.md`.
+
 ## ARM64 AppImage archive keys
 The AppImage staging script exports the Ubuntu 2012/2018 archive public keys from the runner's installed ubuntu-keyring package, checks their full fingerprints, and replaces all four online keyserver URLs with an ASCII-armored local file URI. ARM64 package signatures are required; suites and payload packages are unchanged. The same packaging script now uses the shared reachable-mirror helper instead of forcing archive.ubuntu.com. CI verifies signed focal ARM64 metadata with the exported keys.
 

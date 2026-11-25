@@ -1,0 +1,95 @@
+"""Desktop new-device view; creation time is server-owned, never first-seen locally."""
+import json
+import re
+from pathlib import Path
+
+
+def add_new_devices(root, edits, replace):
+    model = 'flutter/lib/models/peer_tab_model.dart'
+    source = edits[root/model]
+    count = int(re.search(r'maxTabCount = (\d+);', source).group(1))
+    index = count
+    replace(model, f'maxTabCount = {count};', f'maxTabCount = {count+1};')
+    replace(model, "    'Organizations',", "    'Organizations',\n    'New devices',")
+    replace(model, '    Icons.apartment_outlined,', '    Icons.apartment_outlined,\n    Icons.fiber_new_outlined,')
+    replace(model, '  ]);\n  final List<bool> _isVisible',
+            '    !(bind.isDisableGroupPanel() || bind.isDisableAccount()),\n  ]);\n  final List<bool> _isVisible')
+    # Deliberately reset visibility AND order once for this rollout. Do not touch
+    # rdgen-navigation-style-v1, which belongs to the user's text/icon preference.
+    order = [0, 3, 1, count-1] + ([5] if count == 7 else []) + [index, 2, 4]
+    visible = [True] * (count+1)
+    visible[2] = visible[4] = False
+    marker = 'rdgen-peer-tabs-new-devices-v1'
+    replace(model, '    // init currentTab', f'''    if (bind.getLocalFlutterOption(k: '{marker}') != 'Y') {{
+      orders.setAll(0, {order});
+      _isVisible.setAll(0, {json.dumps(visible)});
+      _rdgenSaveNewDeviceTabs();
+    }}
+    // init currentTab''')
+    replace(model, '  setCurrentTab(int index) {', f'''  Future<void> _rdgenSaveNewDeviceTabs() async {{
+    try {{
+      await bind.setLocalFlutterOption(k: kOptionPeerTabOrder, v: jsonEncode(orders));
+      await bind.setLocalFlutterOption(k: kOptionPeerTabVisible, v: jsonEncode(_isVisible));
+      await bind.setLocalFlutterOption(k: '{marker}', v: 'Y');
+    }} catch (e) {{ debugPrint('Failed to save new device tab preferences: $e'); }}
+  }}
+
+  setCurrentTab(int index) {{''')
+    peer = 'flutter/lib/models/peer_model.dart'
+    replace(peer, '  String note;', '  String note;\n  DateTime? rdgenCreatedAt;')
+    replace(peer, "        sameServer = json['same_server'];", "        sameServer = json['same_server'],\n        rdgenCreatedAt = DateTime.tryParse(json['created_at'] is String ? json['created_at'] : '');")
+    replace(peer, '  Map<String, dynamic> toGroupCacheJson() {\n    return <String, dynamic>{',
+            "  Map<String, dynamic> toGroupCacheJson() {\n    return <String, dynamic>{\n      'created_at': rdgenCreatedAt?.toUtc().toIso8601String(),")
+    replace('flutter/lib/models/group_model.dart', '                final peer = PeerPayload.toPeer(peerPayload);',
+            "                final peer = PeerPayload.toPeer(peerPayload);\n                peer.rdgenCreatedAt = DateTime.tryParse(p['created_at'] is String ? p['created_at'] : '');")
+    # An optional comparator keeps all upstream search, view modes, selection and
+    # online updates; other tabs retain their original sorting.
+    path = root/'flutter/lib/common/widgets/peers_view.dart'
+    text = edits.get(path, path.read_text(encoding='utf-8'))
+    text = text.replace('  final PeerFilter? peerFilter;', '  final PeerFilter? peerFilter;\n  final Comparator<Peer>? rdgenComparator;')
+    text = re.sub(r'(?m)^(\s*)this.peerFilter,$', r'\1this.peerFilter,\n\1this.rdgenComparator,', text)
+    text = text.replace('        peerFilter: peerFilter,', '        peerFilter: peerFilter,\n        rdgenComparator: rdgenComparator,')
+    text = text.replace('    if (widget.peers.loadEvent != LoadEvent.recent) {',
+        '    if (widget.rdgenComparator != null) {\n      peers.sort(widget.rdgenComparator);\n    } else if (widget.peers.loadEvent != LoadEvent.recent) {')
+    edits[path] = text
+    page = 'flutter/lib/common/widgets/peer_tab_page.dart'
+    replace(page, "import 'rdgen_organizations.dart';", "import 'rdgen_organizations.dart';\nimport 'rdgen_new_devices.dart';")
+    replace(page, '  ];\n  RelativeRect?', '''    _TabEntry(RdgenNewDevices(menuPadding: _menuPadding()),
+      ({dynamic hint}) => gFFI.groupModel.pull(force: hint == null, rdgenCatalog: hint == null)),
+  ];
+  RelativeRect?''')
+    # Wrap switch bar in one reactive clock: count/colour work in both modes.
+    replace(page, '  Widget _createSwitchBar(BuildContext context) {', '''  Widget _createSwitchBar(BuildContext context) => RdgenNewDeviceClock(
+    builder: (now) => Obx(() => _rdgenSwitchBar(context, now,
+      gFFI.groupModel.peers.where((p) => rdgenIsNewDevice(p, now)).length)));
+
+  Widget _rdgenSwitchBar(BuildContext context, DateTime now, int newCount) {''')
+    replace(page, '          final color = selected', f'          final color = t == {index} && newCount > 0 ? const Color(0xFFD29922) : selected')
+    path = root/page
+    text = edits[path]
+    anchor = 'child: (isDesktop && _rdgenTextTabs'
+    start = text.index(anchor)
+    end = text.index('\n', text.index(': Icon(model.tabIcon(t), color: color))', start))
+    text = text[:start] + f'''child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          (isDesktop && _rdgenTextTabs
+                            ? Transform.translate(offset: const Offset(0, 5),
+                                child: Text(model.tabTooltip(t), style: TextStyle(color: color)))
+                            : Icon(model.tabIcon(t), color: color)),
+                          if (t == {index} && newCount > 0)
+                            Padding(padding: const EdgeInsets.only(left: 4),
+                              child: Transform.translate(offset: Offset(0, _rdgenTextTabs ? 5 : 0),
+                                child: Text('$newCount', style: TextStyle(color: color, fontSize: 12)))),
+                        ])''' + text[end:]
+    text, n = re.subn(r'(offstage: model.currentTab != index.index && )(.+),',
+        lambda m: m[1] + f'!(index == PeerTabIndex.group && model.currentTab == {index}) && ' + m[2] + ',', text)
+    if n != 1: raise ValueError('Incompatible new devices refresh control')
+    edits[path] = text
+    edits[root/'flutter/lib/common/widgets/rdgen_new_devices.dart'] = Path(__file__).with_name('new_devices.dart').read_text(encoding='utf-8')
+    translations = {'New devices': 'Новые', 'Just now': 'Только что', 'Minutes ago': 'минут назад', 'Hours ago': 'часов назад'}
+    for path in (root/'src/lang').glob('*.rs'):
+        if path.name == 'en.rs': continue
+        text = edits.get(path, path.read_text(encoding='utf-8'))
+        anchor = '    ].iter().cloned().collect();'
+        prefix, suffix = text.split(anchor)
+        entries = ''.join('\n        (' + json.dumps(k) + ', ' + json.dumps(v if path.name == 'ru.rs' else '', ensure_ascii=False) + '),' for k,v in translations.items() if '"'+k+'"' not in text)
+        edits[path] = prefix.rstrip().removesuffix(',') + ',' + entries + '\n' + anchor + suffix

@@ -193,7 +193,7 @@ Future<void> main() async {
                 self.assertEqual(view.count("key: ValueKey('$selected/$search')"), 2)
                 model = (root/'flutter/lib/models/peer_tab_model.dart').read_text(encoding='utf-8')
                 index = 6 if colleagues else 5
-                self.assertIn(f'maxTabCount = {index+1};', model)
+                self.assertIn(f'maxTabCount = {index+2};', model)
                 self.assertIn(f'if (decodeList.length == {index}) decodeList.add(true);', model)
                 self.assertIn(f'if (decodeList.length == {index}) decodeList.add({index});', model)
                 self.assertIn('Icons.apartment_outlined', model)
@@ -209,9 +209,9 @@ Future<void> main() async {
             apply(root, '1.5.1', {'schema_version': 1, 'organizations': True, 'colleagues': True})
             model = (root/'flutter/lib/models/peer_tab_model.dart').read_text(encoding='utf-8')
             start = model.index('    // rdgen initial tab order')
-            constructor = model[start:model.index('    // init currentTab', start)]
+            constructor = model[start:model.index("    if (bind.getLocalFlutterOption(k: 'rdgen-peer-tabs-new-devices-v1')", start)]
             start = model.index('  Future<void> _rdgenSaveInitialTabOrder()')
-            method = model[start:model.index('  setCurrentTab(int index)', start)]
+            method = model[start:model.index('  Future<void> _rdgenSaveNewDeviceTabs()', start)]
             self.assertIn('orders.setAll(0, [0, 1, 6, 5, 2, 4, 3]);', constructor)
             self.assertNotIn('_isVisible', constructor+method)
             self.assertLess(method.index('k: kOptionPeerTabOrder'), method.index("v: 'Y'"))
