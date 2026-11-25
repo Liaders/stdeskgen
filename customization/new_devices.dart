@@ -170,8 +170,7 @@ class RdgenNewDeviceCount extends StatelessWidget {
       decoration: BoxDecoration(color: color.withOpacity(selected ? 0.22 : 0.12),
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withOpacity(selected ? 0.55 : 0.35))),
-      child: Center(widthFactor: 1, child: Transform.translate(
-        offset: const Offset(0, 0.5), child: Text('$count', textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 13, height: 1, fontWeight: FontWeight.w700, color: color))))));
+      child: Center(widthFactor: 1, child: Text('$count', textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 12, height: 1, fontWeight: FontWeight.w700, color: color)))));
   }
 }

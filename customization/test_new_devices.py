@@ -17,7 +17,7 @@ class NewDevicesTests(unittest.TestCase):
             apply(root, '1.5.1', {'schema_version': 1, 'organizations': True,
                                  'colleagues': True, 'navigation': 'icons'})
             model = (root/'flutter/lib/models/peer_tab_model.dart').read_text(encoding='utf-8')
-            start = model.index("    if (bind.getLocalFlutterOption(k: 'rdgen-peer-tabs-new-devices-v4')")
+            start = model.index("    if (bind.getLocalFlutterOption(k: 'rdgen-peer-tabs-new-devices-v5')")
             constructor = model[start:model.index('    // init currentTab', start)]
             start = model.index('  Future<void> _rdgenSaveNewDeviceTabs()')
             method = model[start:model.index('  setCurrentTab(int index)', start)]
@@ -25,7 +25,7 @@ class NewDevicesTests(unittest.TestCase):
 const kOptionPeerTabOrder = 'order', kOptionPeerTabVisible = 'visible', kOptionPeerCardUiType = 'view';
 void debugPrint(Object? x) {}
 class Bind {
- final values = <String,String>{'rdgen-navigation-style-v1':'icons', 'rdgen-peer-tabs-new-devices-v1':'Y', 'rdgen-peer-tabs-new-devices-v2':'Y', 'rdgen-peer-tabs-new-devices-v3':'Y'};
+ final values = <String,String>{'rdgen-navigation-style-v1':'icons', 'rdgen-peer-tabs-new-devices-v1':'Y', 'rdgen-peer-tabs-new-devices-v2':'Y', 'rdgen-peer-tabs-new-devices-v3':'Y', 'rdgen-peer-tabs-new-devices-v4':'Y'};
  String getLocalFlutterOption({required String k}) => values[k] ?? '';
  Future<void> setLocalFlutterOption({required String k, required String v}) async { values[k]=v; }
 }
