@@ -19,7 +19,7 @@ def add_new_devices(root, edits, replace):
     order = [0, 3, 1, count-1] + ([5] if count == 7 else []) + [index, 2, 4]
     visible = [True] * (count+1)
     visible[2] = visible[4] = False
-    marker = 'rdgen-peer-tabs-new-devices-v3'
+    marker = 'rdgen-peer-tabs-new-devices-v4'
     replace(model, '    // init currentTab', f'''    if (bind.getLocalFlutterOption(k: '{marker}') != 'Y') {{
       orders.setAll(0, {order});
       _isVisible.setAll(0, {json.dumps(visible)});

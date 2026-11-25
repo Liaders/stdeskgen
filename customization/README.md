@@ -113,11 +113,11 @@ the new order and then `rdgen-peer-tab-order-v1-7` (or `-6` without Colleagues).
 Later launches use the normal saved user order; the same migration is not applied
 again on future updates. A failed write leaves the marker unset for a later retry.
 
-The newer `rdgen-peer-tabs-new-devices-v3` rollout supersedes this initial order
+The newer `rdgen-peer-tabs-new-devices-v4` rollout supersedes this initial order
 once: Recent sessions, Address book, Favorites, Organizations, Colleagues, New
 devices; Discovered and Accessible devices are unchecked. Subsequent launches
 and updates preserve the user's changes. Text/icon preference is never reset.
-The v3 marker intentionally applies to clients that received the earlier v1/v2
+The v4 marker intentionally applies to clients that received the earlier v1/v2/v3
 New devices rollouts as well; it is constant across subsequent releases. It
 also sets the saved device view to list (`peer-card-ui-type = 2`) once. The
 first page render uses list while the asynchronous preferences write completes.
