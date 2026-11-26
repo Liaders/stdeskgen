@@ -1,4 +1,5 @@
-param([switch]$BuildOnly)
+param([switch]$BuildOnly, [switch]$Profile)
+if ($BuildOnly -and $Profile) { throw "Use either BuildOnly or Profile." }
 $ErrorActionPreference = 'Stop'
 $flutter = 'C:\src\flutter\bin\flutter.bat'
 if (-not (Test-Path $flutter)) { $flutter = (Get-Command flutter -ErrorAction Stop).Source }
@@ -18,7 +19,7 @@ try {
         Set-Content '.stand-build-drive' $locationKey
         & $flutter pub get
         if ($LASTEXITCODE -ne 0) { throw 'Flutter pub get failed.' }
-        if ($BuildOnly) { & $flutter build windows --release } else { & $flutter run -d windows --release }
+        if ($BuildOnly) { & $flutter build windows --release } elseif ($Profile) { & $flutter run -d windows --profile } else { & $flutter run -d windows --release }
         if ($LASTEXITCODE -ne 0) { throw 'Winter lab failed.' }
     } finally { Pop-Location }
 } finally {

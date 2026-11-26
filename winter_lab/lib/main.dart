@@ -19,9 +19,13 @@ class _WinterLabState extends State<WinterLab> {
   int particles = 24;
   int activeFps = 60;
   bool useTimer = true;
+  bool isolatePaint = true;
+  bool clipSnow = true;
+  bool overlay = false;
   @override
   Widget build(BuildContext context) => MaterialApp(
       debugShowCheckedModeBanner: false,
+      showPerformanceOverlay: overlay,
       theme: ThemeData(
           brightness: dark ? Brightness.dark : Brightness.light,
           colorSchemeSeed: const Color(0xffef7f1a),
@@ -95,14 +99,17 @@ class _WinterLabState extends State<WinterLab> {
                           child: SizedBox(
                               height: 32,
                               child: CustomPaint(painter: Ground())))),
-                if (mode == 2 || mode == 3 || mode == 4)
+                if (mode == 2 || mode == 3 || mode == 4 || mode == 5)
                   Positioned.fill(
                       child: IgnorePointer(
                           child: SnowLayer(
                               count: particles,
                               activeFps: activeFps,
-                              useTimer: useTimer,
-                              drawSnow: mode != 4,
+                              useTimer: mode == 5 || useTimer,
+                              requestPaint: mode != 5,
+                              isolatePaint: isolatePaint,
+                              clipSnow: clipSnow,
+                              drawSnow: mode == 2 || mode == 3,
                               key: ValueKey(
                                   "$particles/$activeFps/$mode/$useTimer")))),
               ]))),
@@ -120,14 +127,15 @@ class _WinterLabState extends State<WinterLab> {
                         spacing: 8,
                         runSpacing: 8,
                         children: List.generate(
-                            5,
+                            6,
                             (i) => ChoiceChip(
                                 label: Text([
                                   'Пустой интерфейс',
                                   'Статичное оформление',
                                   'Только снег',
                                   'Всё вместе',
-                                  'Кадры без рисования'
+                                  'Кадры без рисования',
+                                  'Только таймер'
                                 ][i]),
                                 selected: mode == i,
                                 onSelected: (_) => setState(() => mode = i)))),
@@ -168,6 +176,21 @@ class _WinterLabState extends State<WinterLab> {
                         'Активно: $activeFps кадров/с • Без фокуса: 30 • Скрыто: 0'),
                     const Text(
                         'Кадры без рисования: тот же vsync и уведомления перерисовки, но без расчёта движения и без команд рисования.'),
+                    SwitchListTile(
+                        title: const Text('Изолировать слой снега'),
+                        value: isolatePaint,
+                        onChanged: (v) => setState(() => isolatePaint = v)),
+                    SwitchListTile(
+                        title: const Text('Обрезать снег по панели'),
+                        value: clipSnow,
+                        onChanged: (v) => setState(() => clipSnow = v)),
+                    SwitchListTile(
+                        title: const Text(
+                            'График UI / Raster (отключить при замере CPU)'),
+                        value: overlay,
+                        onChanged: (v) => setState(() => overlay = v)),
+                    const Text(
+                        'Только таймер: без движения, уведомлений и рисования; выбор Ticker в этом режиме не применяется.'),
                     const SizedBox(height: 12),
                     const Text(
                         'Физики, накоплений и взаимодействия нет. Статичное оформление пока — простой тестовый сугроб; ёлку и зимний логотип добавим отдельными PNG после замеров.'),
@@ -251,11 +274,15 @@ class SnowLayer extends StatefulWidget {
   final int activeFps;
   final bool drawSnow;
   final bool useTimer;
+  final bool requestPaint, isolatePaint, clipSnow;
   const SnowLayer(
       {super.key,
       required this.count,
       this.activeFps = 60,
       this.useTimer = false,
+      this.requestPaint = true,
+      this.isolatePaint = true,
+      this.clipSnow = true,
       this.drawSnow = true});
   @override
   State<SnowLayer> createState() => _SnowLayerState();
@@ -293,6 +320,7 @@ class _SnowLayerState extends State<SnowLayer>
   }
 
   void step(int delta) {
+    if (!widget.requestPaint) return;
     if (widget.drawSnow) {
       field.advance(math.min(delta / 1000000, 0.1), size);
     } else {
@@ -340,10 +368,11 @@ class _SnowLayerState extends State<SnowLayer>
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
         size = c.biggest;
-        return RepaintBoundary(
-            child: ClipRect(
-                child: CustomPaint(
-                    painter: SnowPainter(field, drawSnow: widget.drawSnow))));
+        Widget layer =
+            CustomPaint(painter: SnowPainter(field, drawSnow: widget.drawSnow));
+        if (widget.clipSnow) layer = ClipRect(child: layer);
+        if (widget.isolatePaint) layer = RepaintBoundary(child: layer);
+        return layer;
       });
 }
 
