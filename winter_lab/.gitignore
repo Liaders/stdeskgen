@@ -1,0 +1,5 @@
+.dart_tool/
+build/
+windows/
+.flutter-plugins*
+.stand-build-drive
