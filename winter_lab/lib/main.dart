@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show PointMode;
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -17,6 +18,7 @@ class _WinterLabState extends State<WinterLab> {
   int mode = 0;
   int particles = 24;
   int activeFps = 60;
+  bool useTimer = true;
   @override
   Widget build(BuildContext context) => MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -99,8 +101,10 @@ class _WinterLabState extends State<WinterLab> {
                           child: SnowLayer(
                               count: particles,
                               activeFps: activeFps,
+                              useTimer: useTimer,
                               drawSnow: mode != 4,
-                              key: ValueKey("$particles/$activeFps/$mode")))),
+                              key: ValueKey(
+                                  "$particles/$activeFps/$mode/$useTimer")))),
               ]))),
           Expanded(
               child: Padding(
@@ -150,6 +154,15 @@ class _WinterLabState extends State<WinterLab> {
                                 selected: activeFps == n,
                                 onSelected: (_) =>
                                     setState(() => activeFps = n)))
+                            .toList()),
+                    Wrap(
+                        spacing: 8,
+                        children: [false, true]
+                            .map((value) => ChoiceChip(
+                                label: Text(value ? 'Таймер' : 'Ticker'),
+                                selected: useTimer == value,
+                                onSelected: (_) =>
+                                    setState(() => useTimer = value)))
                             .toList()),
                     Text(
                         'Активно: $activeFps кадров/с • Без фокуса: 30 • Скрыто: 0'),
@@ -237,10 +250,12 @@ class SnowLayer extends StatefulWidget {
   final int count;
   final int activeFps;
   final bool drawSnow;
+  final bool useTimer;
   const SnowLayer(
       {super.key,
       required this.count,
       this.activeFps = 60,
+      this.useTimer = false,
       this.drawSnow = true});
   @override
   State<SnowLayer> createState() => _SnowLayerState();
@@ -250,6 +265,8 @@ class _SnowLayerState extends State<SnowLayer>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final SnowField field;
   late final Ticker ticker;
+  Timer? timer;
+  final clock = Stopwatch();
   Duration? last;
   Size size = Size.zero;
   int fps = 60;
@@ -272,6 +289,10 @@ class _SnowLayerState extends State<SnowLayer>
     final delta = (elapsed - previous).inMicroseconds;
     if (delta + 500 < 1000000 ~/ fps) return;
     last = elapsed;
+    step(delta);
+  }
+
+  void step(int delta) {
     if (widget.drawSnow) {
       field.advance(math.min(delta / 1000000, 0.1), size);
     } else {
@@ -285,13 +306,32 @@ class _SnowLayerState extends State<SnowLayer>
     final running = state == AppLifecycleState.resumed ||
         state == AppLifecycleState.inactive;
     last = null;
-    if (running && !ticker.isActive) ticker.start();
-    if (!running && ticker.isActive) ticker.stop();
+    timer?.cancel();
+    timer = null;
+    if (ticker.isActive) ticker.stop();
+    clock.stop();
+    clock.reset();
+    if (!running) return;
+    if (widget.useTimer) {
+      clock.start();
+      last = Duration.zero;
+      timer =
+          Timer.periodic(Duration(microseconds: (1000000 / fps).round()), (_) {
+        final elapsed = clock.elapsed;
+        final delta = (elapsed - last!).inMicroseconds;
+        last = elapsed;
+        step(delta);
+      });
+    } else {
+      ticker.start();
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    timer?.cancel();
+    clock.stop();
     ticker.dispose();
     field.dispose();
     super.dispose();
