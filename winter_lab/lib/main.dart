@@ -16,6 +16,7 @@ class _WinterLabState extends State<WinterLab> {
   bool dark = true;
   int mode = 0;
   int particles = 24;
+  int activeFps = 60;
   @override
   Widget build(BuildContext context) => MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -92,11 +93,14 @@ class _WinterLabState extends State<WinterLab> {
                           child: SizedBox(
                               height: 32,
                               child: CustomPaint(painter: Ground())))),
-                if (mode == 2 || mode == 3)
+                if (mode == 2 || mode == 3 || mode == 4)
                   Positioned.fill(
                       child: IgnorePointer(
                           child: SnowLayer(
-                              count: particles, key: ValueKey(particles)))),
+                              count: particles,
+                              activeFps: activeFps,
+                              drawSnow: mode != 4,
+                              key: ValueKey("$particles/$activeFps/$mode")))),
               ]))),
           Expanded(
               child: Padding(
@@ -112,13 +116,14 @@ class _WinterLabState extends State<WinterLab> {
                         spacing: 8,
                         runSpacing: 8,
                         children: List.generate(
-                            4,
+                            5,
                             (i) => ChoiceChip(
                                 label: Text([
                                   'Пустой интерфейс',
                                   'Статичное оформление',
                                   'Только снег',
-                                  'Всё вместе'
+                                  'Всё вместе',
+                                  'Кадры без рисования'
                                 ][i]),
                                 selected: mode == i,
                                 onSelected: (_) => setState(() => mode = i)))),
@@ -137,8 +142,19 @@ class _WinterLabState extends State<WinterLab> {
                                     setState(() => particles = n)))
                             .toList()),
                     const SizedBox(height: 20),
+                    Wrap(
+                        spacing: 8,
+                        children: [30, 60]
+                            .map((n) => ChoiceChip(
+                                label: Text('$n кадров/с'),
+                                selected: activeFps == n,
+                                onSelected: (_) =>
+                                    setState(() => activeFps = n)))
+                            .toList()),
+                    Text(
+                        'Активно: $activeFps кадров/с • Без фокуса: 30 • Скрыто: 0'),
                     const Text(
-                        'Активно: 60 кадров/с • Без фокуса: 30 • Скрыто: 0'),
+                        'Кадры без рисования: тот же vsync и уведомления перерисовки, но без расчёта движения и без команд рисования.'),
                     const SizedBox(height: 12),
                     const Text(
                         'Физики, накоплений и взаимодействия нет. Статичное оформление пока — простой тестовый сугроб; ёлку и зимний логотип добавим отдельными PNG после замеров.'),
@@ -202,6 +218,8 @@ class SnowField extends ChangeNotifier {
       speed[i] = 18 + random.nextDouble() * 16;
     }
   }
+  void emptyFrame() => notifyListeners();
+
   void advance(double seconds, Size size) {
     if (size.isEmpty) return;
     for (var i = 0; i < x.length; i++) {
@@ -217,7 +235,13 @@ class SnowField extends ChangeNotifier {
 
 class SnowLayer extends StatefulWidget {
   final int count;
-  const SnowLayer({super.key, required this.count});
+  final int activeFps;
+  final bool drawSnow;
+  const SnowLayer(
+      {super.key,
+      required this.count,
+      this.activeFps = 60,
+      this.drawSnow = true});
   @override
   State<SnowLayer> createState() => _SnowLayerState();
 }
@@ -248,12 +272,16 @@ class _SnowLayerState extends State<SnowLayer>
     final delta = (elapsed - previous).inMicroseconds;
     if (delta + 500 < 1000000 ~/ fps) return;
     last = elapsed;
-    field.advance(math.min(delta / 1000000, 0.1), size);
+    if (widget.drawSnow) {
+      field.advance(math.min(delta / 1000000, 0.1), size);
+    } else {
+      field.emptyFrame();
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    fps = state == AppLifecycleState.resumed ? 60 : 30;
+    fps = state == AppLifecycleState.resumed ? widget.activeFps : 30;
     final running = state == AppLifecycleState.resumed ||
         state == AppLifecycleState.inactive;
     last = null;
@@ -273,15 +301,19 @@ class _SnowLayerState extends State<SnowLayer>
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
         size = c.biggest;
         return RepaintBoundary(
-            child: ClipRect(child: CustomPaint(painter: SnowPainter(field))));
+            child: ClipRect(
+                child: CustomPaint(
+                    painter: SnowPainter(field, drawSnow: widget.drawSnow))));
       });
 }
 
 class SnowPainter extends CustomPainter {
   final SnowField field;
-  SnowPainter(this.field) : super(repaint: field);
+  final bool drawSnow;
+  SnowPainter(this.field, {this.drawSnow = true}) : super(repaint: field);
   @override
   void paint(Canvas canvas, Size size) {
+    if (!drawSnow) return;
     for (var i = 0; i < field.x.length; i++) {
       field.points[i * 2] = field.x[i] * size.width;
       field.points[i * 2 + 1] = field.y[i] * size.height;
@@ -290,7 +322,8 @@ class SnowPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(SnowPainter old) => old.field != field;
+  bool shouldRepaint(SnowPainter old) =>
+      old.field != field || old.drawSnow != drawSnow;
 }
 
 class Ground extends CustomPainter {
