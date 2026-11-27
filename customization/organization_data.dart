@@ -44,6 +44,14 @@ class RdgenOrganizationData {
         null, group.name, peersByGroup[group.name] ?? <String>{})).toList();
   }
 
+  String? deviceOrganizationLabel(String id, String primaryGroup) {
+    final matches = groups.where((g) => g.peerIds.contains(id)).toList();
+    if (matches.length > 1) return translate('Several organizations');
+    if (matches.length == 1) return matches.single.name;
+    if (primaryGroup.trim().isNotEmpty) return primaryGroup;
+    return isConfirmedUngrouped(id, primaryGroup) ? translate('No organization') : null;
+  }
+
   bool isConfirmedUngrouped(String id, String primaryGroup) =>
       _supported.value && _token == bind.mainGetLocalOption(key: 'access_token') &&
       primaryGroup.trim().isEmpty && !_rows.any((group) => group.peerIds.contains(id));

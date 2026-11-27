@@ -58,7 +58,26 @@ def add_new_devices(root, edits, replace):
     for height in (140, 42):
         text = text.replace(f'height: {height}, child: visibilityChild', f'height: {height} + widget.rdgenCardFooterHeight, child: visibilityChild')
     edits[path] = text
+    text = edits[path]
+    text = "import 'rdgen_new_devices.dart';\n" + text
+    text = text.replace('                child: widget.peerCardBuilder(peer),', '''                child: [PeerTabIndex.recent, PeerTabIndex.fav, PeerTabIndex.ab].contains(widget.peerTabIndex)
+                  ? RdgenDeviceCard(peer: peer, child: widget.peerCardBuilder(peer))
+                  : widget.peerCardBuilder(peer),''')
+    text = text.replace('            buildOnePeer(Peer peer, bool isPortrait) {', '''            buildOnePeer(Peer peer, bool isPortrait) {
+              final hasDetails = widget.rdgenCardFooterHeight > 0 ||
+                [PeerTabIndex.recent, PeerTabIndex.fav, PeerTabIndex.ab].contains(widget.peerTabIndex);
+              final extraHeight = hasDetails ? 38.0 : 0.0;''')
+    text = text.replace('Container(height: 45, child: visibilityChild)', '''LayoutBuilder(builder: (context, constraints) => SizedBox(
+                          height: 45 + (hasDetails && constraints.maxWidth < 680 ? 38 : 0), child: visibilityChild))''')
+    text = text.replace('140 + widget.rdgenCardFooterHeight', '140 + extraHeight')
+    text = text.replace('42 + widget.rdgenCardFooterHeight', '42 + extraHeight')
+    edits[path] = text
     card = 'flutter/lib/common/widgets/peer_card.dart'
+    card_path = root/card
+    card_text = edits.get(card_path, card_path.read_text(encoding='utf-8'))
+    if card_text.count('    final name = ') != 2: raise ValueError('Incompatible device subtitle anchors')
+    edits[card_path] = card_text.replace('    final name = ',
+        '    final name = isDesktop && [PeerTabIndex.recent, PeerTabIndex.fav, PeerTabIndex.ab].contains(widget.tab) ? formatID(peer.id) : ')
     replace(card, "import 'package:flutter/material.dart';", "import 'package:flutter/material.dart';\nimport 'rdgen_new_device_row_metadata.dart';")
     replace(card, '                isPortrait\n                    ? checkBoxOrActionMorePortrait(peer)', '''                if (RdgenNewDeviceRowMetadata.of(context) != null)
                   RdgenNewDeviceRowMetadata.of(context)!,
@@ -102,7 +121,7 @@ def add_new_devices(root, edits, replace):
     edits[path] = text
     edits[root/'flutter/lib/common/widgets/rdgen_new_devices.dart'] = Path(__file__).with_name('new_devices.dart').read_text(encoding='utf-8')
     edits[root/'flutter/lib/common/widgets/rdgen_new_device_row_metadata.dart'] = Path(__file__).with_name('new_device_row_metadata.dart').read_text(encoding='utf-8')
-    translations = {'New devices': 'Новые', 'Just now': 'Только что', 'Minutes ago': 'минут назад', 'Hours ago': 'часов назад', 'No organization': 'Без организации'}
+    translations = {'New devices': 'Новые', 'Just now': 'Только что', 'Minutes ago': 'минут назад', 'Hours ago': 'часов назад', 'No organization': 'Без организации', 'Several organizations': 'Несколько организаций', 'Local device alias': 'Локальный псевдоним'}
     for path in (root/'src/lang').glob('*.rs'):
         if path.name == 'en.rs': continue
         text = edits.get(path, path.read_text(encoding='utf-8'))

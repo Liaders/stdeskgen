@@ -75,43 +75,47 @@ class _RdgenNewPeers extends BasePeersView {
       final date = b.rdgenCreatedAt!.compareTo(a.rdgenCreatedAt!);
       return date != 0 ? date : a.id.compareTo(b.id);
     },
-    peerCardBuilder: (peer) => _RdgenNewDeviceCard(peer: peer, now: now, menuPadding: menuPadding));
+    peerCardBuilder: (peer) => RdgenDeviceCard(peer: peer, now: now, menuPadding: menuPadding));
 }
 
-class _RdgenNewDeviceCard extends StatelessWidget {
+class RdgenDeviceCard extends StatelessWidget {
   final Peer peer;
-  final DateTime now;
+  final DateTime? now;
+  final Widget? child;
   final EdgeInsets? menuPadding;
-  const _RdgenNewDeviceCard({required this.peer, required this.now, this.menuPadding});
+  const RdgenDeviceCard({required this.peer, this.now, this.child, this.menuPadding});
 
   @override
   Widget build(BuildContext context) => Obx(() {
     final list = peerCardUiType.value == PeerUiType.list;
     final ungrouped = gFFI.groupModel.rdgenOrganizations
         .isConfirmedUngrouped(peer.id, peer.device_group_name);
-    final card = RdgenDeviceOrganizationOrigin(
+    final organization = gFFI.groupModel.rdgenOrganizations.deviceOrganizationLabel(peer.id, peer.device_group_name);
+    final card = child ?? RdgenDeviceOrganizationOrigin(
         child: MyGroupPeerCard(peer: peer, menuPadding: menuPadding));
-    final age = rdgenDeviceAge(peer.rdgenCreatedAt!, now);
+    final age = now == null ? null : rdgenDeviceAge(peer.rdgenCreatedAt!, now!);
     // Reserve real layout space for metadata; never paint it over native cards.
-    if (list) return RdgenNewDeviceRowMetadata(
-      details: SizedBox(width: 260, child: RdgenNewDeviceDetails(
-        age: age, ungrouped: ungrouped, inline: true)), child: card);
-    return LayoutBuilder(builder: (context, constraints) => Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (constraints.hasBoundedHeight) Expanded(child: card)
-        else SizedBox(height: peerCardUiType.value == PeerUiType.grid ? 140 : 42, child: card),
-        SizedBox(height: 38, child: RdgenNewDeviceDetails(age: age, ungrouped: ungrouped)),
-      ]));
+    return LayoutBuilder(builder: (context, constraints) {
+      final details = RdgenNewDeviceDetails(age: age, ungrouped: ungrouped, organizationName: organization);
+      if (list && constraints.maxWidth >= 680) return RdgenNewDeviceRowMetadata(
+        details: SizedBox(width: age == null ? 200 : 260, child: RdgenNewDeviceDetails(
+          age: age, ungrouped: ungrouped, organizationName: organization, inline: true)), child: card);
+      return Column(mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (constraints.hasBoundedHeight) Expanded(child: card)
+          else SizedBox(height: peerCardUiType.value == PeerUiType.grid ? 140 : 45, child: card),
+          SizedBox(height: 38, child: details),
+        ]);
+    });
   });
 }
 
 class RdgenNewDeviceDetails extends StatelessWidget {
-  final String age;
+  final String? age;
+  final String? organizationName;
   final bool ungrouped;
   final bool inline;
-  const RdgenNewDeviceDetails({Key? key, required this.age, required this.ungrouped, this.inline = false}) : super(key: key);
+  const RdgenNewDeviceDetails({Key? key, required this.age, required this.ungrouped, this.organizationName, this.inline = false}) : super(key: key);
   @override
   Widget build(BuildContext context) {
     final muted = Theme.of(context).textTheme.bodySmall?.color;
@@ -123,8 +127,16 @@ class RdgenNewDeviceDetails extends StatelessWidget {
         Flexible(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis,
           style: TextStyle(fontSize: 11, height: 1.1, color: color))),
       ]);
-    final time = item(Icons.schedule_outlined, age, muted);
-    final organization = item(Icons.apartment_outlined, translate('No organization'), amber);
+    final time = age == null ? const SizedBox.shrink() : item(Icons.schedule_outlined, age!, muted);
+    final assignedColor = Theme.of(context).brightness == Brightness.dark ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color;
+    final organization = organizationName == null && !ungrouped ? const SizedBox.shrink() : Row(
+      mainAxisSize: MainAxisSize.min, children: [
+        Flexible(child: Text(organizationName ?? translate('No organization'), maxLines: 1,
+          overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, height: 1.1,
+            color: ungrouped ? amber : assignedColor))),
+        const SizedBox(width: 4), Icon(Icons.apartment_outlined, size: 13,
+          color: ungrouped ? amber : assignedColor),
+      ]);
     final divider = Container(width: 1, height: 14, color: Theme.of(context).dividerColor.withOpacity(0.3));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -133,12 +145,13 @@ class RdgenNewDeviceDetails extends StatelessWidget {
         border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.2))),
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(6))),
       child: LayoutBuilder(builder: (context, constraints) {
+        if (age == null) return Align(alignment: Alignment.centerRight, child: organization);
         if (inline) return Row(children: [
-          if (ungrouped) Expanded(child: organization) else const Spacer(),
+          if (ungrouped || organizationName != null) Expanded(child: organization) else const Spacer(),
           Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: divider),
           Expanded(child: time),
         ]);
-        if (!ungrouped) return Align(alignment: Alignment.centerLeft, child: time);
+        if (!ungrouped && organizationName == null) return Align(alignment: Alignment.centerLeft, child: time);
         if (constraints.maxWidth >= 204 * MediaQuery.textScalerOf(context).scale(11) / 11) return Row(children: [
           Expanded(flex: 11, child: time),
           Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: divider),

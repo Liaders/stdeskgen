@@ -263,3 +263,28 @@ cache-load hook after restoring the local account. Feature modules
 `rdgen_organization_data.dart` and `rdgen_organization_catalog.dart` restore that
 display snapshot and build fallback memberships in one pass over devices. No
 session, transport, server API, or snow-animation code changes are involved.
+
+## Device card refinement
+
+Desktop 1.5.1: New devices, recent sessions, favorites and address books share
+organization metadata. Only New devices includes age. Names come from the
+existing authorized organization snapshot: one name, Several organizations,
+or a confirmed No organization. Unknown memberships remain unlabeled; no
+per-card network enumeration or bypass of server visibility is introduced.
+Assigned labels are white in dark theme; the building icon follows the label.
+At list widths below 680 logical pixels, metadata moves below the native card
+and list height reserves 38px. Wider lists keep metadata before the original
+menu, leaving name/ID space. Tiles reserve the same integrated bottom strip.
+
+Address-book-only local aliases use native local options scoped to API server,
+account ID, address book and device. They never change server aliases or sync
+address-book data; clearing the field restores the original visible name. The
+entry follows Rename, and the current local alias is prefilled on editing.
+
+Text tabs move up 3px, use a 28px target and rounded hover surface; the active
+underline remains. Device tabs activate on primary-button down and dragging
+starts only beyond a 10 logical-pixel radial displacement (including diagonal
+movement). No preference migration marker is changed by this refinement.
+
+Regression: Python customization tests and
+`flutter test ../customization/tab_drag_test.dart` from toolbar_stand.
