@@ -288,3 +288,9 @@ movement). No preference migration marker is changed by this refinement.
 
 Regression: Python customization tests and
 `flutter test ../customization/tab_drag_test.dart` from toolbar_stand.
+
+List metadata no longer wraps below the device at narrow widths. The identity
+gets its measured natural name/ID width first; organization uses remaining
+space (up to 25 Unicode code points), and time stays full until the organization
+reaches its ellipsis/icon minimum. Only then does time shrink. Tooltips retain
+full values. List row height remains 45px on all decorated tabs.

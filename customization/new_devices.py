@@ -68,7 +68,7 @@ def add_new_devices(root, edits, replace):
                 [PeerTabIndex.recent, PeerTabIndex.fav, PeerTabIndex.ab].contains(widget.peerTabIndex);
               final extraHeight = hasDetails ? 38.0 : 0.0;''')
     text = text.replace('Container(height: 45, child: visibilityChild)', '''LayoutBuilder(builder: (context, constraints) => SizedBox(
-                          height: 45 + (hasDetails && constraints.maxWidth < 680 ? 38 : 0), child: visibilityChild))''')
+                          height: 45, child: visibilityChild))''')
     text = text.replace('140 + widget.rdgenCardFooterHeight', '140 + extraHeight')
     text = text.replace('42 + widget.rdgenCardFooterHeight', '42 + extraHeight')
     edits[path] = text

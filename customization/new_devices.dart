@@ -97,9 +97,28 @@ class RdgenDeviceCard extends StatelessWidget {
     // Reserve real layout space for metadata; never paint it over native cards.
     return LayoutBuilder(builder: (context, constraints) {
       final details = RdgenNewDeviceDetails(age: age, ungrouped: ungrouped, organizationName: organization);
-      if (list && constraints.maxWidth >= 680) return RdgenNewDeviceRowMetadata(
-        details: SizedBox(width: age == null ? 200 : 260, child: RdgenNewDeviceDetails(
-          age: age, ungrouped: ungrouped, organizationName: organization, inline: true)), child: card);
+      if (list) {
+        final name = peer.alias.trim().isEmpty ? (peer.hostname.isEmpty ? peer.id : peer.hostname) : peer.alias;
+        final style = Theme.of(context).textTheme.titleSmall;
+        double measure(String text, TextStyle? style) {
+          final painter = TextPainter(text: TextSpan(text: text, style: style),
+            textDirection: Directionality.of(context), textScaler: MediaQuery.textScalerOf(context))..layout();
+          final width = painter.width;
+          painter.dispose();
+          return width;
+        }
+        final identity = (measure(name, style) > measure(formatID(peer.id), style)
+            ? measure(name, style) : measure(formatID(peer.id), style)) + 112;
+        final available = (constraints.maxWidth - identity).clamp(0.0, constraints.maxWidth * .65).toDouble();
+        final orgLabel = organization ?? (ungrouped ? translate('No organization') : '');
+        final metadataStyle = const TextStyle(fontSize: 11, height: 1.1);
+        final natural = measure(String.fromCharCodes(orgLabel.runes.take(25)), metadataStyle) + 33 +
+            (age == null ? 0 : measure(age, metadataStyle) + 34);
+        return RdgenNewDeviceRowMetadata(
+          details: SizedBox(width: available < natural ? available : natural,
+            child: RdgenNewDeviceDetails(age: age, ungrouped: ungrouped,
+              organizationName: organization, inline: true)), child: card);
+      }
       return Column(mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           if (constraints.hasBoundedHeight) Expanded(child: card)
@@ -127,42 +146,54 @@ class RdgenNewDeviceDetails extends StatelessWidget {
         Flexible(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis,
           style: TextStyle(fontSize: 11, height: 1.1, color: color))),
       ]);
-    final time = age == null ? const SizedBox.shrink() : item(Icons.schedule_outlined, age!, muted);
     final assignedColor = Theme.of(context).brightness == Brightness.dark ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color;
-    final organization = organizationName == null && !ungrouped ? const SizedBox.shrink() : Row(
-      mainAxisSize: MainAxisSize.min, children: [
-        Flexible(child: Text(organizationName ?? translate('No organization'), maxLines: 1,
-          overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, height: 1.1,
-            color: ungrouped ? amber : assignedColor))),
-        const SizedBox(width: 4), Icon(Icons.apartment_outlined, size: 13,
-          color: ungrouped ? amber : assignedColor),
-      ]);
-    final divider = Container(width: 1, height: 14, color: Theme.of(context).dividerColor.withOpacity(0.3));
+    final fullOrganization = organizationName ?? (ungrouped ? translate('No organization') : '');
+    final shortOrganization = String.fromCharCodes(fullOrganization.runes.take(25));
+    final label = shortOrganization == fullOrganization ? fullOrganization : '$shortOrganization…';
+    final orgColor = ungrouped ? amber : assignedColor;
+    final style = TextStyle(fontSize: 11, height: 1.1, color: muted);
+    double measure(String value) {
+      final painter = TextPainter(text: TextSpan(text: value, style: style),
+        textDirection: Directionality.of(context), textScaler: MediaQuery.textScalerOf(context))..layout();
+      final width = painter.width;
+      painter.dispose();
+      return width;
+    }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: inline ? null : BoxDecoration(
         color: Theme.of(context).colorScheme.background,
         border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.2))),
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(6))),
       child: LayoutBuilder(builder: (context, constraints) {
-        if (age == null) return Align(alignment: Alignment.centerRight, child: organization);
-        if (inline) return Row(children: [
-          if (ungrouped || organizationName != null) Expanded(child: organization) else const Spacer(),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: divider),
-          Expanded(child: time),
-        ]);
-        if (!ungrouped && organizationName == null) return Align(alignment: Alignment.centerLeft, child: time);
-        if (constraints.maxWidth >= 204 * MediaQuery.textScalerOf(context).scale(11) / 11) return Row(children: [
-          Expanded(flex: 11, child: time),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: divider),
-          Expanded(flex: 12, child: organization),
-        ]);
-        // At increased text scale, wrap within the same strip rather than
-        // overlap or shrink the text on native 220px tiles.
-        return Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Align(alignment: Alignment.centerLeft, child: time),
-          const SizedBox(height: 3),
-          Align(alignment: Alignment.centerRight, child: organization),
+        final width = constraints.maxWidth;
+        if (width < 20) return const SizedBox.shrink();
+        final hasOrg = label.isNotEmpty;
+        final hasTime = age != null;
+        final separator = hasOrg && hasTime ? 17.0 : 0.0;
+        final orgMin = hasOrg ? measure('…') + 17 : 0.0;
+        final timeNatural = hasTime ? measure(age!) + 17 : 0.0;
+        final timeWidth = timeNatural < width - orgMin - separator
+          ? timeNatural : (width - orgMin - separator).clamp(0.0, width).toDouble();
+        final orgWidth = hasOrg ? (width - timeWidth - separator).clamp(0.0, width).toDouble() : 0.0;
+        Widget organization() => Tooltip(message: fullOrganization, child: Row(children: [
+          Expanded(child: Text(orgWidth <= orgMin + 1 ? '…' : label,
+            maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.right,
+            style: style.copyWith(color: orgColor))),
+          const SizedBox(width: 4), Icon(Icons.apartment_outlined, size: 13, color: orgColor),
+        ]));
+        Widget time() => Tooltip(message: age!, child: item(Icons.schedule_outlined, age!, muted));
+        if (!hasOrg && !hasTime) return const SizedBox.shrink();
+        // At extremely narrow widths retain the native identity and omit metadata
+        // that cannot fit even its icons. Never overflow or add another line.
+        if (hasOrg && orgWidth < 17) return hasTime && width >= 17 ? time() : const SizedBox.shrink();
+        return Row(children: [
+          if (hasOrg) SizedBox(width: orgWidth, child: organization()),
+          if (hasOrg && hasTime && timeWidth >= 17) ...[
+            const SizedBox(width: 8), Container(width: 1, height: 14,
+              color: Theme.of(context).dividerColor.withOpacity(0.3)), const SizedBox(width: 8),
+          ],
+          if (hasTime && timeWidth >= 17) SizedBox(width: timeWidth, child: time()),
         ]);
       }));
   }
