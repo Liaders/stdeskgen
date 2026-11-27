@@ -12,6 +12,8 @@ def apply(root, profile=None):
         from slim_ui import apply as apply_slim_ui
         apply_slim_ui(root)
     apply_account(root)
+    from winter_mode import apply as apply_winter_mode
+    apply_winter_mode(root)
     from device_menu import apply as apply_device_menu
     apply_device_menu(root)
     if (root/'src/platform/mod.rs').exists():

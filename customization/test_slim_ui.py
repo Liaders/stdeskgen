@@ -28,7 +28,9 @@ class SlimUiTests(unittest.TestCase):
             home=root/'flutter/lib/desktop/pages/desktop_home_page.dart'
             original_sidebar=home.read_bytes()
             apply_desktop_ui(root, {'slim_ui': True})
-            self.assertEqual(home.read_bytes(),original_sidebar)
+            self.assertIn('RdgenWinterPane(builder: buildLeftPane)', home.read_text(encoding='utf-8'))
+            self.assertEqual(home.read_text(encoding='utf-8').split('  buildIDBoard(', 1)[1],
+                             original_sidebar.decode('utf-8').replace('\r\n', '\n').split('  buildIDBoard(', 1)[1])
             connection=(root/'flutter/lib/desktop/pages/connection_page.dart').read_text(encoding='utf-8')
             self.assertIn('child: Text(translate("Connect"))',connection)
             self.assertIn('fontSize: 22,',connection)
@@ -78,8 +80,7 @@ class SlimUiTests(unittest.TestCase):
                 connection_path.write_text(source.replace('width: 320 + 20 * 2,','width: 400,'),encoding='utf-8')
                 paths=['flutter/lib/common/widgets/peers_view.dart',
                        'flutter/lib/common/widgets/peer_tab_page.dart',
-                       'flutter/lib/common/widgets/my_group.dart',
-                       'flutter/lib/desktop/pages/desktop_setting_page.dart']
+                       'flutter/lib/common/widgets/my_group.dart']
                 before={name:(root/name).read_bytes() for name in paths}
                 apply_desktop_ui(root, profile)
                 self.assertEqual(before,{name:(root/name).read_bytes() for name in paths})

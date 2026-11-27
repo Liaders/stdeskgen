@@ -20,3 +20,4 @@ default-config.json
 .local-android-signing/
 
 !customization/android_icons/**/*.png
+!customization/winter_assets/*.png
